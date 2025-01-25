@@ -3,7 +3,7 @@
         "mic",
         "discord.exe",
         "chrome.exe",
-        "steam.exe",
+        "current",
         "master"
     ],
     "invert_volumes": true,
