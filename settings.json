@@ -1,0 +1,12 @@
+{
+    "applications": [
+        "mic",
+        "discord.exe",
+        "chrome.exe",
+        "steam.exe",
+        "master"
+    ],
+    "invert_volumes": true,
+    "auto_startup": false,
+    "dark_mode": false
+}
