@@ -24,10 +24,6 @@ A Windows application for controlling individual application volumes using hardw
 ## Usage
 
 1. Run the application:
-   ```
-   python -m src.main
-   ```
-
 2. Enter application names in the fields (e.g., "chrome.exe", "spotify.exe")
 3. Use the hardware controller to adjust volumes
 4. Special commands:
@@ -37,7 +33,7 @@ A Windows application for controlling individual application volumes using hardw
 
 ## Hardware Requirements
 
-- Arduino-compatible board with USB-SERIAL CH340 chip
+- Arduino-compatible board with USB-SERIAL CH340 chip (For now)
 - Potentiometers for volume control
 
 ## License
