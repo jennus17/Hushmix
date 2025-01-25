@@ -38,6 +38,7 @@ ENV/
 
 # Project specific
 settings.json
+features.txt
 *.ico
 *.log
 *.spec
