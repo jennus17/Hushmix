@@ -37,7 +37,7 @@ ENV/
 .settings/
 
 # Project specific
-config.json
+settings.json
 *.ico
 *.log
 *.spec
