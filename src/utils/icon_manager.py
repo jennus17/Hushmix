@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+from pathlib import Path
 import os
 
 class IconManager:
@@ -8,7 +9,8 @@ class IconManager:
         Loads the volume icon from PNG file.
         """
         try:
-            icon_path = os.path.join("assets", "volume_icon.png")
+            bundle_dir = Path(__file__).parent
+            icon_path =  Path.cwd() / bundle_dir / "assets\\volume_icon.png"
             return Image.open(icon_path)
         except Exception as e:
             print(f"Error loading icon: {e}")
@@ -24,14 +26,15 @@ class IconManager:
         """Creates and saves a temporary .ico file for Windows compatibility"""
         try:
             # Load both icons
-            icon_path = os.path.join("assets", "volume_icon.png")
-            icon32_path = os.path.join("assets", "volume_icon32.png")
+            bundle_dir = Path(__file__).parent
+            icon_path = Path.cwd() / bundle_dir / "assets\\volume_icon.png"
+            icon32_path = Path.cwd() / bundle_dir / "assets\\volume_icon32.png"
             
             icon_image = Image.open(icon_path)
             icon32_image = Image.open(icon32_path)
             
             # Save as ICO file
-            ico_path = os.path.join("assets", "temp_icon.ico")
+            ico_path = Path.cwd() / bundle_dir / "assets\\temp_icon.ico"
             
             # Create a list of sizes and their corresponding source images
             icon_sizes = [
