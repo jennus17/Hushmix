@@ -56,7 +56,7 @@ class ConfigManager:
             }
 
     @staticmethod
-    def toggle_auto_startup(enable, app_name="VolumeControlApp", executable_path=None):
+    def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
         """Toggle auto-startup in Windows registry"""
         try:
             key = winreg.HKEY_CURRENT_USER
@@ -74,7 +74,7 @@ class ConfigManager:
             print(f"Error managing auto-startup: {e}")
 
     @staticmethod
-    def is_auto_startup_enabled(app_name="VolumeControlApp"):
+    def is_auto_startup_enabled(app_name="Hushmix"):
         """Check if auto-startup is enabled"""
         try:
             key = winreg.HKEY_CURRENT_USER

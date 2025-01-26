@@ -501,7 +501,8 @@ class VolumeControlApp:
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get()
-        }        
+        }      
+        ConfigManager.toggle_auto_startup(self.auto_startup.get(), "Hushmix", sys.executable)  
         # Save to file
         ConfigManager.save_settings(settings)
         print("Settings saved:", settings)
