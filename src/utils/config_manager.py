@@ -55,6 +55,15 @@ class ConfigManager:
                 "dark_mode": False
             }
 
+    @staticmethod  
+    def load_apps():
+        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        apps_path = os.path.join(script_dir, 'Apps.json')
+
+        with open(apps_path, 'r') as file:
+            apps = json.load(file)
+        return [app['name'] for app in apps]
+
     @staticmethod
     def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
         """Toggle auto-startup in Windows registry"""
