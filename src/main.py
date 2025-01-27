@@ -1,9 +1,9 @@
 import tkinter as tk
-from gui.app import VolumeControlApp
+from gui.app import HusmixApp
 
 def main():
     root = tk.Tk()
-    app = VolumeControlApp(root)
+    app = HusmixApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

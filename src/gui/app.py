@@ -46,7 +46,7 @@ def darken_color(hex_color, percentage):
     # Convert back to hex
     return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
-class VolumeControlApp:
+class HusmixApp:
     def __init__(self, root):
         self.root = root
         self.dark_mode = tk.BooleanVar(value=False)
@@ -151,7 +151,7 @@ class VolumeControlApp:
             borderwidth=0,
             highlightthickness=0,
             padx=10,  # Adjusted padding
-            pady=10    # Adjusted padding
+            pady=5    # Adjusted padding
         )
 
         # Help text
@@ -159,7 +159,7 @@ class VolumeControlApp:
             self.main_frame,
             text=self.get_help_text(),
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["bg"],
+            bg=theme["button_bg"],
             fg=theme["fg"],
             justify=tk.LEFT
         )
@@ -352,7 +352,7 @@ class VolumeControlApp:
 
         # Position Set Applications button
         self.set_button.grid(row=len(self.current_apps), column=0, columnspan=3,
-                            pady=20)
+                            pady=10)
 
         # Create button frame
         self.button_frame = tk.Frame(self.main_frame, bg=theme["bg"])
@@ -364,7 +364,7 @@ class VolumeControlApp:
             text="Show Help ▼" if not self.help_visible.get() else "Hide Help ▲",
             command=self.toggle_help,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["menu_bg"],
+            bg=theme["button_bg"],
             fg=theme["fg"],
             activebackground=theme["accent"],
             activeforeground="white",
@@ -383,7 +383,7 @@ class VolumeControlApp:
             text="⚙️",
             command=self.show_settings,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["menu_bg"],
+            bg=theme["button_bg"],
             fg=theme["fg"],
             activebackground=theme["accent"],
             activeforeground="white",
@@ -449,7 +449,7 @@ class VolumeControlApp:
         
         if self.help_button:
             self.help_button.configure(
-                bg=theme["menu_bg"],
+                bg=theme["button_bg"],
                 fg=theme["fg"],
                 activebackground=theme["accent"],
                 activeforeground="white"
@@ -457,7 +457,7 @@ class VolumeControlApp:
             
         if self.settings_button:
             self.settings_button.configure(
-                bg=theme["menu_bg"],
+                bg=theme["button_bg"],
                 fg=theme["fg"],
                 activebackground=theme["accent"],
                 activeforeground="white"
@@ -564,7 +564,6 @@ class VolumeControlApp:
         self.settings_window = SettingsWindow(
             self.root,
             ConfigManager,
-            self.frame_padding,
             self.dark_mode,
             self.invert_volumes,
             self.auto_startup,

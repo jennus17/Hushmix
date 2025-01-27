@@ -3,7 +3,7 @@ from gui.themes import THEMES
 import ctypes
 
 class SettingsWindow:
-    def __init__(self, parent, config_manager, scale_factor, dark_mode, invert_volumes, auto_startup, on_close):
+    def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, on_close):
         self.window = tk.Toplevel(parent)
         self.window.title("Settings")
         self.window.resizable(False, False)
@@ -19,11 +19,9 @@ class SettingsWindow:
         self.auto_startup = auto_startup
         self.on_close = on_close
         
-        # Scale factors
-        self.scale_factor = scale_factor
-        self.title_font_size = int(20 * scale_factor)
-        self.normal_font_size = int(10 * scale_factor)
-        self.padding = int(20 * scale_factor)
+        self.title_font_size = 20
+        self.normal_font_size = 10
+        self.padding = 20
         
         # Setup GUI and update title bar immediately
         self.setup_gui()
@@ -93,8 +91,8 @@ class SettingsWindow:
             relief="flat",
             borderwidth=0,
             highlightthickness=0,
-            padx=int(20 * self.scale_factor),
-            pady=int(5 * self.scale_factor),
+            padx=20,
+            pady=5,
             cursor="hand2"
         )
         close_btn.pack(pady=(self.padding, 0))
@@ -111,7 +109,7 @@ class SettingsWindow:
             activebackground=theme["bg"],
             activeforeground=theme["fg"]
         )
-        checkbox.pack(pady=int(5 * self.scale_factor), anchor="w")
+        checkbox.pack(pady=5, anchor="w")
 
     def center_window(self, parent):
         self.window.update_idletasks()
