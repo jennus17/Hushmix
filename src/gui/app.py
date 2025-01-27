@@ -13,6 +13,38 @@ from utils.config_manager import ConfigManager
 from utils.icon_manager import IconManager
 from gui.themes import THEMES
 from gui.settings_window import SettingsWindow
+import winreg
+
+def get_windows_accent_color():
+    """Retrieve the Windows accent color from the registry."""
+    try:
+        # Check the DWM registry key for ColorizationColor
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as key:
+            accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
+            # Extract RGB values from ARGB
+            blue = accent_color & 0xFF
+            green = (accent_color >> 8) & 0xFF
+            red = (accent_color >> 16) & 0xFF
+            # Return the color in hex format
+            return "#{:02x}{:02x}{:02x}".format(red, green, blue)
+    except OSError as e:
+        print(f"Error accessing registry: {e}")
+    # Fallback to a default color if any error occurs
+    return "#2196F3"  # Default color
+
+def darken_color(hex_color, percentage):
+    """Darken a hex color by a given percentage."""
+    # Convert hex to RGB
+    hex_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    
+    # Calculate the darkened color
+    r = int(r * (1 - percentage))
+    g = int(g * (1 - percentage))
+    b = int(b * (1 - percentage))
+    
+    # Convert back to hex
+    return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
 class VolumeControlApp:
     def __init__(self, root):
@@ -33,6 +65,15 @@ class VolumeControlApp:
         self.audio_controller = AudioController()
         self.serial_controller = SerialController(self.handle_volume_update)
         self.settings_window = None
+        
+        # Set the accent color dynamically
+        accent_color = get_windows_accent_color()
+        THEMES["light"]["accent"] = accent_color
+        THEMES["dark"]["accent"] = accent_color
+        
+        # Set the accent_hover color to be darker
+        THEMES["light"]["accent_hover"] = darken_color(accent_color, 0.2)  # Darken by 20%
+        THEMES["dark"]["accent_hover"] = darken_color(accent_color, 0.2)   # Darken by 20%
         
         # Setup remaining GUI components
         self.setup_gui()
@@ -119,7 +160,7 @@ class VolumeControlApp:
             padx=30,
             pady=12
         )
-        
+
         # Help text
         self.help_label = tk.Label(
             self.main_frame,
@@ -241,7 +282,7 @@ class VolumeControlApp:
             "• current - Controls the current application in focus\n"
             "• master - Controls the default speaker volume\n"
             "• mic - Controls the default microphone\n"
-            "\nFor specific applications, use the full name (e.g., chrome.exe)"
+            "\n    For specific applications, use the full name\n         (e.g., chrome.exe, discord.exe, etc.)"
         )
 
     def refresh_gui(self):
@@ -272,13 +313,13 @@ class VolumeControlApp:
             # Application label
             label = tk.Label(
                 self.main_frame,
-                text=f"Application {i+1}:",
+                text=f"App {i+1}:",
                 font=("Segoe UI", self.normal_font_size, "bold"),
                 bg=theme["bg"],
                 fg=theme["fg"]
             )
             label.grid(row=i, column=0, sticky="e", pady=int(6 * self.scale_factor), 
-                      padx=(0, int(10 * self.scale_factor)))
+                      padx=(5, int(10 * self.scale_factor)))
 
             # Application entry
             entry = tk.Entry(
@@ -304,7 +345,7 @@ class VolumeControlApp:
                 font=("Segoe UI", self.normal_font_size, "bold"),
                 bg=theme["bg"],
                 fg=theme["fg"],
-                width=6
+                width=4
             )
             volume_label.grid(row=i, column=2, pady=int(6 * self.scale_factor), padx=0, sticky="w")
             
@@ -313,7 +354,7 @@ class VolumeControlApp:
             self.volume_labels.append(volume_label)
 
         # Position Set Applications button
-        self.set_button.grid(row=len(self.current_apps), column=0, columnspan=3, 
+        self.set_button.grid(row=len(self.current_apps), column=0, columnspan=3,
                             pady=int(20 * self.scale_factor))
 
         # Create button frame

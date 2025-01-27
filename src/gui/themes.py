@@ -2,8 +2,8 @@ THEMES = {
     "light": {
         "bg": "#ffffff",
         "fg": "#333333",
-        "accent": "#2196F3",
-        "accent_hover": "#1976D2",
+        "accent": None,
+        "accent_hover": None,
         "frame_bg": "#f8f9fa",
         "entry_bg": "#ffffff",
         "button_bg": "#e0e0e0",
@@ -12,8 +12,8 @@ THEMES = {
     "dark": {
         "bg": "#2d2d2d",
         "fg": "#ffffff",
-        "accent": "#2196F3",
-        "accent_hover": "#1976D2",
+        "accent": None,
+        "accent_hover": None,
         "frame_bg": "#383838",
         "entry_bg": "#404040",
         "button_bg": "#4a4a4a",
