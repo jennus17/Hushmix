@@ -509,6 +509,7 @@ class HusmixApp:
 
     def set_applications(self):
         """Update application names from entry fields"""
+        # Get the current applications, including empty strings for empty entries
         self.current_apps = [entry.get() for entry in self.entries]
         self.save_settings()
 
@@ -535,7 +536,7 @@ class HusmixApp:
     def save_settings(self):
         """Save current settings to config file"""
         settings = {
-            "applications": [entry.get() for entry in self.entries if entry.get()],
+            "applications": [entry.get() for entry in self.entries],
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get()
