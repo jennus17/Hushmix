@@ -84,17 +84,10 @@ class VolumeControlApp:
 
     def setup_scaling(self):
         """Setup display scaling factors"""
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-        self.scale_factor = min(screen_width/1920, screen_height/1080)
-        
-        # Scale fonts and sizes
-        self.title_font_size = int(20 * self.scale_factor)
-        self.normal_font_size = int(10 * self.scale_factor)
-        self.button_padding_x = int(15 * self.scale_factor)
-        self.button_padding_y = int(8 * self.scale_factor)
-        self.frame_padding = int(20 * self.scale_factor)
-        self.entry_width = int(30 * self.scale_factor)
+        # Use fixed sizes instead
+        self.normal_font_size = 10  # Fixed font size
+        self.frame_padding = 20       # Fixed padding
+        self.entry_width = 25         # Fixed entry width
 
     def setup_window(self):
         """Setup main window properties"""
@@ -138,8 +131,8 @@ class VolumeControlApp:
         self.main_frame = tk.Frame(
             self.root,
             bg=theme["bg"],
-            padx=self.frame_padding,
-            pady=self.frame_padding
+            padx=10,  # Reduced padding
+            pady=10   # Reduced padding
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         
@@ -148,7 +141,7 @@ class VolumeControlApp:
             self.main_frame,
             text="Set Applications",
             command=self.set_applications,
-            font=("Segoe UI", int(self.normal_font_size * 1.2)),
+            font=("Segoe UI", self.normal_font_size + 2),  # Adjusted for fixed size
             bg=theme["accent"],
             fg="white",
             activebackground=theme["accent_hover"],
@@ -157,8 +150,8 @@ class VolumeControlApp:
             cursor="hand2",
             borderwidth=0,
             highlightthickness=0,
-            padx=30,
-            pady=12
+            padx=10,  # Adjusted padding
+            pady=10    # Adjusted padding
         )
 
         # Help text
@@ -172,6 +165,10 @@ class VolumeControlApp:
         )
         
         self.refresh_gui()
+
+        # Update entry fields to match button width
+        for entry in self.entries:
+            entry.config(width=30, height=1)  # Set to a fixed width and height
 
     def setup_tray_icon(self):
         """Setup system tray icon"""
@@ -318,8 +315,8 @@ class VolumeControlApp:
                 bg=theme["bg"],
                 fg=theme["fg"]
             )
-            label.grid(row=i, column=0, sticky="e", pady=int(6 * self.scale_factor), 
-                      padx=(5, int(10 * self.scale_factor)))
+            label.grid(row=i, column=0, sticky="e", pady=6, 
+                      padx=10)
 
             # Application entry
             entry = tk.Entry(
@@ -335,8 +332,8 @@ class VolumeControlApp:
                 highlightcolor=theme["accent"]
             )
             entry.insert(0, app_name)
-            entry.grid(row=i, column=1, pady=int(6 * self.scale_factor), 
-                      padx=(0, int(10 * self.scale_factor)), sticky="w")
+            entry.grid(row=i, column=1, pady=6, 
+                      padx=0, sticky="w")
             
             # Volume label
             volume_label = tk.Label(
@@ -347,7 +344,7 @@ class VolumeControlApp:
                 fg=theme["fg"],
                 width=4
             )
-            volume_label.grid(row=i, column=2, pady=int(6 * self.scale_factor), padx=0, sticky="w")
+            volume_label.grid(row=i, column=2, pady=6, padx=10, sticky="w")
             
             self.labels.append(label)
             self.entries.append(entry)
@@ -355,7 +352,7 @@ class VolumeControlApp:
 
         # Position Set Applications button
         self.set_button.grid(row=len(self.current_apps), column=0, columnspan=3,
-                            pady=int(20 * self.scale_factor))
+                            pady=20)
 
         # Create button frame
         self.button_frame = tk.Frame(self.main_frame, bg=theme["bg"])
@@ -402,7 +399,7 @@ class VolumeControlApp:
         # Help text (initially hidden)
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, 
-                               pady=int(15 * self.scale_factor))
+                               pady=15)
         else:
             self.help_label.grid_remove()
 
@@ -497,7 +494,7 @@ class VolumeControlApp:
         self.help_visible.set(not self.help_visible.get())
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, 
-                               pady=int(15 * self.scale_factor))
+                               pady=15)
             self.help_button.config(text="Hide Help ▲")
         else:
             self.help_label.grid_remove()
@@ -567,7 +564,7 @@ class VolumeControlApp:
         self.settings_window = SettingsWindow(
             self.root,
             ConfigManager,
-            self.scale_factor,
+            self.frame_padding,
             self.dark_mode,
             self.invert_volumes,
             self.auto_startup,
