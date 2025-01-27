@@ -131,7 +131,7 @@ class HusmixApp:
         self.main_frame = tk.Frame(
             self.root,
             bg=theme["bg"],
-            padx=10,  # Reduced padding
+            padx=20,  # Reduced padding
             pady=10   # Reduced padding
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
@@ -150,7 +150,7 @@ class HusmixApp:
             cursor="hand2",
             borderwidth=0,
             highlightthickness=0,
-            padx=10,  # Adjusted padding
+            padx=31,  # Increased padding for width
             pady=5    # Adjusted padding
         )
 
@@ -316,7 +316,7 @@ class HusmixApp:
                 fg=theme["fg"]
             )
             label.grid(row=i, column=0, sticky="e", pady=6, 
-                      padx=10)
+                      padx=6)
 
             # Application entry
             entry = tk.Entry(
@@ -333,7 +333,7 @@ class HusmixApp:
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, 
-                      padx=0, sticky="w")
+                      padx=10, sticky="w")
             
             # Volume label
             volume_label = tk.Label(
@@ -372,7 +372,7 @@ class HusmixApp:
             cursor="hand2",
             borderwidth=0,
             highlightthickness=0,
-            padx=15,
+            padx=17,
             pady=5
         )
         self.help_button.grid(row=0, column=0, padx=5)
@@ -391,7 +391,7 @@ class HusmixApp:
             cursor="hand2",
             borderwidth=0,
             highlightthickness=0,
-            padx=15,
+            padx=17,
             pady=5
         )
         self.settings_button.grid(row=0, column=1, padx=5)
