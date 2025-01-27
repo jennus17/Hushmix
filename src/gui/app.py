@@ -111,6 +111,7 @@ class HusmixApp:
         self.volumes = []
         self.entries = []
         self.labels = []
+        self.help_label = tk.Label()
         self.previous_volumes = []
         self.invert_volumes = tk.BooleanVar(value=False)
         self.auto_startup = tk.BooleanVar(value=False)
@@ -131,7 +132,7 @@ class HusmixApp:
         self.main_frame = tk.Frame(
             self.root,
             bg=theme["bg"],
-            padx=20,  # Reduced padding
+            padx=5,  # Reduced padding
             pady=10   # Reduced padding
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
@@ -154,7 +155,24 @@ class HusmixApp:
             pady=5    # Adjusted padding
         )
 
-        # Help text
+        # Position Help button to the left of Set Applications button
+        self.help_button = tk.Button(
+            self.main_frame,
+            text="ⓘ ▼" if not self.help_visible.get() else "ⓘ ▲",
+            command=self.toggle_help,
+            font=("Segoe UI", self.normal_font_size),
+            bg=theme["button_bg"],
+            fg=theme["fg"],
+            activebackground=theme["accent"],
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            borderwidth=0,
+            highlightthickness=0,
+            padx=8,
+            pady=8
+        )
+
         self.help_label = tk.Label(
             self.main_frame,
             text=self.get_help_text(),
@@ -162,6 +180,24 @@ class HusmixApp:
             bg=theme["button_bg"],
             fg=theme["fg"],
             justify=tk.LEFT
+        )
+
+        # Position Settings button to the right of Set Applications button
+        self.settings_button = tk.Button(
+            self.main_frame,
+            text="⚙️",
+            command=self.show_settings,
+            font=("Segoe UI", self.normal_font_size),
+            bg=theme["button_bg"],
+            fg=theme["fg"],
+            activebackground=theme["accent"],
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            borderwidth=0,
+            highlightthickness=0,
+            padx=8,
+            pady=8
         )
         
         self.refresh_gui()
@@ -293,13 +329,6 @@ class HusmixApp:
             entry.destroy()
         for label in self.volume_labels:
             label.destroy()
-        
-        # Destroy old button frame if it exists
-        if self.button_frame:
-            self.button_frame.destroy()
-            self.button_frame = None
-            self.help_button = None
-            self.settings_button = None
 
         self.labels.clear()
         self.entries.clear()
@@ -315,8 +344,7 @@ class HusmixApp:
                 bg=theme["bg"],
                 fg=theme["fg"]
             )
-            label.grid(row=i, column=0, sticky="e", pady=6, 
-                      padx=6)
+            label.grid(row=i, column=0, sticky="e", pady=6, padx=6)
 
             # Application entry
             entry = tk.Entry(
@@ -332,8 +360,7 @@ class HusmixApp:
                 highlightcolor=theme["accent"]
             )
             entry.insert(0, app_name)
-            entry.grid(row=i, column=1, pady=6, 
-                      padx=10, sticky="w")
+            entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
             
             # Volume label
             volume_label = tk.Label(
@@ -344,62 +371,23 @@ class HusmixApp:
                 fg=theme["fg"],
                 width=4
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=10, sticky="w")
+            volume_label.grid(row=i, column=2, pady=6, padx=5, sticky="w")
             
             self.labels.append(label)
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
 
+        self.help_button.grid(row=len(self.current_apps), column=0, padx=5, sticky="e")
+
         # Position Set Applications button
-        self.set_button.grid(row=len(self.current_apps), column=0, columnspan=3,
-                            pady=10)
+        self.set_button.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
 
-        # Create button frame
-        self.button_frame = tk.Frame(self.main_frame, bg=theme["bg"])
-        self.button_frame.grid(row=len(self.current_apps) + 1, column=0, columnspan=3, pady=(5, 0))
 
-        # Help toggle button
-        self.help_button = tk.Button(
-            self.button_frame,
-            text="Show Help ▼" if not self.help_visible.get() else "Hide Help ▲",
-            command=self.toggle_help,
-            font=("Segoe UI", self.normal_font_size),
-            bg=theme["button_bg"],
-            fg=theme["fg"],
-            activebackground=theme["accent"],
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=17,
-            pady=5
-        )
-        self.help_button.grid(row=0, column=0, padx=5)
-        
-        # Settings button
-        self.settings_button = tk.Button(
-            self.button_frame,
-            text="⚙️",
-            command=self.show_settings,
-            font=("Segoe UI", self.normal_font_size),
-            bg=theme["button_bg"],
-            fg=theme["fg"],
-            activebackground=theme["accent"],
-            activeforeground="white",
-            relief="flat",
-            cursor="hand2",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=17,
-            pady=5
-        )
-        self.settings_button.grid(row=0, column=1, padx=5)
+        self.settings_button.grid(row=len(self.current_apps), column=2, padx=5, sticky="w")
 
         # Help text (initially hidden)
         if self.help_visible.get():
-            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, 
-                               pady=15)
+            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
         else:
             self.help_label.grid_remove()
 
@@ -493,12 +481,11 @@ class HusmixApp:
         """Toggle help text visibility"""
         self.help_visible.set(not self.help_visible.get())
         if self.help_visible.get():
-            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, 
-                               pady=15)
-            self.help_button.config(text="Hide Help ▲")
+            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
+            self.help_button.config(text="ⓘ ▲")
         else:
             self.help_label.grid_remove()
-            self.help_button.config(text="Show Help ▼")
+            self.help_button.config(text="ⓘ ▼")
 
     def on_theme_change(self, *args):
         """Handle theme changes"""
