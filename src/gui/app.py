@@ -243,8 +243,6 @@ class HushmixApp:
 
             self.root.protocol("WM_DELETE_WINDOW", self.on_close)
             
-            # Debugging output
-            print("Tray icon setup complete and running.")
         except Exception as e:
             print(f"Error setting up tray icon: {e}")
 
