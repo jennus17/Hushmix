@@ -78,9 +78,18 @@ class HushmixApp:
         # Setup remaining GUI components
         self.setup_gui()
         
-        # Load settings and start processing
+        # Load settings
         self.load_settings()
+        
+        # Setup tray icon
         self.setup_tray_icon()
+
+        # Check if the application should launch in the tray
+        if self.launch_in_tray.get():
+            self.root.withdraw()  # Hide the main window
+            self.icon.visible = True  # Show the tray icon
+        else:
+            self.root.deiconify()  # Show the main window
 
     def setup_scaling(self):
         """Setup display scaling factors"""
@@ -213,19 +222,29 @@ class HushmixApp:
             MenuItem("Exit", self.on_exit)
         )
         
-        self.icon = Icon(
-            "Hushmix",
-            icon=IconManager.create_tray_icon(),
-            menu=menu,
-            title="Hushmix"
-        )
-        
-        # Run the icon in detached mode and hide it initially
-        self.icon.run_detached()
-        self.root.after(150, self.hide_tray_icon)
-        
-        # Set close button behavior
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        try:
+            # Use a static icon file for testing
+            icon_image = IconManager.create_tray_icon()  # Ensure this returns a valid icon
+            if icon_image is None:
+                raise ValueError("Failed to create tray icon image.")
+            
+            self.icon = Icon(
+                "Hushmix",
+                icon=icon_image,
+                menu=menu,
+                title="Hushmix"
+            )
+            
+            # Run the icon in a separate thread
+            threading.Thread(target=self.icon.run_detached, daemon=True).start()
+            
+            if not self.launch_in_tray.get():
+                self.root.after(150, self.hide_tray_icon)
+
+            self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+            
+        except Exception as e:
+            print(f"Error setting up tray icon: {e}")
 
     def hide_tray_icon(self):
         """Hide the tray icon"""
@@ -513,6 +532,7 @@ class HushmixApp:
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", False))
+        self.launch_in_tray = tk.BooleanVar(value=settings.get("launch_in_tray", False))  # New variable
         
         # Apply theme and refresh GUI
         self.apply_theme()
@@ -526,8 +546,10 @@ class HushmixApp:
             "applications": [entry.get() for entry in self.entries],
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
-            "dark_mode": self.dark_mode.get()
+            "dark_mode": self.dark_mode.get(),
+            "launch_in_tray": self.launch_in_tray.get()  # Save launch mode
         }      
+        #      
         ConfigManager.toggle_auto_startup(self.auto_startup.get(), "Hushmix", sys.executable)  
         # Save to file
         ConfigManager.save_settings(settings)
@@ -555,7 +577,9 @@ class HushmixApp:
             self.dark_mode,
             self.invert_volumes,
             self.auto_startup,
+            self.launch_in_tray,
             self.on_settings_close
+            
         )
 
     def on_settings_close(self):

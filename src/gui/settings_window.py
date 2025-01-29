@@ -3,7 +3,7 @@ from gui.themes import THEMES
 import ctypes
 
 class SettingsWindow:
-    def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, on_close):
+    def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, launch_in_tray, on_close):
         self.window = tk.Toplevel(parent)
         self.window.title("Settings")
         self.window.resizable(False, False)
@@ -17,6 +17,7 @@ class SettingsWindow:
         self.dark_mode = dark_mode
         self.invert_volumes = invert_volumes
         self.auto_startup = auto_startup
+        self.launch_in_tray = launch_in_tray
         self.on_close = on_close
         
         self.title_font_size = 20
@@ -59,6 +60,12 @@ class SettingsWindow:
         self.create_checkbox(
             "Enable Auto Startup",
             self.auto_startup,
+            theme
+        )
+
+        self.create_checkbox(
+            "Launch in Tray",
+            self.launch_in_tray,
             theme
         )
         
