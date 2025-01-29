@@ -46,7 +46,7 @@ def darken_color(hex_color, percentage):
     # Convert back to hex
     return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
-class HusmixApp:
+class HushmixApp:
     def __init__(self, root):
         self.root = root
         self.dark_mode = tk.BooleanVar(value=False)
