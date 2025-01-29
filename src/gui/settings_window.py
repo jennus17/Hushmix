@@ -49,16 +49,6 @@ class SettingsWindow:
         )
         self.frame.pack(expand=True, fill="both")
         
-        # Title
-        title = tk.Label(
-            self.frame,
-            text="Settings",
-            font=("Segoe UI", self.title_font_size, "bold"),
-            bg=theme["bg"],
-            fg=theme["fg"]
-        )
-        title.pack(pady=(0, self.padding))
-        
         # Settings checkboxes
         self.create_checkbox(
             "Invert Volume Range (100 - 0)",
