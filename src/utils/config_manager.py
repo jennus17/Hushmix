@@ -52,7 +52,8 @@ class ConfigManager:
                 "applications": ["App 1", "App 2", "App 3"],
                 "invert_volumes": False,
                 "auto_startup": False,
-                "dark_mode": False
+                "dark_mode": False,
+                "launch_in_tray": False  # Default value for launch mode
             }
 
     @staticmethod  
