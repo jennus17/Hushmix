@@ -41,10 +41,22 @@ class SerialController:
                 return self.arduino
             except Exception as e:
                 showerror('Error', f"Could not connect to the Mixer: {e}")
-                sys.exit(1)
+                self.initialize_serial()
         else:
-            showerror('Error', 'Device not found. Check your connection.')
-            sys.exit(1)
+            showerror('Error', 'Mixer not found. Check your connection.')
+            self.initialize_serial()
+
+    def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
+        """Reconnect to the mixer"""
+        serial_port = self.get_com_port_by_device_name(device_name)
+        if serial_port:
+            try:
+                self.arduino = serial.Serial(serial_port, baud_rate)
+                return self.arduino
+            except Exception as e:
+                self.reconnect_serial()
+        else:
+            self.reconnect_serial()
 
     def start_serial_thread(self):
         """Start serial communication thread"""
@@ -56,15 +68,24 @@ class SerialController:
         pythoncom.CoInitialize()
         
         while self.running:
-            time.sleep(0.03)
+            time.sleep(0.01)
             try:
                 if self.arduino and self.arduino.in_waiting > 0:
                     data = self.arduino.readline().decode('utf-8').strip()
                     self.process_volume_data(data)
+                else:
+                    # If Arduino is not connected, we can try to read to check
+                    if self.arduino is None:
+                        time.sleep(1)
+                        self.initialize_serial()  # Attempt to reconnect
+            except serial.SerialException as e:
+                # Handle the case where the Arduino is disconnected
+                time.sleep(1)
+                self.reconnect_serial()  # Attempt to reconnect
             except Exception as e:
-                print(f"Error reading serial data: {e}")
+                print(f"Exception occurred: {e}")  # Debugging line
                 continue
-
+                    
     def process_volume_data(self, data):
         """Process volume data received from serial"""
         volumes = data.split('|')

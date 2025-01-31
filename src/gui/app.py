@@ -337,10 +337,10 @@ class HushmixApp:
             "\n    For specific applications, use the full name\n         (e.g., chrome.exe, discord.exe, etc.)"
         )
 
-    def refresh_gui(self):
+    def refresh_gui(self):  
         """Refresh the GUI to match the current applications"""
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
-        
+
         # Clear existing widgets
         for label in self.labels:
             label.destroy()
