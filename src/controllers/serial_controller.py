@@ -3,6 +3,8 @@ import serial.tools.list_ports
 import threading
 import time
 import pythoncom
+from tkinter.messagebox import showerror
+import sys
 
 class SerialController:
     def __init__(self, volume_callback):
@@ -38,9 +40,11 @@ class SerialController:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
             except Exception as e:
-                raise ConnectionError(f"Could not connect to the Mixer: {e}")
+                showerror('Error', f"Could not connect to the Mixer: {e}")
+                sys.exit(1)
         else:
-            raise ConnectionError("Device not found. Check your connection.")
+            showerror('Error', 'Device not found. Check your connection.')
+            sys.exit(1)
 
     def start_serial_thread(self):
         """Start serial communication thread"""
