@@ -31,11 +31,6 @@ A Windows application for controlling individual application volumes using hardw
    - "master" - Controls the default speaker volume
    - "mic" - Controls the default microphone
 
-## Hardware Requirements
-
-- Arduino-compatible board with USB-SERIAL CH340 chip (For now)
-- Potentiometers for volume control
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details 
