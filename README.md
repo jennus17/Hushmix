@@ -18,7 +18,11 @@ A Windows application for controlling individual application volumes using hardw
 2. Clone this repository
 3. Install the requirements:
    ```
-   pip install -r requirements.txt
+   py -m pip install -r requirements.txt
+   ```
+4. Run the application:
+   ```
+   py src/main.py
    ```
 
 ## Usage
@@ -27,9 +31,9 @@ A Windows application for controlling individual application volumes using hardw
 2. Enter application names in the fields (e.g., "chrome.exe", "spotify.exe")
 3. Use the hardware controller to adjust volumes
 4. Special commands:
-   - "current" - Controls the current application in focus
-   - "master" - Controls the default speaker volume
-   - "mic" - Controls the default microphone
+   - current - Controls the current application in focus
+   - master - Controls the default speaker volume
+   - mic - Controls the default microphone
 
 ## License
 
