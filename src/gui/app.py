@@ -14,6 +14,7 @@ from utils.icon_manager import IconManager
 from gui.themes import THEMES
 from gui.settings_window import SettingsWindow
 import winreg
+from PIL import Image
 
 def get_windows_accent_color():
     """Retrieve the Windows accent color from the registry."""
@@ -208,12 +209,12 @@ class HushmixApp:
             padx=8,
             pady=8
         )
-        
-        self.refresh_gui()
 
         # Update entry fields to match button width
         for entry in self.entries:
             entry.config(width=30, height=1)  # Set to a fixed width and height
+
+        self.refresh_gui()
 
     def setup_tray_icon(self):
         """Setup system tray icon"""
@@ -222,29 +223,32 @@ class HushmixApp:
             MenuItem("Exit", self.on_exit)
         )
         
-        try:
-            # Use a static icon file for testing
-            icon_image = IconManager.create_tray_icon()  # Ensure this returns a valid icon
-            if icon_image is None:
-                raise ValueError("Failed to create tray icon image.")
-            
-            self.icon = Icon(
-                "Hushmix",
-                icon=icon_image,
-                menu=menu,
-                title="Hushmix"
-            )
-            time.sleep(0.01)
+        icon_image = IconManager.create_tray_icon()  # Ensure this returns a valid icon
+        if icon_image is None:
+            raise ValueError("Failed to create tray icon image.")
 
-            # Run the icon in a separate thread
-            threading.Thread(target=self.icon.run_detached, daemon=True).start()
-            self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-            
-            if not self.launch_in_tray.get():
-                self.root.after(50, self.hide_tray_icon)
-            
-        except Exception as e:
-            print(f"Error setting up tray icon: {e}")
+        max_retries = 5  # Maximum number of retries
+        for attempt in range(max_retries):
+            try:
+                # Attempt to load the image to check for integrity
+                icon_image.load() 
+                
+                self.icon = Icon(
+                    "Hushmix",
+                    icon=icon_image,
+                    menu=menu,
+                    title="Hushmix"
+                )
+            except Exception as e:
+                print(f"Attempt {attempt + 1} failed: {e}")
+                time.sleep(0.1)  # Wait before retrying
+
+        # Run the icon in a separate thread
+        threading.Thread(target=self.icon.run_detached, daemon=True).start()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+                
+        if not self.launch_in_tray.get():
+            self.root.after(50, self.hide_tray_icon)        
 
     def hide_tray_icon(self):
         """Hide the tray icon"""
