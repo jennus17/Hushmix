@@ -13,10 +13,8 @@ class ConfigManager:
             script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             config_path = os.path.join(script_dir, ConfigManager.CONFIG_FILE)
             
-            # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(config_path), exist_ok=True)
             
-            # Save settings to file
             with open(config_path, "w") as file:
                 json.dump(settings, file, indent=4)
             print(f"Settings saved to {config_path}")

@@ -48,7 +48,7 @@ class AudioController:
             return self._sessions_cache
 
     def set_application_volume(self, app_name, level):
-        self._init_com()  # Ensure COM is initialized for this thread
+        self._init_com()
         
         try:
             if app_name.lower() == "current":

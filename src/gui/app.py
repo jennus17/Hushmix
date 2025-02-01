@@ -73,31 +73,24 @@ class HushmixApp:
         THEMES["dark"]["accent"] = accent_color
         
         # Set the accent_hover color to be darker
-        THEMES["light"]["accent_hover"] = darken_color(accent_color, 0.2)  # Darken by 20%
-        THEMES["dark"]["accent_hover"] = darken_color(accent_color, 0.2)   # Darken by 20%
+        THEMES["light"]["accent_hover"] = darken_color(accent_color, 0.2)
+        THEMES["dark"]["accent_hover"] = darken_color(accent_color, 0.2)
         
-        # Setup remaining GUI components
         self.setup_gui()
-        
-        # Load settings
         self.load_settings()
-        
-        # Setup tray icon
         self.setup_tray_icon()
 
         # Check if the application should launch in the tray
         if self.launch_in_tray.get():
-            self.root.withdraw()  # Hide the main window
-            self.icon.visible = True  # Show the tray icon
+            self.root.withdraw()
+            self.icon.visible = True
         else:
-            self.root.deiconify()  # Show the main window
+            self.root.deiconify()
 
     def setup_scaling(self):
-        """Setup display scaling factors"""
-        # Use fixed sizes instead
-        self.normal_font_size = 10  # Fixed font size
-        self.frame_padding = 20       # Fixed padding
-        self.entry_width = 25         # Fixed entry width
+        self.normal_font_size = 10
+        self.frame_padding = 20
+        self.entry_width = 25
 
     def setup_window(self):
         """Setup main window properties"""
@@ -128,8 +121,6 @@ class HushmixApp:
         self.volume_labels = []
         self.help_visible = tk.BooleanVar(value=False)
         self.running = True
-        
-        # Add these lines to store button references
         self.button_frame = None
         self.help_button = None
         self.settings_button = None
@@ -138,21 +129,19 @@ class HushmixApp:
         """Setup GUI components"""
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
         
-        # Main frame
         self.main_frame = tk.Frame(
             self.root,
             bg=theme["bg"],
-            padx=5,  # Reduced padding
-            pady=10   # Reduced padding
+            padx=5,
+            pady=10
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         
-        # Set Applications button
         self.set_button = tk.Button(
             self.main_frame,
             text="Set Applications",
             command=self.set_applications,
-            font=("Segoe UI", self.normal_font_size + 2),  # Adjusted for fixed size
+            font=("Segoe UI", self.normal_font_size + 2),
             bg=theme["accent"],
             fg="white",
             activebackground=theme["accent_hover"],
@@ -161,11 +150,10 @@ class HushmixApp:
             cursor="hand2",
             borderwidth=0,
             highlightthickness=0,
-            padx=31,  # Increased padding for width
-            pady=5    # Adjusted padding
+            padx=31,
+            pady=5
         )
 
-        # Position Help button to the left of Set Applications button
         self.help_button = tk.Button(
             self.main_frame,
             text="ⓘ ▼" if not self.help_visible.get() else "ⓘ ▲",
@@ -192,7 +180,6 @@ class HushmixApp:
             justify=tk.LEFT
         )
 
-        # Position Settings button to the right of Set Applications button
         self.settings_button = tk.Button(
             self.main_frame,
             text="⚙️",
@@ -210,9 +197,8 @@ class HushmixApp:
             pady=8
         )
 
-        # Update entry fields to match button width
         for entry in self.entries:
-            entry.config(width=30, height=1)  # Set to a fixed width and height
+            entry.config(width=30, height=1)
 
         self.refresh_gui()
 
@@ -223,11 +209,11 @@ class HushmixApp:
             MenuItem("Exit", self.on_exit)
         )
         
-        icon_image = IconManager.create_tray_icon()  # Ensure this returns a valid icon
+        icon_image = IconManager.create_tray_icon()
         if icon_image is None:
             raise ValueError("Failed to create tray icon image.")
 
-        max_retries = 5  # Maximum number of retries
+        max_retries = 5
         for attempt in range(max_retries):
             try:
                 # Attempt to load the image to check for integrity
@@ -272,16 +258,13 @@ class HushmixApp:
 
     def on_exit(self, icon=None, item=None):
         """Handle application exit"""
-        # First hide the tray icon immediately
         if hasattr(self, 'icon') and self.icon:
             self.icon.visible = False
             self.icon.stop()
         
-        # Set running flag to False to stop all threads
         self.running = False
         
         try:
-            # Save settings
             self.save_settings()
         except Exception as e:
             print(f"Error saving settings during exit: {e}")
@@ -330,9 +313,9 @@ class HushmixApp:
 
     def on_close(self):
         """Handle window close button"""
-        self.root.withdraw()  # Hide the main window
+        self.root.withdraw()
         if hasattr(self, 'icon'):
-            self.icon.visible = True  # Show the tray icon
+            self.icon.visible = True
 
     @staticmethod
     def get_help_text():
@@ -372,7 +355,6 @@ class HushmixApp:
             )
             label.grid(row=i, column=0, sticky="e", pady=6, padx=6)
 
-            # Application entry
             entry = tk.Entry(
                 self.main_frame,
                 width=self.entry_width,
@@ -388,7 +370,6 @@ class HushmixApp:
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
             
-            # Volume label
             volume_label = tk.Label(
                 self.main_frame,
                 text="0%",
@@ -404,14 +385,9 @@ class HushmixApp:
             self.volume_labels.append(volume_label)
 
         self.help_button.grid(row=len(self.current_apps), column=0, padx=5, sticky="e")
-
-        # Position Set Applications button
         self.set_button.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
-
-
         self.settings_button.grid(row=len(self.current_apps), column=2, padx=5, sticky="w")
 
-        # Help text (initially hidden)
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
         else:
@@ -422,7 +398,6 @@ class HushmixApp:
         self.main_frame.columnconfigure(1, weight=2)
         self.main_frame.columnconfigure(2, weight=0)
 
-        # Adjust previous volumes array size
         self.previous_volumes = [None] * len(self.current_apps)
 
     def apply_theme(self):
@@ -433,11 +408,10 @@ class HushmixApp:
         self.root.configure(bg=theme["bg"])
         self.main_frame.configure(bg=theme["bg"])
         
-        # Update button frame if it exists
+        # Update button frame
         if self.button_frame:
             self.button_frame.configure(bg=theme["bg"])
         
-        # Update Windows title bar color immediately
         self.update_title_bar_color()
         
         # Update all widgets with new theme
@@ -522,7 +496,6 @@ class HushmixApp:
 
     def set_applications(self):
         """Update application names from entry fields"""
-        # Get the current applications, including empty strings for empty entries
         self.current_apps = [entry.get() for entry in self.entries]
         self.save_settings()
 
@@ -530,7 +503,6 @@ class HushmixApp:
         """Load settings from config file"""
         settings = ConfigManager.load_settings()
         
-        # Load applications (ensure we have at least one)
         self.current_apps = settings.get("applications", ["App 1"])
         if not self.current_apps:
             self.current_apps = ["App 1"]
@@ -539,9 +511,8 @@ class HushmixApp:
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", False))
-        self.launch_in_tray = tk.BooleanVar(value=settings.get("launch_in_tray", False))  # New variable
+        self.launch_in_tray = tk.BooleanVar(value=settings.get("launch_in_tray", False))
         
-        # Apply theme and refresh GUI
         self.apply_theme()
         self.refresh_gui()
         
@@ -554,11 +525,9 @@ class HushmixApp:
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get(),
-            "launch_in_tray": self.launch_in_tray.get()  # Save launch mode
+            "launch_in_tray": self.launch_in_tray.get()
         }      
-        #      
         ConfigManager.toggle_auto_startup(self.auto_startup.get(), "Hushmix", sys.executable)  
-        # Save to file
         ConfigManager.save_settings(settings)
         print("Settings saved:", settings)
 
@@ -571,10 +540,8 @@ class HushmixApp:
                     self.settings_window.window.lift()
                     return
                 else:
-                    # Clean up invalid window
                     self.settings_window = None
             except Exception:
-                # If any error occurs, reset the settings window
                 self.settings_window = None
         
         # Create new settings window
@@ -618,5 +585,3 @@ class HushmixApp:
             if app_name:
                 self.audio_controller.set_application_volume(app_name, volume_level)
                 self.previous_volumes[index] = volume_level
-
-    # Additional methods would go here... 

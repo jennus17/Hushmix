@@ -8,7 +8,6 @@ class SettingsWindow:
         self.window.title("Settings")
         self.window.resizable(False, False)
         
-        # Make it modal
         self.window.transient(parent)
         self.window.grab_set()
         
@@ -24,24 +23,18 @@ class SettingsWindow:
         self.normal_font_size = 10
         self.padding = 20
         
-        # Setup GUI and update title bar immediately
         self.setup_gui()
         self.update_title_bar()
         self.center_window(parent)
         
-        # Handle window close
         self.window.protocol("WM_DELETE_WINDOW", self.close)
-        
-        # Track dark mode changes
         self.dark_mode.trace_add("write", self.update_theme)
 
     def setup_gui(self):
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
         
-        # Update window background
         self.window.configure(bg=theme["bg"])
         
-        # Main frame
         self.frame = tk.Frame(
             self.window,
             bg=theme["bg"],
@@ -50,7 +43,6 @@ class SettingsWindow:
         )
         self.frame.pack(expand=True, fill="both")
         
-        # Settings checkboxes
         self.create_checkbox(
             "Invert Volume Range (100 - 0)",
             self.invert_volumes,
@@ -75,7 +67,6 @@ class SettingsWindow:
             theme
         )
         
-        # Close button
         close_btn = tk.Button(
             self.frame,
             text="Close",
@@ -125,7 +116,6 @@ class SettingsWindow:
         x = parent_x + (parent_width - window_width) // 2
         y = parent_y + (parent_height - window_height) // 2
         
-        # Set position
         self.window.geometry(f"+{x}+{y}")
 
     def close(self):
@@ -160,11 +150,7 @@ class SettingsWindow:
             
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
         self.window.configure(bg=theme["bg"])
-        
-        # Update window and frame
         self.frame.configure(bg=theme["bg"])
-        
-        # Update title bar
         self.update_title_bar()
         
         # Update all widgets
@@ -187,5 +173,4 @@ class SettingsWindow:
                     activeforeground="white"
                 )
         
-        # Force update
         self.window.update_idletasks() 

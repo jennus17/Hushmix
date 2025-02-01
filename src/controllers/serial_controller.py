@@ -22,13 +22,13 @@ class SerialController:
         """
         Returns the COM port number associated with the given device name.
         """
-        ports = serial.tools.list_ports.comports()  # Get all available COM ports
+        ports = serial.tools.list_ports.comports()
 
         for port in ports:
-            if device_name.lower() in port.description.lower():  # Check if the device name matches
-                return port.device  # Return the COM port (e.g., 'COM3')
+            if device_name.lower() in port.description.lower():
+                return port.device
 
-        return None  # Return None if no matching device is found
+        return None
 
     def initialize_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """
@@ -74,16 +74,14 @@ class SerialController:
                     data = self.arduino.readline().decode('utf-8').strip()
                     self.process_volume_data(data)
                 else:
-                    # If Arduino is not connected, we can try to read to check
                     if self.arduino is None:
                         time.sleep(1)
-                        self.initialize_serial()  # Attempt to reconnect
+                        self.initialize_serial()
             except serial.SerialException as e:
-                # Handle the case where the Arduino is disconnected
                 time.sleep(1)
-                self.reconnect_serial()  # Attempt to reconnect
+                self.reconnect_serial()
             except Exception as e:
-                print(f"Exception occurred: {e}")  # Debugging line
+                print(f"Exception occurred: {e}")
                 continue
                     
     def process_volume_data(self, data):
