@@ -234,22 +234,25 @@ class HushmixApp:
                 menu=menu,
                 title="Hushmix"
             )
-            
+            time.sleep(0.01)
+
             # Run the icon in a separate thread
             threading.Thread(target=self.icon.run_detached, daemon=True).start()
+            self.root.protocol("WM_DELETE_WINDOW", self.on_close)
             
             if not self.launch_in_tray.get():
-                self.root.after(150, self.hide_tray_icon)
-
-            self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+                self.root.after(50, self.hide_tray_icon)
             
         except Exception as e:
             print(f"Error setting up tray icon: {e}")
 
     def hide_tray_icon(self):
         """Hide the tray icon"""
-        if hasattr(self, 'icon'):
+        time.sleep(0.01)
+        if self.icon.visible is True:
             self.icon.visible = False
+        else:
+            self.hide_tray_icon()
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller"""
