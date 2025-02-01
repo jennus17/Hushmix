@@ -8,10 +8,7 @@ import sys
 
 class SerialController:
     def __init__(self, volume_callback):
-        """
-        Initialize serial controller
-        volume_callback: function that receives volume data updates
-        """
+        """Initialize serial controller."""
         self.volume_callback = volume_callback
         self.running = True
         self.arduino = None
@@ -19,9 +16,7 @@ class SerialController:
         self.start_serial_thread()
 
     def get_com_port_by_device_name(self, device_name):
-        """
-        Returns the COM port number associated with the given device name.
-        """
+        """Returns the COM port number associated with the given device name."""
         ports = serial.tools.list_ports.comports()
 
         for port in ports:
@@ -31,9 +26,7 @@ class SerialController:
         return None
 
     def initialize_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
-        """
-        Initialize serial connection with the device
-        """
+        """Initialize serial connection with the device."""
         serial_port = self.get_com_port_by_device_name(device_name)
         if serial_port:
             try:
@@ -47,7 +40,7 @@ class SerialController:
             self.initialize_serial()
 
     def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
-        """Reconnect to the mixer"""
+        """Reconnect to the mixer."""
         serial_port = self.get_com_port_by_device_name(device_name)
         if serial_port:
             try:
@@ -59,12 +52,12 @@ class SerialController:
             self.reconnect_serial()
 
     def start_serial_thread(self):
-        """Start serial communication thread"""
+        """Start serial communication thread."""
         thread = threading.Thread(target=self.read_serial_data, daemon=True)
         thread.start()
 
     def read_serial_data(self):
-        """Process serial data from the device"""
+        """Process serial data from the device."""
         pythoncom.CoInitialize()
         
         while self.running:
@@ -85,7 +78,7 @@ class SerialController:
                 continue
                     
     def process_volume_data(self, data):
-        """Process volume data received from serial"""
+        """Process volume data received from serial."""
         volumes = data.split('|')
         self.volume_callback(volumes)
 

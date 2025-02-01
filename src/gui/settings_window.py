@@ -125,7 +125,7 @@ class SettingsWindow:
             self.on_close()
 
     def update_title_bar(self):
-        """Update the window title bar color"""
+        """Update the window title bar color based on the current theme."""
         try:
             DWMWA_USE_IMMERSIVE_DARK_MODE = 20
             set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
@@ -144,7 +144,7 @@ class SettingsWindow:
             print(f"Error setting settings window title bar theme: {e}")
 
     def update_theme(self, *args):
-        """Update the window theme when dark mode changes"""
+        """Update the window theme when dark mode changes."""
         if not hasattr(self, 'window') or not self.window.winfo_exists():
             return
             

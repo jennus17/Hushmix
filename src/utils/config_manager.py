@@ -7,7 +7,7 @@ class ConfigManager:
 
     @staticmethod
     def save_settings(settings):
-        """Save settings to JSON file"""
+        """Save settings to JSON file."""
         try:
             # Get the directory where the script is running
             script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,7 +23,7 @@ class ConfigManager:
 
     @staticmethod
     def load_settings():
-        """Load settings from JSON file"""
+        """Load settings from JSON file."""
         try:
             # Get the directory where the script is running
             script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -65,7 +65,7 @@ class ConfigManager:
 
     @staticmethod
     def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
-        """Toggle auto-startup in Windows registry"""
+        """Toggle auto-startup in Windows registry."""
         try:
             key = winreg.HKEY_CURRENT_USER
             subkey = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
@@ -83,7 +83,7 @@ class ConfigManager:
 
     @staticmethod
     def is_auto_startup_enabled(app_name="Hushmix"):
-        """Check if auto-startup is enabled"""
+        """Check if auto-startup is enabled."""
         try:
             key = winreg.HKEY_CURRENT_USER
             subkey = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"

@@ -26,7 +26,7 @@ class AudioController:
             self._last_session_refresh = 0
 
     def _init_com(self):
-        """Initialize COM for the current thread if not already initialized"""
+        """Initialize COM for the current thread if not already initialized."""
         if not hasattr(self._thread_local, 'initialized'):
             pythoncom.CoInitialize()
             self._thread_local.initialized = True
@@ -98,7 +98,7 @@ class AudioController:
             print(f"Error setting volume: {e}")
 
     def cleanup(self):
-        """Explicit cleanup method to be called when shutting down"""
+        """Explicit cleanup method to be called when shutting down."""
         with self._lock:
             if hasattr(self, 'volume'):
                 self.volume = None

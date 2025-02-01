@@ -88,12 +88,13 @@ class HushmixApp:
             self.root.deiconify()
 
     def setup_scaling(self):
+        """Initialize screen scaling parameters."""
         self.normal_font_size = 10
         self.frame_padding = 20
         self.entry_width = 25
 
     def setup_window(self):
-        """Setup main window properties"""
+        """Setup main window properties."""
         self.root.title("Hushmix")
         self.root.resizable(False, False)
         
@@ -109,7 +110,7 @@ class HushmixApp:
                 print(f"Error setting taskbar icon: {e}")
 
     def setup_variables(self):
-        """Initialize application variables"""
+        """Initialize application variables."""
         self.current_apps = []
         self.volumes = []
         self.entries = []
@@ -126,7 +127,7 @@ class HushmixApp:
         self.settings_button = None
 
     def setup_gui(self):
-        """Setup GUI components"""
+        """Setup GUI components."""
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
         
         self.main_frame = tk.Frame(
@@ -203,7 +204,7 @@ class HushmixApp:
         self.refresh_gui()
 
     def setup_tray_icon(self):
-        """Setup system tray icon"""
+        """Setup system tray icon."""
         menu = Menu(
             MenuItem("Restore", self.restore_window, default=True, visible=False),
             MenuItem("Exit", self.on_exit)
@@ -237,7 +238,7 @@ class HushmixApp:
             self.root.after(50, self.hide_tray_icon)        
 
     def hide_tray_icon(self):
-        """Hide the tray icon"""
+        """Hide the tray icon."""
         time.sleep(0.01)
         if self.icon.visible is True:
             self.icon.visible = False
@@ -245,7 +246,7 @@ class HushmixApp:
             self.hide_tray_icon()
 
     def handle_volume_update(self, volumes):
-        """Handle volume updates from serial controller"""
+        """Handle volume updates from serial controller."""
         # Update GUI if number of inputs changes
         if len(volumes) != len(self.current_apps):
             self.current_apps = [f"App {i + 1}" for i in range(len(volumes))]
@@ -257,7 +258,7 @@ class HushmixApp:
             self.update_volume(i, int(volume))
 
     def on_exit(self, icon=None, item=None):
-        """Handle application exit"""
+        """Handle application exit."""
         if hasattr(self, 'icon') and self.icon:
             self.icon.visible = False
             self.icon.stop()
@@ -304,7 +305,7 @@ class HushmixApp:
             sys.exit(0)
 
     def restore_window(self, icon=None, item=None):
-        """Restore window from tray"""
+        """Restore window from tray."""
         if not self.root.winfo_viewable():
             self.root.deiconify()
             self.root.lift()
@@ -312,13 +313,14 @@ class HushmixApp:
             self.icon.visible = False
 
     def on_close(self):
-        """Handle window close button"""
+        """Handle window close button."""
         self.root.withdraw()
         if hasattr(self, 'icon'):
             self.icon.visible = True
 
     @staticmethod
     def get_help_text():
+        """Return help text for the application."""
         return (
             "Special commands:\n"
             "• current - Controls the current application in focus\n"
@@ -328,7 +330,7 @@ class HushmixApp:
         )
 
     def refresh_gui(self):  
-        """Refresh the GUI to match the current applications"""
+        """Refresh the GUI to match the current applications."""
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
 
         # Clear existing widgets
@@ -401,7 +403,7 @@ class HushmixApp:
         self.previous_volumes = [None] * len(self.current_apps)
 
     def apply_theme(self):
-        """Apply the current theme to all widgets"""
+        """Apply the current theme to all widgets."""
         theme = THEMES["dark" if self.dark_mode.get() else "light"]
         
         # Update main window and frame
@@ -458,7 +460,7 @@ class HushmixApp:
         self.root.update_idletasks()
 
     def update_title_bar_color(self):
-        """Update the Windows title bar color"""
+        """Update the Windows title bar color."""
         try:
             DWMWA_USE_IMMERSIVE_DARK_MODE = 20
             set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
@@ -478,7 +480,7 @@ class HushmixApp:
             print(f"Error setting title bar theme: {e}")
 
     def toggle_help(self):
-        """Toggle help text visibility"""
+        """Toggle help text visibility."""
         self.help_visible.set(not self.help_visible.get())
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
@@ -488,19 +490,19 @@ class HushmixApp:
             self.help_button.config(text="ⓘ ▼")
 
     def on_theme_change(self, *args):
-        """Handle theme changes"""
+        """Handle theme changes."""
         self.apply_theme()
         # Update settings window if it exists and is valid
         if self.settings_window and hasattr(self.settings_window, 'window') and self.settings_window.window.winfo_exists():
             self.settings_window.update_theme()
 
     def set_applications(self):
-        """Update application names from entry fields"""
+        """Update application names from entry fields."""
         self.current_apps = [entry.get() for entry in self.entries]
         self.save_settings()
 
     def load_settings(self):
-        """Load settings from config file"""
+        """Load settings from config file."""
         settings = ConfigManager.load_settings()
         
         self.current_apps = settings.get("applications", ["App 1"])
@@ -519,7 +521,7 @@ class HushmixApp:
         print("Settings loaded:", settings)
 
     def save_settings(self):
-        """Save current settings to config file"""
+        """Save current settings to config file."""
         settings = {
             "applications": [entry.get() for entry in self.entries],
             "invert_volumes": self.invert_volumes.get(),
@@ -532,7 +534,7 @@ class HushmixApp:
         print("Settings saved:", settings)
 
     def show_settings(self):
-        """Show settings window"""
+        """Show settings window."""
         # If settings window exists but is invalid, clean it up first
         if self.settings_window is not None:
             try:
@@ -557,7 +559,7 @@ class HushmixApp:
         )
 
     def on_settings_close(self):
-        """Handle settings window close"""
+        """Handle settings window close."""
         if self.settings_window and hasattr(self.settings_window, 'window'):
             try:
                 self.settings_window.window.destroy()
@@ -568,7 +570,7 @@ class HushmixApp:
         self.apply_theme()
 
     def update_volume(self, index, volume_level):
-        """Update volume for a specific application"""
+        """Update volume for a specific application."""
         volume_level = min(max(volume_level, 0), 100)
         volume_level = round(volume_level / 2) * 2
 
