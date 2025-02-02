@@ -7,3 +7,4 @@ psutil==5.9.5    # Cross-platform library for retrieving information on running 
 pystray==0.19.4  # Library for creating system tray applications
 Pillow==10.0.0   # Python Imaging Library (PIL) fork for image processing
 pywin32>=305     # Python bindings for Windows APIs
+customtkinter==5.1.0  # CustomTkinter for enhanced tkinter UI
