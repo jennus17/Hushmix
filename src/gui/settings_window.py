@@ -31,7 +31,6 @@ class SettingsWindow:
         self.center_window(parent)
         
         self.window.protocol("WM_DELETE_WINDOW", self.close)
-        self.dark_mode.trace_add("write", self.update_theme)
 
     def setup_window(self):
         """Setup main window properties."""
@@ -85,7 +84,8 @@ class SettingsWindow:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             width=150,
-            height=30
+            height=30,
+            corner_radius=10
         )
         close_btn.pack(pady=10)
 
@@ -141,23 +141,4 @@ class SettingsWindow:
                 0x0001 | 0x0002 | 0x0004 | 0x0400  # SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED
             )
         except Exception as e:
-            print(f"Error setting settings window title bar theme: {e}")
-
-    def update_theme(self, *args):
-        """Update the window theme when dark mode changes."""
-        if not hasattr(self, 'window') or not self.window.winfo_exists():
-            return
-            
-        self.window.configure()
-        self.frame.configure()
-        self.update_title_bar()
-        # Update all widgets
-        for child in self.frame.winfo_children():
-            if isinstance(child, ctk.CTkLabel):
-                child.configure()
-            elif isinstance(child, ctk.CTkCheckBox):
-                child.configure()
-            elif isinstance(child, ctk.CTkButton):
-                child.configure()
-        
-        self.window.update_idletasks() 
+            print(f"Error setting settings window title bar theme: {e}")   

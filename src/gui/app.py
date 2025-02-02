@@ -1,4 +1,3 @@
-import tkinter as tk
 from tkinter import messagebox
 import threading
 import pythoncom
@@ -11,7 +10,6 @@ from controllers.audio_controller import AudioController
 from controllers.serial_controller import SerialController
 from utils.config_manager import ConfigManager
 from utils.icon_manager import IconManager
-from gui.themes import THEMES
 from gui.settings_window import SettingsWindow
 import winreg
 from PIL import Image
@@ -20,12 +18,9 @@ import customtkinter as ctk
 class HushmixApp:
     def __init__(self, root):
         self.root = root
-        self.dark_mode = tk.BooleanVar(value=False)
+        self.dark_mode = ctk.BooleanVar(value=False)
         
-        # Add dark mode trace
-        self.dark_mode.trace_add("write", self.on_theme_change)
-        
-        self.normal_font_size = 14
+        self.normal_font_size = 16
         
         # Setup window and components
         self.setup_window()
@@ -75,12 +70,12 @@ class HushmixApp:
         self.volumes = []
         self.entries = []
         self.labels = []
-        self.help_label = tk.Label()
+        self.help_label = ctk.CTkLabel(None)
         self.previous_volumes = []
-        self.invert_volumes = tk.BooleanVar(value=False)
-        self.auto_startup = tk.BooleanVar(value=False)
+        self.invert_volumes = ctk.BooleanVar(value=False)
+        self.auto_startup = ctk.BooleanVar(value=False)
         self.volume_labels = []
-        self.help_visible = tk.BooleanVar(value=False)
+        self.help_visible = ctk.BooleanVar(value=False)
         self.running = True
         self.button_frame = None
         self.help_button = None
@@ -94,7 +89,7 @@ class HushmixApp:
             corner_radius=0,
             border_width=0
             )
-        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=0)
         
         self.set_button = ctk.CTkButton(
             self.main_frame,
@@ -105,8 +100,9 @@ class HushmixApp:
             text_color="white",
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=150,
-            height=30
+            width=170,
+            height=40,
+            corner_radius=10
         )
 
         self.help_button = ctk.CTkButton(
@@ -117,16 +113,16 @@ class HushmixApp:
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
             cursor="hand2",
-            width=30,
-            height=30
+            width=20,
+            height=40,
+            corner_radius=10
         )
 
         self.help_label = ctk.CTkLabel(
             self.main_frame,
             text=self.get_help_text(),
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            justify=tk.LEFT,
+            justify=ctk.LEFT,
         )
 
         self.settings_button = ctk.CTkButton(
@@ -137,12 +133,13 @@ class HushmixApp:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=30,
-            height=30
+            width=20,
+            height=40,
+            corner_radius=10
         )
 
         for entry in self.entries:
-            entry.configure(width=30, height=1)
+            entry.configure(width=170, height=30)
 
         self.refresh_gui()
 
@@ -265,16 +262,17 @@ class HushmixApp:
     def get_help_text():
         """Return help text for the application."""
         return (
-            "Special commands:\n"
-            "• current - Controls the current application in focus\n"
-            "• master - Controls the default speaker volume\n"
-            "• mic - Controls the default microphone\n"
-            "\n    For specific applications, use the full name\n         (e.g., chrome.exe, discord.exe, etc.)"
+            "Special commands:"
+            "\n• current - Controls the current application" 
+            "\n\t in focus"
+            "\n• master - Controls the speaker volume"
+            "\n• mic - Controls the default microphone"
+            "\n\n For specific applications, use the full name\n"         
+            "       (e.g., chrome.exe, discord.exe, etc.)"
         )
 
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
-        theme = THEMES["dark" if self.dark_mode.get() else "light"]
 
         # Clear existing widgets
         for label in self.labels:
@@ -296,13 +294,16 @@ class HushmixApp:
                 text=f"App {i+1}:",
                 font=("Segoe UI", self.normal_font_size, "bold")
             )
-            label.grid(row=i, column=0, sticky="e", pady=6, padx=0)
+            label.grid(row=i, column=0, sticky="w", pady=6, padx=0)
 
             entry = ctk.CTkEntry(
                 self.main_frame,
                 font=("Segoe UI", self.normal_font_size),
-                width=150,
-                height=30
+                width=190,
+                height=30,
+                border_width=1,
+                border_color=self.accent_hover,
+                corner_radius=15
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
@@ -310,20 +311,20 @@ class HushmixApp:
             volume_label = ctk.CTkLabel(
                 self.main_frame,
                 text="100%",
-                font=("Segoe UI", self.normal_font_size, "bold"),
+                font=("Segoe UI", self.normal_font_size, "bold")
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=0, sticky="w")
+            volume_label.grid(row=i, column=2, pady=6, padx=0, sticky="e")
             
             self.labels.append(label)
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
 
-        self.help_button.grid(row=len(self.current_apps), column=0, padx=5, sticky="e")
+        self.help_button.grid(row=len(self.current_apps), column=0, padx=0, sticky="e")
         self.set_button.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
-        self.settings_button.grid(row=len(self.current_apps), column=2, padx=5, sticky="w")
+        self.settings_button.grid(row=len(self.current_apps), column=2, padx=0, sticky="w")
 
         if self.help_visible.get():
-            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
+            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0)
         else:
             self.help_label.grid_remove()
 
@@ -375,13 +376,6 @@ class HushmixApp:
             self.help_label.grid_remove()
             self.help_button.configure(text="ⓘ ▼")
 
-    def on_theme_change(self, *args):
-        """Handle theme changes."""
-        self.apply_theme()
-        # Update settings window if it exists and is valid
-        if self.settings_window and hasattr(self.settings_window, 'window') and self.settings_window.window.winfo_exists():
-            self.settings_window.update_theme()
-
     def set_applications(self):
         """Update application names from entry fields."""
         self.current_apps = [entry.get() for entry in self.entries]
@@ -399,7 +393,7 @@ class HushmixApp:
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", False))
-        self.launch_in_tray = tk.BooleanVar(value=settings.get("launch_in_tray", False))
+        self.launch_in_tray = ctk.BooleanVar(value=settings.get("launch_in_tray", False))
         
         self.apply_theme()
         self.refresh_gui()

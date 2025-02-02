@@ -1,8 +1,8 @@
-import tkinter as tk
+import customtkinter as ctk
 from gui.app import HushmixApp
 
 def main():
-    root = tk.Tk()
+    root = ctk.CTk()
     app = HushmixApp(root)
     root.mainloop()
 
