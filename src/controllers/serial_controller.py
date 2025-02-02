@@ -41,15 +41,19 @@ class SerialController:
 
     def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """Reconnect to the mixer."""
+        self.arduino.close()
         serial_port = self.get_com_port_by_device_name(device_name)
         if serial_port:
             try:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
-            except Exception as e:
-                self.reconnect_serial()
+            except serial.SerialException as e:
+                time.sleep(1)  # Wait before retrying
+                self.reconnect_serial()  # Retry reconnecting
         else:
-            self.reconnect_serial()
+            print("Serial port not found. Retrying...")
+            time.sleep(1)  # Wait before retrying
+            self.reconnect_serial()  # Retry reconnecting
 
     def start_serial_thread(self):
         """Start serial communication thread."""
