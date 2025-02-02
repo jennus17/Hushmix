@@ -33,10 +33,11 @@ class ConfigManager:
             if not os.path.exists(config_path):
                 print("No settings file found, using defaults")
                 return {
-                    "applications": ["App 1", "App 2", "App 3"],
+                    "applications": ["App 1"],
                     "invert_volumes": False,
                     "auto_startup": False,
-                    "dark_mode": False
+                    "dark_mode": False,
+                    "launch_in_tray": False
                 }
             
             # Load settings from file
@@ -47,21 +48,12 @@ class ConfigManager:
         except Exception as e:
             print(f"Error loading settings: {e}")
             return {
-                "applications": ["App 1", "App 2", "App 3"],
+                "applications": ["App 1"],
                 "invert_volumes": False,
                 "auto_startup": False,
                 "dark_mode": False,
-                "launch_in_tray": False  # Default value for launch mode
+                "launch_in_tray": False
             }
-
-    @staticmethod  
-    def load_apps():
-        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        apps_path = os.path.join(script_dir, 'Apps.json')
-
-        with open(apps_path, 'r') as file:
-            apps = json.load(file)
-        return [app['name'] for app in apps]
 
     @staticmethod
     def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
