@@ -50,6 +50,15 @@ class AudioController:
     def set_application_volume(self, app_name, level):
         self._init_com()
         
+        # Check if the current device has changed
+        current_device = AudioUtilities.GetSpeakers()
+        if current_device != self.devices:
+            self.devices = current_device
+            self.interface = self.devices.Activate(
+                IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+            )
+            self.volume = self.interface.QueryInterface(IAudioEndpointVolume)
+
         try:
             if app_name.lower() == "current":
                 hwnd = win32gui.GetForegroundWindow()
