@@ -30,7 +30,7 @@ class SettingsWindow:
         self.update_title_bar()
         self.center_window(parent)
         
-        self.window.protocol("WM_DELETE_WINDOW", self.close)
+        #self.window.protocol("WM_DELETE_WINDOW", self.close)
 
     def setup_window(self):
         """Setup main window properties."""
@@ -87,7 +87,7 @@ class SettingsWindow:
             height=30,
             corner_radius=10
         )
-        close_btn.pack(pady=10)
+        close_btn.pack(pady=(15, 10))
 
     def create_checkbox(self, text, variable):
         checkbox = ctk.CTkCheckBox(
@@ -97,7 +97,7 @@ class SettingsWindow:
             font=("Segoe UI", self.normal_font_size),
             fg_color=self.accent_color
         )
-        checkbox.pack(pady=10, padx=10, anchor="w")
+        checkbox.pack(pady=(15, 0), padx=15, anchor="w")
 
     def center_window(self, parent):
         self.window.update_idletasks()

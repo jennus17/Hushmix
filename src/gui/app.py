@@ -83,24 +83,23 @@ class HushmixApp:
 
     def setup_gui(self):
         """Setup GUI components."""
-
         self.main_frame = ctk.CTkFrame(
             self.root,
             corner_radius=0,
-            border_width=0
+            border_width=0,
             )
-        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=0)
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
         
         self.set_button = ctk.CTkButton(
             self.main_frame,
             text="Set Applications",
             command=self.set_applications,
-            font=("Segoe UI", self.normal_font_size + 2),
+            font=("Segoe UI", self.normal_font_size + 2, "bold"),
             fg_color=self.accent_color,
             text_color="white",
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=170,
+            width=186,
             height=40,
             corner_radius=10
         )
@@ -294,15 +293,14 @@ class HushmixApp:
                 text=f"App {i+1}:",
                 font=("Segoe UI", self.normal_font_size, "bold")
             )
-            label.grid(row=i, column=0, sticky="w", pady=6, padx=0)
+            label.grid(row=i, column=0, sticky="nsew", pady=6, padx=(10, 0))
 
             entry = ctk.CTkEntry(
                 self.main_frame,
                 font=("Segoe UI", self.normal_font_size),
                 width=190,
                 height=30,
-                border_width=1,
-                border_color=self.accent_hover,
+                border_width=2,
                 corner_radius=15
             )
             entry.insert(0, app_name)
@@ -313,15 +311,16 @@ class HushmixApp:
                 text="100%",
                 font=("Segoe UI", self.normal_font_size, "bold")
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=0, sticky="e")
+            volume_label.grid(row=i, column=2, pady=6, padx=(0, 10), sticky="nsew")
             
             self.labels.append(label)
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
+        
 
-        self.help_button.grid(row=len(self.current_apps), column=0, padx=0, sticky="e")
+        self.help_button.grid(row=len(self.current_apps), column=0, padx=(10, 0), sticky="e")
         self.set_button.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
-        self.settings_button.grid(row=len(self.current_apps), column=2, padx=0, sticky="w")
+        self.settings_button.grid(row=len(self.current_apps), column=2, padx=(0, 10), sticky="w")
 
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0)
