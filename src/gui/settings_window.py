@@ -1,15 +1,19 @@
-import tkinter as tk
-from gui.themes import THEMES
+import customtkinter as ctk
+import gui.app as app
 import ctypes
+from utils.icon_manager import IconManager
+
 
 class SettingsWindow:
     def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, launch_in_tray, on_close):
-        self.window = tk.Toplevel(parent)
-        self.window.title("Settings")
-        self.window.resizable(False, False)
+        self.window = ctk.CTkToplevel(parent)
+        self.setup_window()
         
         self.window.transient(parent)
         self.window.grab_set()
+
+        self.accent_color = app.get_windows_accent_color()
+        self.accent_hover = app.darken_color(self.accent_color, 0.2)
         
         # Store references
         self.config_manager = config_manager
@@ -19,9 +23,8 @@ class SettingsWindow:
         self.launch_in_tray = launch_in_tray
         self.on_close = on_close
         
-        self.title_font_size = 20
-        self.normal_font_size = 10
-        self.padding = 20
+
+        self.normal_font_size = 14
         
         self.setup_gui()
         self.update_title_bar()
@@ -30,74 +33,71 @@ class SettingsWindow:
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         self.dark_mode.trace_add("write", self.update_theme)
 
+    def setup_window(self):
+        """Setup main window properties."""
+        self.window.title("Settings")
+        self.window.resizable(False, False)
+        
+        # Set window icon
+        ico_path = IconManager.create_ico_file()
+        if ico_path:
+            try:
+                self.window.after(200, lambda: self.window.iconbitmap(ico_path))
+            except Exception as e:
+                print(f"Error setting icon: {e}")
+
     def setup_gui(self):
-        theme = THEMES["dark" if self.dark_mode.get() else "light"]
         
-        self.window.configure(bg=theme["bg"])
+        self.window.configure()
         
-        self.frame = tk.Frame(
+        self.frame = ctk.CTkFrame(
             self.window,
-            bg=theme["bg"],
-            padx=self.padding,
-            pady=self.padding
+            corner_radius=0,
+            border_width=0
         )
         self.frame.pack(expand=True, fill="both")
         
         self.create_checkbox(
             "Invert Volume Range (100 - 0)",
             self.invert_volumes,
-            theme
         )
         
         self.create_checkbox(
             "Enable Auto Startup",
             self.auto_startup,
-            theme
         )
 
         self.create_checkbox(
             "Launch in Tray",
             self.launch_in_tray,
-            theme
         )
         
         self.create_checkbox(
             "Dark Mode",
             self.dark_mode,
-            theme
         )
         
-        close_btn = tk.Button(
+        close_btn = ctk.CTkButton(
             self.frame,
             text="Close",
             command=self.close,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["accent"],
-            fg="white",
-            activebackground=theme["accent_hover"],
-            activeforeground="white",
-            relief="flat",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=20,
-            pady=5,
-            cursor="hand2"
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            width=150,
+            height=30
         )
-        close_btn.pack(pady=(self.padding, 0))
+        close_btn.pack(pady=10)
 
-    def create_checkbox(self, text, variable, theme):
-        checkbox = tk.Checkbutton(
+    def create_checkbox(self, text, variable):
+        checkbox = ctk.CTkCheckBox(
             self.frame,
             text=text,
             variable=variable,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["bg"],
-            fg=theme["fg"],
-            selectcolor=theme["button_bg"],
-            activebackground=theme["bg"],
-            activeforeground=theme["fg"]
+            fg_color=self.accent_color
         )
-        checkbox.pack(pady=5, anchor="w")
+        checkbox.pack(pady=10, padx=10, anchor="w")
 
     def center_window(self, parent):
         self.window.update_idletasks()
@@ -148,29 +148,16 @@ class SettingsWindow:
         if not hasattr(self, 'window') or not self.window.winfo_exists():
             return
             
-        theme = THEMES["dark" if self.dark_mode.get() else "light"]
-        self.window.configure(bg=theme["bg"])
-        self.frame.configure(bg=theme["bg"])
+        self.window.configure()
+        self.frame.configure()
         self.update_title_bar()
-        
         # Update all widgets
         for child in self.frame.winfo_children():
-            if isinstance(child, tk.Label):
-                child.configure(bg=theme["bg"], fg=theme["fg"])
-            elif isinstance(child, tk.Checkbutton):
-                child.configure(
-                    bg=theme["bg"],
-                    fg=theme["fg"],
-                    selectcolor=theme["button_bg"],
-                    activebackground=theme["bg"],
-                    activeforeground=theme["fg"]
-                )
-            elif isinstance(child, tk.Button):
-                child.configure(
-                    bg=theme["accent"],
-                    fg="white",
-                    activebackground=theme["accent_hover"],
-                    activeforeground="white"
-                )
+            if isinstance(child, ctk.CTkLabel):
+                child.configure()
+            elif isinstance(child, ctk.CTkCheckBox):
+                child.configure()
+            elif isinstance(child, ctk.CTkButton):
+                child.configure()
         
         self.window.update_idletasks() 

@@ -15,37 +15,7 @@ from gui.themes import THEMES
 from gui.settings_window import SettingsWindow
 import winreg
 from PIL import Image
-
-def get_windows_accent_color():
-    """Retrieve the Windows accent color from the registry."""
-    try:
-        # Check the DWM registry key for ColorizationColor
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as key:
-            accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
-            # Extract RGB values from ARGB
-            blue = accent_color & 0xFF
-            green = (accent_color >> 8) & 0xFF
-            red = (accent_color >> 16) & 0xFF
-            # Return the color in hex format
-            return "#{:02x}{:02x}{:02x}".format(red, green, blue)
-    except OSError as e:
-        print(f"Error accessing registry: {e}")
-    # Fallback to a default color if any error occurs
-    return "#2196F3"  # Default color
-
-def darken_color(hex_color, percentage):
-    """Darken a hex color by a given percentage."""
-    # Convert hex to RGB
-    hex_color = hex_color.lstrip('#')
-    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-    
-    # Calculate the darkened color
-    r = int(r * (1 - percentage))
-    g = int(g * (1 - percentage))
-    b = int(b * (1 - percentage))
-    
-    # Convert back to hex
-    return "#{:02x}{:02x}{:02x}".format(r, g, b)
+import customtkinter as ctk
 
 class HushmixApp:
     def __init__(self, root):
@@ -55,8 +25,7 @@ class HushmixApp:
         # Add dark mode trace
         self.dark_mode.trace_add("write", self.on_theme_change)
         
-        # Initialize screen scaling
-        self.setup_scaling()
+        self.normal_font_size = 14
         
         # Setup window and components
         self.setup_window()
@@ -68,13 +37,10 @@ class HushmixApp:
         self.settings_window = None
         
         # Set the accent color dynamically
-        accent_color = get_windows_accent_color()
-        THEMES["light"]["accent"] = accent_color
-        THEMES["dark"]["accent"] = accent_color
+        self.accent_color = get_windows_accent_color()
         
         # Set the accent_hover color to be darker
-        THEMES["light"]["accent_hover"] = darken_color(accent_color, 0.2)
-        THEMES["dark"]["accent_hover"] = darken_color(accent_color, 0.2)
+        self.accent_hover = darken_color(self.accent_color, 0.2)
         
         self.setup_gui()
         self.load_settings()
@@ -86,12 +52,6 @@ class HushmixApp:
             self.icon.visible = True
         else:
             self.root.deiconify()
-
-    def setup_scaling(self):
-        """Initialize screen scaling parameters."""
-        self.normal_font_size = 10
-        self.frame_padding = 20
-        self.entry_width = 25
 
     def setup_window(self):
         """Setup main window properties."""
@@ -128,78 +88,61 @@ class HushmixApp:
 
     def setup_gui(self):
         """Setup GUI components."""
-        theme = THEMES["dark" if self.dark_mode.get() else "light"]
-        
-        self.main_frame = tk.Frame(
+
+        self.main_frame = ctk.CTkFrame(
             self.root,
-            bg=theme["bg"],
-            padx=5,
-            pady=10
-        )
-        self.main_frame.grid(row=0, column=0, sticky="nsew")
+            corner_radius=0,
+            border_width=0
+            )
+        self.main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         
-        self.set_button = tk.Button(
+        self.set_button = ctk.CTkButton(
             self.main_frame,
             text="Set Applications",
             command=self.set_applications,
             font=("Segoe UI", self.normal_font_size + 2),
-            bg=theme["accent"],
-            fg="white",
-            activebackground=theme["accent_hover"],
-            activeforeground="white",
-            relief="flat",
+            fg_color=self.accent_color,
+            text_color="white",
+            hover_color=self.accent_hover,
             cursor="hand2",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=31,
-            pady=5
+            width=150,
+            height=30
         )
 
-        self.help_button = tk.Button(
+        self.help_button = ctk.CTkButton(
             self.main_frame,
             text="ⓘ ▼" if not self.help_visible.get() else "ⓘ ▲",
             command=self.toggle_help,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["button_bg"],
-            fg=theme["fg"],
-            activebackground=theme["accent"],
-            activeforeground="white",
-            relief="flat",
+            hover_color=self.accent_hover,
+            fg_color=self.accent_color,
             cursor="hand2",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=8,
-            pady=8
+            width=30,
+            height=30
         )
 
-        self.help_label = tk.Label(
+        self.help_label = ctk.CTkLabel(
             self.main_frame,
             text=self.get_help_text(),
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["button_bg"],
-            fg=theme["fg"],
-            justify=tk.LEFT
+            fg_color=self.accent_color,
+            justify=tk.LEFT,
         )
 
-        self.settings_button = tk.Button(
+        self.settings_button = ctk.CTkButton(
             self.main_frame,
             text="⚙️",
             command=self.show_settings,
             font=("Segoe UI", self.normal_font_size),
-            bg=theme["button_bg"],
-            fg=theme["fg"],
-            activebackground=theme["accent"],
-            activeforeground="white",
-            relief="flat",
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
             cursor="hand2",
-            borderwidth=0,
-            highlightthickness=0,
-            padx=8,
-            pady=8
+            width=30,
+            height=30
         )
 
         for entry in self.entries:
-            entry.config(width=30, height=1)
+            entry.configure(width=30, height=1)
 
         self.refresh_gui()
 
@@ -348,39 +291,28 @@ class HushmixApp:
         # Create new widgets for each application
         for i, app_name in enumerate(self.current_apps):
             # Application label
-            label = tk.Label(
+            label = ctk.CTkLabel(
                 self.main_frame,
                 text=f"App {i+1}:",
-                font=("Segoe UI", self.normal_font_size, "bold"),
-                bg=theme["bg"],
-                fg=theme["fg"]
+                font=("Segoe UI", self.normal_font_size, "bold")
             )
-            label.grid(row=i, column=0, sticky="e", pady=6, padx=6)
+            label.grid(row=i, column=0, sticky="e", pady=6, padx=0)
 
-            entry = tk.Entry(
+            entry = ctk.CTkEntry(
                 self.main_frame,
-                width=self.entry_width,
                 font=("Segoe UI", self.normal_font_size),
-                relief="solid",
-                bd=1,
-                bg=theme["entry_bg"],
-                fg=theme["fg"],
-                insertbackground=theme["fg"],
-                highlightthickness=1,
-                highlightcolor=theme["accent"]
+                width=150,
+                height=30
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
             
-            volume_label = tk.Label(
+            volume_label = ctk.CTkLabel(
                 self.main_frame,
-                text="0%",
+                text="100%",
                 font=("Segoe UI", self.normal_font_size, "bold"),
-                bg=theme["bg"],
-                fg=theme["fg"],
-                width=4
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=5, sticky="w")
+            volume_label.grid(row=i, column=2, pady=6, padx=0, sticky="w")
             
             self.labels.append(label)
             self.entries.append(entry)
@@ -404,57 +336,11 @@ class HushmixApp:
 
     def apply_theme(self):
         """Apply the current theme to all widgets."""
-        theme = THEMES["dark" if self.dark_mode.get() else "light"]
-        
-        # Update main window and frame
-        self.root.configure(bg=theme["bg"])
-        self.main_frame.configure(bg=theme["bg"])
-        
-        # Update button frame
-        if self.button_frame:
-            self.button_frame.configure(bg=theme["bg"])
-        
         self.update_title_bar_color()
-        
-        # Update all widgets with new theme
-        for label in self.labels:
-            label.configure(bg=theme["bg"], fg=theme["fg"])
-        
-        for entry in self.entries:
-            entry.configure(
-                bg=theme["entry_bg"],
-                fg=theme["fg"],
-                insertbackground=theme["fg"]
-            )
-        
-        for label in self.volume_labels:
-            label.configure(bg=theme["bg"], fg=theme["fg"])
-        
-        self.set_button.configure(
-            bg=theme["accent"],
-            fg="white",
-            activebackground=theme["accent_hover"],
-            activeforeground="white"
-        )
-        
-        if self.help_button:
-            self.help_button.configure(
-                bg=theme["button_bg"],
-                fg=theme["fg"],
-                activebackground=theme["accent"],
-                activeforeground="white"
-            )
-            
-        if self.settings_button:
-            self.settings_button.configure(
-                bg=theme["button_bg"],
-                fg=theme["fg"],
-                activebackground=theme["accent"],
-                activeforeground="white"
-            )
-            
-        if hasattr(self, 'help_label'):
-            self.help_label.configure(bg=theme["bg"], fg=theme["fg"])
+        if self.dark_mode.get():
+            ctk.set_appearance_mode("dark")
+        else:
+            ctk.set_appearance_mode("light")
         
         # Force update
         self.root.update_idletasks()
@@ -484,10 +370,10 @@ class HushmixApp:
         self.help_visible.set(not self.help_visible.get())
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
-            self.help_button.config(text="ⓘ ▲")
+            self.help_button.configure(text="ⓘ ▲")
         else:
             self.help_label.grid_remove()
-            self.help_button.config(text="ⓘ ▼")
+            self.help_button.configure(text="ⓘ ▼")
 
     def on_theme_change(self, *args):
         """Handle theme changes."""
@@ -580,10 +466,41 @@ class HushmixApp:
         # Update volume label
         if index < len(self.volume_labels):
             self.root.after(0, lambda l=self.volume_labels[index], v=volume_level: 
-                          l.config(text=f"{v}%"))
+                          l.configure(text=f"{v}%"))
 
         if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:
             app_name = self.entries[index].get()
             if app_name:
                 self.audio_controller.set_application_volume(app_name, volume_level)
                 self.previous_volumes[index] = volume_level
+
+def get_windows_accent_color():
+    """Retrieve the Windows accent color from the registry."""
+    try:
+        # Check the DWM registry key for ColorizationColor
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as key:
+            accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
+            # Extract RGB values from ARGB
+            blue = accent_color & 0xFF
+            green = (accent_color >> 8) & 0xFF
+            red = (accent_color >> 16) & 0xFF
+            # Return the color in hex format
+            return "#{:02x}{:02x}{:02x}".format(red, green, blue)
+    except OSError as e:
+        print(f"Error accessing registry: {e}")
+    # Fallback to a default color if any error occurs
+    return "#2196F3"  # Default color
+
+def darken_color(hex_color, percentage):
+    """Darken a hex color by a given percentage."""
+    # Convert hex to RGB
+    hex_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    
+    # Calculate the darkened color
+    r = int(r * (1 - percentage))
+    g = int(g * (1 - percentage))
+    b = int(b * (1 - percentage))
+    
+    # Convert back to hex
+    return "#{:02x}{:02x}{:02x}".format(r, g, b)
