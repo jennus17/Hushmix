@@ -33,11 +33,11 @@ class SerialController:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
             except Exception as e:
-                showerror('Error', f"Could not connect to the Mixer: {e}")
-                self.initialize_serial()
+                showerror('Error', f"Could not connect to the Mixer. Mixer already in use.")
+                sys.exit(1)
         else:
             showerror('Error', 'Mixer not found. Check your connection.')
-            self.initialize_serial()
+            sys.exit(1)
 
     def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """Reconnect to the mixer."""
