@@ -18,8 +18,13 @@ import customtkinter as ctk
 class HushmixApp:
     def __init__(self, root):
         self.root = root
+
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception as e:
+            print(f"Error setting DPI awareness: {e}")
+
         self.root.tk.call('tk', 'scaling', 1.0)
-        self.dark_mode = ctk.BooleanVar(value=False)
 
         self.normal_font_size = 16
         
@@ -75,6 +80,7 @@ class HushmixApp:
         self.previous_volumes = []
         self.invert_volumes = ctk.BooleanVar(value=False)
         self.auto_startup = ctk.BooleanVar(value=False)
+        self.dark_mode = ctk.BooleanVar(value=False)
         self.volume_labels = []
         self.help_visible = ctk.BooleanVar(value=False)
         self.running = True
