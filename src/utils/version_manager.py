@@ -25,12 +25,15 @@ class VersionManager:
     def get_current_version_from_exe(self):
         """Get the current version of the executable from its properties."""
         try:
+            if getattr(sys, 'frozen', False):
+                self.exe_path = os.path.join(os.path.dirname(sys.executable), "Hushmix.exe")
+            else:
+                self.script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                self.exe_path = os.path.join(self.script_dir, "Hushmix.exe")
 
-            script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            exe_path = os.path.join(script_dir, "Hushmix.exe")
-            pe = pefile.PE(exe_path)
+            self.pe = pefile.PE(self.exe_path)
             # Access the version information
-            for fileinfo in pe.FileInfo:
+            for fileinfo in self.pe.FileInfo:
 
                 for entry in fileinfo:
                     if entry.Key == b'StringFileInfo':
