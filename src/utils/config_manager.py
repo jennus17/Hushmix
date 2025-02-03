@@ -36,7 +36,7 @@ class ConfigManager:
                     "applications": ["App 1"],
                     "invert_volumes": False,
                     "auto_startup": False,
-                    "dark_mode": False,
+                    "dark_mode": True,
                     "launch_in_tray": False
                 }
             

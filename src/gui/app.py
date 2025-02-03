@@ -80,7 +80,7 @@ class HushmixApp:
         self.previous_volumes = []
         self.invert_volumes = ctk.BooleanVar(value=False)
         self.auto_startup = ctk.BooleanVar(value=False)
-        self.dark_mode = ctk.BooleanVar(value=False)
+        self.dark_mode = ctk.BooleanVar(value=True)
         self.volume_labels = []
         self.help_visible = ctk.BooleanVar(value=False)
         self.running = True
@@ -106,7 +106,7 @@ class HushmixApp:
             text_color="white",
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=186,
+            width=190,
             height=40,
             corner_radius=10
         )
@@ -308,7 +308,7 @@ class HushmixApp:
                 width=190,
                 height=30,
                 border_width=2,
-                corner_radius=15
+                corner_radius=10
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
