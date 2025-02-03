@@ -47,13 +47,8 @@ class ConfigManager:
                 return settings
         except Exception as e:
             print(f"Error loading settings: {e}")
-            return {
-                "applications": ["App 1"],
-                "invert_volumes": False,
-                "auto_startup": False,
-                "dark_mode": False,
-                "launch_in_tray": False
-            }
+            return ConfigManager.load_settings()
+
 
     @staticmethod
     def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
