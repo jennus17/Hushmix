@@ -86,7 +86,7 @@ class VersionManager:
         """Show a pop-up window to inform the user about the update."""
         # Create a new window
         self.popup = ctk.CTkToplevel()
-        self.popup.title("Update Available")
+        self.popup.title("Update")
         self.popup.tk.call('tk', 'scaling', 1.0)
         self.popup.resizable(False, False)
 
