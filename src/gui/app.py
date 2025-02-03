@@ -18,8 +18,9 @@ import customtkinter as ctk
 class HushmixApp:
     def __init__(self, root):
         self.root = root
+        self.root.tk.call('tk', 'scaling', 1.0)
         self.dark_mode = ctk.BooleanVar(value=False)
-        
+
         self.normal_font_size = 16
         
         # Setup window and components
