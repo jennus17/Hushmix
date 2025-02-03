@@ -41,6 +41,7 @@ settings.json
 features.txt
 Apps.json
 file_version_info.txt
+Hushmix.exe
 *.ico
 *.log
 *.spec

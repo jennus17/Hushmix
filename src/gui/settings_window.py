@@ -29,7 +29,7 @@ class SettingsWindow:
         self.normal_font_size = 14
         
         self.setup_gui()
-        self.update_title_bar()
+        #self.update_title_bar()
         self.center_window(parent)
         
         #self.window.protocol("WM_DELETE_WINDOW", self.close)

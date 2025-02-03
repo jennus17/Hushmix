@@ -11,6 +11,7 @@ from controllers.serial_controller import SerialController
 from utils.config_manager import ConfigManager
 from utils.icon_manager import IconManager
 from gui.settings_window import SettingsWindow
+from utils.version_manager import VersionManager
 import winreg
 from PIL import Image
 import customtkinter as ctk
@@ -43,8 +44,11 @@ class HushmixApp:
         # Set the accent_hover color to be darker
         self.accent_hover = darken_color(self.accent_color, 0.2)
         
+        self.version_manager = VersionManager()
+
         self.setup_gui()
         self.load_settings()
+
         self.setup_tray_icon()
 
         # Check if the application should launch in the tray
@@ -282,6 +286,7 @@ class HushmixApp:
 
         # Clear existing widgets
         for label in self.labels:
+
             label.destroy()
         for entry in self.entries:
             entry.destroy()

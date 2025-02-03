@@ -2,8 +2,11 @@ import json
 import os
 import winreg
 import time
+import requests
+
 class ConfigManager:
     CONFIG_FILE = "settings.json"
+
 
     @staticmethod
     def save_settings(settings):
@@ -83,3 +86,4 @@ class ConfigManager:
         except Exception as e:
             print(f"Error checking auto-startup status: {e}")
             return False 
+        
