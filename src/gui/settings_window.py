@@ -7,6 +7,8 @@ from utils.icon_manager import IconManager
 class SettingsWindow:
     def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, launch_in_tray, on_close):
         self.window = ctk.CTkToplevel(parent)
+        self.window.tk.call('tk', 'scaling', 1.0)
+
         self.setup_window()
         
         self.window.transient(parent)
@@ -95,7 +97,8 @@ class SettingsWindow:
             text=text,
             variable=variable,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
         )
         checkbox.pack(pady=(15, 0), padx=15, anchor="w")
 
