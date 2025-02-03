@@ -13,7 +13,12 @@ class VersionManager:
 
     def __init__(self):
         self.popup = None
+
         self.start_version_check_thread()
+
+        self.accent_color = app.get_windows_accent_color()
+        self.accent_hover = app.darken_color(self.accent_color, 0.2)
+        self.normal_font_size = 14
 
     def start_version_check_thread(self):
         """Start serial communication thread."""
@@ -39,7 +44,8 @@ class VersionManager:
                     if entry.Key == b'StringFileInfo':
                         for st in entry.StringTable:
                             if b'ProductVersion' in st.entries:
-                                return st.entries[b'ProductVersion'].decode('utf-8')
+                                product_version = st.entries[b'ProductVersion'].decode('utf-8')
+                                return "v" + product_version
         except Exception as e:
             print(f"Error reading version from executable: {e}")
 
@@ -92,14 +98,8 @@ class VersionManager:
             except Exception as e:
                 print(f"Error setting icon: {e}")
 
-        normal_font_size = 14
-
         self.popup.transient()
         self.popup.grab_set()  
-
-
-        self.accent_color = app.get_windows_accent_color()
-        self.accent_hover = app.darken_color(self.accent_color, 0.2)
 
 
         self.message = f"A new version ({latest_version}) is available!"
@@ -115,7 +115,7 @@ class VersionManager:
         self.label = ctk.CTkLabel(
             self.frame, 
             text=self.message,
-            font=("Segoe UI", normal_font_size)
+            font=("Segoe UI", self.normal_font_size)
             )
         self.label.pack(pady=(20, 10), padx=10)
 
@@ -126,7 +126,7 @@ class VersionManager:
             command=lambda: webbrowser.open("https://github.com/jennus17/Hushmix/releases/latest"),
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
-            font=("Segoe UI", normal_font_size)
+            font=("Segoe UI", self.normal_font_size)
             )
         self.open_button.pack(pady=(5, 10))
 
