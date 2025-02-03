@@ -1,7 +1,7 @@
 import json
 import os
 import winreg
-
+import time
 class ConfigManager:
     CONFIG_FILE = "settings.json"
 
@@ -46,6 +46,7 @@ class ConfigManager:
                 print(f"Settings loaded from {config_path}")
                 return settings
         except Exception as e:
+            time.sleep(1)
             print(f"Error loading settings: {e}")
             return ConfigManager.load_settings()
 
