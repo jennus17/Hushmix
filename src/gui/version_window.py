@@ -74,12 +74,16 @@ class VersionWindow:
         self.label.pack(pady=(20, 10), padx=10)
 
 
-        self.open_button = ctk.CTkButton(
+        self.update_button = ctk.CTkButton(
             self.frame, 
             text="Update", 
-            command=lambda: webbrowser.open("https://github.com/jennus17/Hushmix/releases/latest"),
+            command=lambda: [webbrowser.open("https://github.com/jennus17/Hushmix/releases/latest"), self.close()],
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
-            font=("Segoe UI", self.normal_font_size)
+            font=("Segoe UI", self.normal_font_size),
             )
-        self.open_button.pack(pady=(5, 10))
+        self.update_button.pack(pady=(5, 10))
+
+    def close(self):
+        self.window.destroy()
+
