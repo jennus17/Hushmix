@@ -29,5 +29,5 @@ class IconManager:
             return icon_path
         
         except Exception as e:
-            print(f"Error creating ico file: {e}")
+            print(f"Error getting ico file: {e}")
             return None 
