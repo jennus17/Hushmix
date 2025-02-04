@@ -96,6 +96,14 @@ class AudioController:
                         mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
                         mic_volume = None
 
+                elif app_name.lower() == "system":
+                    for session in self._get_sessions():
+                        if session.ProcessId == 0:
+                            with self._lock:
+                                volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+                                volume.SetMasterVolume(level / 100, None)
+                                volume = None
+                            break  # Exit the loop after setting volume for system sounds
                 else:
                     for session in self._get_sessions():
                         if session.Process and app_name.lower() in session.Process.name().lower():
