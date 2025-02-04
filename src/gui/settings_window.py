@@ -29,10 +29,7 @@ class SettingsWindow:
         self.normal_font_size = 14
         
         self.setup_gui()
-        #self.update_title_bar()
         self.center_window(parent)
-        
-        #self.window.protocol("WM_DELETE_WINDOW", self.close)
 
     def setup_window(self):
         """Setup main window properties."""
@@ -40,7 +37,7 @@ class SettingsWindow:
         self.window.resizable(False, False)
         
         # Set window icon
-        ico_path = IconManager.create_ico_file()
+        ico_path = IconManager.get_ico_file()
         if ico_path:
             try:
                 self.window.after(200, lambda: self.window.iconbitmap(ico_path))
@@ -126,22 +123,3 @@ class SettingsWindow:
         self.window.destroy()
         if self.on_close:
             self.on_close()
-
-    def update_title_bar(self):
-        """Update the window title bar color based on the current theme."""
-        try:
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-            hwnd = self.window.winfo_id()
-            rendering_policy = ctypes.c_int(2 if self.dark_mode.get() else 0)
-            set_window_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 
-                               ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            
-            # Force immediate redraw of the title bar
-            self.window.update_idletasks()
-            ctypes.windll.user32.SetWindowPos(
-                hwnd, 0, 0, 0, 0, 0,
-                0x0001 | 0x0002 | 0x0004 | 0x0400  # SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED
-            )
-        except Exception as e:
-            print(f"Error setting settings window title bar theme: {e}")   

@@ -47,7 +47,7 @@ class VersionWindow:
         self.window.resizable(False, False)
 
         # Set window icon
-        ico_path = IconManager.create_ico_file() 
+        ico_path = IconManager.get_ico_file() 
         if ico_path:
             try:
                 self.window.after(200, lambda: self.window.iconbitmap(ico_path))

@@ -64,7 +64,7 @@ class HushmixApp:
         self.root.resizable(False, False)
         
         # Set window icon
-        ico_path = IconManager.create_ico_file()
+        ico_path = IconManager.get_ico_file()
         if ico_path:
             try:
                 myappid = 'Hushmix'
