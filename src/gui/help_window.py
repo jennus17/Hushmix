@@ -56,7 +56,12 @@ class HelpWindow:
         ]
         
         for command, description in self.commands:
-            command_frame = ctk.CTkFrame(self.frame)
+            command_frame = ctk.CTkFrame(
+                self.frame,
+                corner_radius=0,
+                border_width=0,
+                fg_color=self.frame.cget("fg_color")
+            )
             command_frame.pack(anchor="w", padx=10)
 
             self.command_label = ctk.CTkLabel(
@@ -80,7 +85,7 @@ class HelpWindow:
             font=("Segoe UI", self.normal_font_size),
             justify="center"
         )
-        self.extra_text_label.pack(anchor="center", padx=5, pady=10)
+        self.extra_text_label.pack(anchor="center", padx=5, pady=(15, 10))
 
     def center_window(self, parent):
         self.window.update_idletasks()
