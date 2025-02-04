@@ -56,7 +56,7 @@ class HushmixApp:
         else:
             self.root.deiconify()
 
-        self.version_manager = VersionManager()
+        self.version_manager = VersionManager(self.root)
 
     def setup_window(self):
         """Setup main window properties."""
