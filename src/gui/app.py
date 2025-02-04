@@ -43,8 +43,6 @@ class HushmixApp:
         
         # Set the accent_hover color to be darker
         self.accent_hover = darken_color(self.accent_color, 0.2)
-        
-        self.version_manager = VersionManager()
 
         self.setup_gui()
         self.load_settings()
@@ -57,6 +55,8 @@ class HushmixApp:
             self.icon.visible = True
         else:
             self.root.deiconify()
+
+        self.version_manager = VersionManager()
 
     def setup_window(self):
         """Setup main window properties."""

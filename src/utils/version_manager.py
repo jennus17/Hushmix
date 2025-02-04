@@ -9,6 +9,7 @@ import queue
 import time
 import gui.app as app
 from utils.icon_manager import IconManager
+
 class VersionManager:
 
     def __init__(self):
@@ -75,6 +76,7 @@ class VersionManager:
                 if current_version != latest_version:
                     new_version = True
                     self.show_update_popup(latest_version)  # Put the latest version in the queue
+                    return
                 time.sleep(600)
             except requests.RequestException as e:
                 print(f"Error checking for updates: {e}")
@@ -90,6 +92,9 @@ class VersionManager:
         self.popup.tk.call('tk', 'scaling', 1.0)
         self.popup.resizable(False, False)
 
+        self.popup.transient()
+        self.popup.grab_set()  
+
         # Set window icon
         ico_path = IconManager.create_ico_file() 
         if ico_path:
@@ -97,9 +102,6 @@ class VersionManager:
                 self.popup.after(200, lambda: self.popup.iconbitmap(ico_path))
             except Exception as e:
                 print(f"Error setting icon: {e}")
-
-        self.popup.transient()
-        self.popup.grab_set()  
 
 
         self.message = f"A new version ({latest_version}) is available!"
