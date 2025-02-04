@@ -273,10 +273,11 @@ class HushmixApp:
         """Return help text for the application."""
         return (
             "Special commands:"
+            "\n• master - Controls the speaker volume"
+            "\n• system - Controls the system sounds volume"
+            "\n• mic - Controls the default microphone"
             "\n• current - Controls the current application" 
             "\n\t in focus"
-            "\n• master - Controls the speaker volume"
-            "\n• mic - Controls the default microphone"
             "\n\n For specific applications, use the full name\n"         
             "       (e.g., chrome.exe, discord.exe, etc.)"
         )
