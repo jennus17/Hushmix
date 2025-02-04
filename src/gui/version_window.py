@@ -5,6 +5,9 @@ import customtkinter as ctk
 
 class VersionWindow:
     def __init__(self, latest_version, parent):
+        self.window = ctk.CTkToplevel(parent)
+        self.window.tk.call('tk', 'scaling', 1.0)
+
         self.setup_window(parent)
 
         self.window.transient()
@@ -41,9 +44,7 @@ class VersionWindow:
     def setup_window(self, parent):
         """Show a pop-up window to inform the user about the update."""
         # Create a new window
-        self.window = ctk.CTkToplevel(parent)
         self.window.title("Update")
-        self.window.tk.call('tk', 'scaling', 1.0)
         self.window.resizable(False, False)
 
         # Set window icon
@@ -81,6 +82,7 @@ class VersionWindow:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             font=("Segoe UI", self.normal_font_size),
+            corner_radius=10
             )
         self.update_button.pack(pady=(5, 10))
 

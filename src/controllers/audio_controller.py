@@ -47,8 +47,11 @@ class AudioController:
                 self._last_session_refresh = current_time
             return self._sessions_cache
 
-    def set_application_volume(self, app_name, level):
+    def set_application_volume(self, app_names, level):
         self._init_com()
+        
+        # Split the app_names by comma and strip whitespace
+        app_names_list = [name.strip() for name in app_names.split(',')]
         
         # Check if the current device has changed
         current_device = AudioUtilities.GetSpeakers()
@@ -60,48 +63,47 @@ class AudioController:
             self.volume = self.interface.QueryInterface(IAudioEndpointVolume)
 
         try:
-            if app_name.lower() == "current":
-                hwnd = win32gui.GetForegroundWindow()
-                _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+            for app_name in app_names_list:
+                if app_name.lower() == "current":
+                    hwnd = win32gui.GetForegroundWindow()
+                    _, process_id = win32process.GetWindowThreadProcessId(hwnd)
 
-                if not process_id:
-                    return
+                    if not process_id:
+                        continue
 
-                process = psutil.Process(process_id)
-                process_name = process.name()
+                    process = psutil.Process(process_id)
+                    process_name = process.name()
 
-                for session in self._get_sessions():
-                    if session.Process and session.Process.name().lower() == process_name.lower():
-                        with self._lock:
-                            volume = session._ctl.QueryInterface(ISimpleAudioVolume)
-                            volume.SetMasterVolume(level / 100, None)
-                            volume = None
-                        return
+                    for session in self._get_sessions():
+                        if session.Process and session.Process.name().lower() == process_name.lower():
+                            with self._lock:
+                                volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+                                volume.SetMasterVolume(level / 100, None)
+                                volume = None
+                            break  # Exit the loop after setting volume for the current app
 
-            elif app_name.lower() == "master":
-                with self._lock:
-                    self.volume.SetMasterVolumeLevelScalar(level / 100, None)
-                return
+                elif app_name.lower() == "master":
+                    with self._lock:
+                        self.volume.SetMasterVolumeLevelScalar(level / 100, None)
 
-            elif app_name.lower() == "mic":
-                with self._lock:
-                    mic_device = AudioUtilities.GetMicrophone()
-                    mic_volume_interface = mic_device.Activate(
-                        IAudioEndpointVolume._iid_, CLSCTX_ALL, None
-                    )
-                    mic_volume = mic_volume_interface.QueryInterface(IAudioEndpointVolume)
-                    mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
-                    mic_volume = None
-                return
+                elif app_name.lower() == "mic":
+                    with self._lock:
+                        mic_device = AudioUtilities.GetMicrophone()
+                        mic_volume_interface = mic_device.Activate(
+                            IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+                        )
+                        mic_volume = mic_volume_interface.QueryInterface(IAudioEndpointVolume)
+                        mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
+                        mic_volume = None
 
-            else:
-                for session in self._get_sessions():
-                    if session.Process and app_name.lower() in session.Process.name().lower():
-                        with self._lock:
-                            volume = session._ctl.QueryInterface(ISimpleAudioVolume)
-                            volume.SetMasterVolume(level / 100, None)
-                            volume = None
-                        return
+                else:
+                    for session in self._get_sessions():
+                        if session.Process and app_name.lower() in session.Process.name().lower():
+                            with self._lock:
+                                volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+                                volume.SetMasterVolume(level / 100, None)
+                                volume = None
+                            break  # Exit the loop after setting volume for the matched app
 
         except Exception as e:
             print(f"Error setting volume: {e}")
