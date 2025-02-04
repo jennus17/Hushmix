@@ -8,9 +8,9 @@ class VersionWindow:
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call('tk', 'scaling', 1.0)
 
-        self.setup_window(parent)
+        self.setup_window()
 
-        self.window.transient()
+        self.window.transient(parent)
         self.window.grab_set()  
 
         self.accent_color = app.get_windows_accent_color()
@@ -41,7 +41,7 @@ class VersionWindow:
         
         self.window.geometry(f"+{x}+{y}")
 
-    def setup_window(self, parent):
+    def setup_window(self):
         """Show a pop-up window to inform the user about the update."""
         # Create a new window
         self.window.title("Update")
