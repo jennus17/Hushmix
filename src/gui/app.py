@@ -12,6 +12,7 @@ from utils.config_manager import ConfigManager
 from utils.icon_manager import IconManager
 from gui.settings_window import SettingsWindow
 from utils.version_manager import VersionManager
+from gui.help_window import HelpWindow
 import winreg
 from PIL import Image
 import customtkinter as ctk
@@ -117,22 +118,15 @@ class HushmixApp:
 
         self.help_button = ctk.CTkButton(
             self.main_frame,
-            text="ⓘ ▼" if not self.help_visible.get() else "ⓘ ▲",
-            command=self.toggle_help,
+            text=" ⓘ ",
+            command=lambda: HelpWindow(self.root),
             font=("Segoe UI", self.normal_font_size),
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
             cursor="hand2",
-            width=20,
+            width=30,
             height=40,
             corner_radius=10
-        )
-
-        self.help_label = ctk.CTkLabel(
-            self.main_frame,
-            text=self.get_help_text(),
-            font=("Segoe UI", self.normal_font_size),
-            justify=ctk.LEFT,
         )
 
         self.settings_button = ctk.CTkButton(
@@ -143,7 +137,7 @@ class HushmixApp:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=20,
+            width=30,
             height=40,
             corner_radius=10
         )
@@ -268,20 +262,6 @@ class HushmixApp:
         if hasattr(self, 'icon'):
             self.icon.visible = True
 
-    @staticmethod
-    def get_help_text():
-        """Return help text for the application."""
-        return (
-            "Special commands:"
-            "\n• master - Controls the speaker volume"
-            "\n• system - Controls the system sounds volume"
-            "\n• mic - Controls the default microphone"
-            "\n• current - Controls the current application" 
-            "\n\t in focus"
-            "\n\n For specific applications, use the full name\n"         
-            "       (e.g., chrome.exe, discord.exe, etc.)"
-        )
-
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
 
@@ -377,16 +357,6 @@ class HushmixApp:
             )
         except Exception as e:
             print(f"Error setting title bar theme: {e}")
-
-    def toggle_help(self):
-        """Toggle help text visibility."""
-        self.help_visible.set(not self.help_visible.get())
-        if self.help_visible.get():
-            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=15)
-            self.help_button.configure(text="ⓘ ▲")
-        else:
-            self.help_label.grid_remove()
-            self.help_button.configure(text="ⓘ ▼")
 
     def set_applications(self):
         """Update application names from entry fields."""

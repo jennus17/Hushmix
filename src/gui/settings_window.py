@@ -44,10 +44,7 @@ class SettingsWindow:
             except Exception as e:
                 print(f"Error setting icon: {e}")
 
-    def setup_gui(self):
-        
-        self.window.configure()
-        
+    def setup_gui(self):  
         self.frame = ctk.CTkFrame(
             self.window,
             corner_radius=0,
