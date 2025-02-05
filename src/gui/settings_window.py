@@ -31,6 +31,8 @@ class SettingsWindow:
         self.setup_gui()
         self.center_window(parent)
 
+        self.window.protocol("WM_DELETE_WINDOW", self.close)
+
     def setup_window(self):
         """Setup main window properties."""
         self.window.title("Settings")
@@ -81,7 +83,7 @@ class SettingsWindow:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
         )
-        checkbox.pack(pady=(10, 10), padx=15, anchor="w")
+        checkbox.pack(pady=10, padx=15, anchor="w")
 
     def center_window(self, parent):
         self.window.update_idletasks()
@@ -101,3 +103,9 @@ class SettingsWindow:
         y = parent_y + (parent_height - window_height) // 2
         
         self.window.geometry(f"+{x}+{y}")
+
+    def close(self):
+        self.window.grab_release()
+        self.window.destroy()
+        if self.on_close:
+            self.on_close()
