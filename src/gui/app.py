@@ -120,7 +120,7 @@ class HushmixApp:
             self.main_frame,
             text=" ⓘ ",
             command=lambda: HelpWindow(self.root),
-            font=("Segoe UI", self.normal_font_size),
+            font=("Segoe UI", self.normal_font_size, "bold"),
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
             cursor="hand2",
@@ -133,7 +133,7 @@ class HushmixApp:
             self.main_frame,
             text="⚙️",
             command=self.show_settings,
-            font=("Segoe UI", self.normal_font_size),
+            font=("Segoe UI", self.normal_font_size, "bold"),
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
@@ -322,7 +322,6 @@ class HushmixApp:
 
     def apply_theme(self):
         """Apply the current theme to all widgets."""
-        self.update_title_bar_color()
         if self.dark_mode.get():
             ctk.set_appearance_mode("dark")
         else:
@@ -330,26 +329,6 @@ class HushmixApp:
         
         # Force update
         self.root.update_idletasks()
-
-    def update_title_bar_color(self):
-        """Update the Windows title bar color."""
-        try:
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
-            get_parent = ctypes.windll.user32.GetParent
-            hwnd = get_parent(self.root.winfo_id())
-            rendering_policy = ctypes.c_int(2 if self.dark_mode.get() else 0)
-            set_window_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 
-                               ctypes.byref(rendering_policy), ctypes.sizeof(rendering_policy))
-            
-            # Force immediate redraw of the title bar
-            self.root.update_idletasks()
-            ctypes.windll.user32.SetWindowPos(
-                hwnd, 0, 0, 0, 0, 0,
-                0x0001 | 0x0002 | 0x0004 | 0x0400  # SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED
-            )
-        except Exception as e:
-            print(f"Error setting title bar theme: {e}")
 
     def set_applications(self):
         """Update application names from entry fields."""
