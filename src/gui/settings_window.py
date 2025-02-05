@@ -71,19 +71,6 @@ class SettingsWindow:
             "Dark Mode",
             self.dark_mode,
         )
-        
-        close_btn = ctk.CTkButton(
-            self.frame,
-            text="Close",
-            command=self.close,
-            font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
-            width=150,
-            height=30,
-            corner_radius=10
-        )
-        close_btn.pack(pady=(15, 10))
 
     def create_checkbox(self, text, variable):
         checkbox = ctk.CTkCheckBox(
@@ -94,7 +81,7 @@ class SettingsWindow:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
         )
-        checkbox.pack(pady=(15, 0), padx=15, anchor="w")
+        checkbox.pack(pady=(10, 10), padx=15, anchor="w")
 
     def center_window(self, parent):
         self.window.update_idletasks()
@@ -114,9 +101,3 @@ class SettingsWindow:
         y = parent_y + (parent_height - window_height) // 2
         
         self.window.geometry(f"+{x}+{y}")
-
-    def close(self):
-        self.window.grab_release()
-        self.window.destroy()
-        if self.on_close:
-            self.on_close()
