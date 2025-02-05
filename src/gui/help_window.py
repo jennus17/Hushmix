@@ -41,11 +41,11 @@ class HelpWindow:
         # Bold label for "Special commands:"
         self.special_commands_label = ctk.CTkLabel(
             self.frame, 
-            text="Special commands:", 
+            text="Special Commands", 
             font=("Segoe UI", self.normal_font_size + 10, "bold"),
             text_color=self.accent_color
         )
-        self.special_commands_label.pack(anchor="w", padx=10, pady=(5,10))
+        self.special_commands_label.pack(anchor="center", padx=10, pady=(5,10))
 
         # Create labels for commands with descriptions
         self.commands = [
@@ -79,13 +79,21 @@ class HelpWindow:
                 )
             self.description_label.pack(side="left", padx=(10, 0))
 
+        self.divider_label = ctk.CTkLabel(
+            self.frame,
+            text="------------------------------------------------------------",
+            font=("Segoe UI", self.normal_font_size),
+            justify="center"
+        )
+        self.divider_label.pack(anchor="center", padx=5, pady=0)
+
         self.extra_text_label = ctk.CTkLabel(
             self.frame,
             text="For specific applications, use the full name\n(e.g., chrome.exe, discord.exe, etc.)",
             font=("Segoe UI", self.normal_font_size),
             justify="center"
         )
-        self.extra_text_label.pack(anchor="center", padx=5, pady=(15, 0))
+        self.extra_text_label.pack(anchor="center", padx=5, pady=0)
 
         self.extra_text_label2 = ctk.CTkLabel(
             self.frame,
