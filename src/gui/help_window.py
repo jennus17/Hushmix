@@ -13,7 +13,7 @@ class HelpWindow:
         self.window.grab_set()
 
         self.accent_color = app.get_windows_accent_color()
-        self.normal_font_size = 14
+        self.normal_font_size = 16
 
         self.setup_gui()
         self.center_window(parent)
@@ -42,17 +42,17 @@ class HelpWindow:
         self.special_commands_label = ctk.CTkLabel(
             self.frame, 
             text="Special commands:", 
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
+            font=("Segoe UI", self.normal_font_size + 10, "bold"),
             text_color=self.accent_color
         )
-        self.special_commands_label.pack(anchor="w", padx=10, pady=5)
+        self.special_commands_label.pack(anchor="w", padx=10, pady=(5,10))
 
         # Create labels for commands with descriptions
         self.commands = [
             ("master", "Controls the speaker volume"),
             ("system", "Controls the system sounds volume"),
-            ("mic", "Controls the default microphone"),
-            ("current", "Controls the current application in focus")
+            ("current", "Controls the current application in focus"),
+            ("mic", "Controls the default microphone")
         ]
         
         for command, description in self.commands:
@@ -66,9 +66,9 @@ class HelpWindow:
 
             self.command_label = ctk.CTkLabel(
                 command_frame, 
-                text=f"• {command}:", 
+                text=f" • {command}:", 
                 text_color=self.accent_color,
-                font=("Segoe UI", self.normal_font_size + 2, "bold")
+                font=("Segoe UI", self.normal_font_size + 1, "bold")
                 )
             self.command_label.pack(side="left") 
 
@@ -81,11 +81,19 @@ class HelpWindow:
 
         self.extra_text_label = ctk.CTkLabel(
             self.frame,
-            text="For specific applications, use the full name\n(e.g., chrome.exe, discord.exe, etc.)\n\nYou can also group applications by using a comma\n(e.g.,App 1: chrome.exe, discord.exe, master, etc.)",
+            text="For specific applications, use the full name\n(e.g., chrome.exe, discord.exe, etc.)",
             font=("Segoe UI", self.normal_font_size),
             justify="center"
         )
-        self.extra_text_label.pack(anchor="center", padx=5, pady=(15, 10))
+        self.extra_text_label.pack(anchor="center", padx=5, pady=(15, 0))
+
+        self.extra_text_label2 = ctk.CTkLabel(
+            self.frame,
+            text="You can also group applications by using a comma\n(e.g., App 1: chrome.exe, discord.exe, master, etc.)",
+            font=("Segoe UI", self.normal_font_size),
+            justify="center"
+        )
+        self.extra_text_label2.pack(anchor="center", padx=5, pady=(5, 10))
 
     def center_window(self, parent):
         self.window.update_idletasks()
