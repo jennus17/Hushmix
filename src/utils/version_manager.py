@@ -61,7 +61,7 @@ class VersionManager:
 
 
                 print(f"Current version: {current_version}, Latest version: {latest_version}")
-                if current_version != latest_version and latest_version > current_version:
+                if current_version != latest_version:
                     new_version = True
                     self.version_window = VersionWindow(latest_version, parent)
                     return
