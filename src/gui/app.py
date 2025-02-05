@@ -154,25 +154,18 @@ class HushmixApp:
             MenuItem("Exit", self.on_exit)
         )
         
-        icon_image = IconManager.create_tray_icon()
-        if icon_image is None:
-            raise ValueError("Failed to create tray icon image.")
+        ico_path = IconManager.get_ico_file()
 
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                # Attempt to load the image to check for integrity
-                icon_image.load() 
-                
-                self.icon = Icon(
-                    "Hushmix",
-                    icon=icon_image,
-                    menu=menu,
-                    title="Hushmix"
-                )
-            except Exception as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
-                time.sleep(0.1)  # Wait before retrying
+        try:
+            icon_image = Image.open(ico_path)
+            self.icon = Icon(
+                "Hushmix",
+                icon=icon_image,
+                menu=menu,
+                title="Hushmix"
+            )
+        except Exception as e:
+            print(f"Error setting up tray icon: {e}")
 
         # Run the icon in a separate thread
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
@@ -183,7 +176,7 @@ class HushmixApp:
 
     def hide_tray_icon(self):
         """Hide the tray icon."""
-        time.sleep(0.01)
+        time.sleep(0.1)
         if self.icon.visible is True:
             self.icon.visible = False
         else:
