@@ -144,6 +144,7 @@ class HushmixApp:
 
         for entry in self.entries:
             entry.configure(width=170, height=30)
+            entry.bind("<KeyRelease>", self.save_applications)
 
         self.refresh_gui()
 
@@ -257,10 +258,8 @@ class HushmixApp:
 
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
-
         # Clear existing widgets
         for label in self.labels:
-
             label.destroy()
         for entry in self.entries:
             entry.destroy()
@@ -291,7 +290,8 @@ class HushmixApp:
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
-            
+            entry.bind("<KeyRelease>", self.save_applications)
+
             volume_label = ctk.CTkLabel(
                 self.main_frame,
                 text="100%",
@@ -421,6 +421,11 @@ class HushmixApp:
             if app_name:
                 self.audio_controller.set_application_volume(app_name, volume_level)
                 self.previous_volumes[index] = volume_level
+
+    def save_applications(self, event):
+        """Save applications when a key is released in the entry fields."""
+        self.current_apps = [entry.get() for entry in self.entries]
+        self.save_settings()
 
 def get_windows_accent_color():
     """Retrieve the Windows accent color from the registry."""
