@@ -28,7 +28,7 @@ class ConfigManager:
     def load_settings():
         """Load settings from JSON file."""
         try:
-            time.sleep(0.5)
+            time.sleep(0.1)
 
             # Get the directory where the script is running
             script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
