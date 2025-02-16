@@ -86,6 +86,7 @@ class HushmixApp:
         self.invert_volumes = ctk.BooleanVar(value=False)
         self.auto_startup = ctk.BooleanVar(value=False)
         self.dark_mode = ctk.BooleanVar(value=True)
+        self.launch_in_tray = ctk.BooleanVar(value=False)
         self.volume_labels = []
         self.help_visible = ctk.BooleanVar(value=False)
         self.running = True
@@ -99,21 +100,20 @@ class HushmixApp:
             self.root,
             corner_radius=0,
             border_width=0,
-            )
+        )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         
-        self.set_button = ctk.CTkButton(
+        self.profile_listbox = ctk.CTkOptionMenu(
             self.main_frame,
-            text="Set Applications",
-            command=self.set_applications,
-            font=("Segoe UI", self.normal_font_size + 2, "bold"),
+            values=["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"],
+            command=self.on_profile_change,
+            font=("Segoe UI", self.normal_font_size),
             fg_color=self.accent_color,
-            text_color="white",
-            hover_color=self.accent_hover,
-            cursor="hand2",
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
             width=190,
             height=40,
-            corner_radius=10
         )
 
         self.help_button = ctk.CTkButton(
@@ -290,7 +290,9 @@ class HushmixApp:
             )
             entry.insert(0, app_name)
             entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
-            entry.bind("<KeyRelease>", self.save_applications)
+            
+            # Bind to any changes in the entry
+            entry.bind('<KeyRelease>', lambda e: self.save_applications())
 
             volume_label = ctk.CTkLabel(
                 self.main_frame,
@@ -304,8 +306,8 @@ class HushmixApp:
             self.volume_labels.append(volume_label)
         
 
+        self.profile_listbox.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
         self.help_button.grid(row=len(self.current_apps), column=0, padx=(10, 0), sticky="e")
-        self.set_button.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
         self.settings_button.grid(row=len(self.current_apps), column=2, padx=(0, 10), sticky="w")
 
         if self.help_visible.get():
@@ -339,20 +341,31 @@ class HushmixApp:
         """Load settings from config file."""
         settings = ConfigManager.load_settings()
         
-        self.current_apps = settings.get("applications")
+        # Get the last used profile
+        current_profile = settings.get("current_profile")
+        
+        # Get the applications for the last used profile
+        profile_apps = settings.get("profiles", {}).get(current_profile, {}).get("applications", [])
+        self.current_apps = profile_apps if profile_apps else []
+        
+        # Load other settings
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
-        self.dark_mode.set(settings.get("dark_mode", False))
-        self.launch_in_tray = ctk.BooleanVar(value=settings.get("launch_in_tray", False))
+        self.dark_mode.set(settings.get("dark_mode", True))
+        self.launch_in_tray.set(settings.get("launch_in_tray", False))
         
-        self.apply_theme()
+        # Set the correct profile in the dropdown
+        self.profile_listbox.set(current_profile)
+        
         self.refresh_gui()
         
-        print("Settings loaded:", settings)
+        print(f"Loaded settings for profile {current_profile}")
+        print(f"Loaded applications: {self.current_apps}")
 
     def save_settings(self):
         """Save current settings to config file."""
         settings = {
+            "current_profile": self.profile_listbox.get(),
             "applications": [entry.get() for entry in self.entries],
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
@@ -418,10 +431,79 @@ class HushmixApp:
                 self.audio_controller.set_application_volume(app_name, volume_level)
                 self.previous_volumes[index] = volume_level
 
-    def save_applications(self, event):
+    def on_profile_change(self, profile):
+        """Handle profile selection changes."""
+        try:
+            # Get the current (old) profile and its apps
+            old_profile = self.profile_listbox.get()
+            old_apps = [entry.get() for entry in self.entries]
+            
+            # Load existing settings
+            settings = ConfigManager.load_settings()
+            
+            # Save the old profile's apps
+            settings_to_save = {
+                "current_profile": old_profile,
+                "applications": old_apps,
+                "invert_volumes": self.invert_volumes.get(),
+                "auto_startup": self.auto_startup.get(),
+                "dark_mode": self.dark_mode.get(),
+                "launch_in_tray": self.launch_in_tray.get()
+            }
+            ConfigManager.save_settings(settings_to_save)
+            
+            # Now switch to the new profile
+            # Get the new profile's existing apps from the loaded settings
+            new_profile_apps = settings.get("profiles", {}).get(profile, {}).get("applications", [])
+            
+            # Update the current apps list
+            self.current_apps = new_profile_apps
+            
+            # Update the GUI
+            self.refresh_gui()
+            
+            # Save the current profile selection
+            settings_to_save = {
+                "current_profile": profile,
+                "applications": new_profile_apps,
+                "invert_volumes": self.invert_volumes.get(),
+                "auto_startup": self.auto_startup.get(),
+                "dark_mode": self.dark_mode.get(),
+                "launch_in_tray": self.launch_in_tray.get()
+            }
+            ConfigManager.save_settings(settings_to_save)
+            
+            print(f"Switched from {old_profile} to {profile}")
+            print(f"Old apps: {old_apps}")
+            print(f"New apps: {new_profile_apps}")
+            
+        except Exception as e:
+            print(f"Error in profile change: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def save_applications(self, event=None):
         """Save applications when a key is released in the entry fields."""
-        self.current_apps = [entry.get() for entry in self.entries]
-        self.save_settings()
+        try:
+            current_profile = self.profile_listbox.get()
+            current_apps = [entry.get() for entry in self.entries]
+            
+            settings = {
+                "current_profile": current_profile,
+                "applications": current_apps,
+                "invert_volumes": self.invert_volumes.get(),
+                "auto_startup": self.auto_startup.get(),
+                "dark_mode": self.dark_mode.get(),
+                "launch_in_tray": self.launch_in_tray.get()
+            }
+            
+            print(f"Attempting to save apps for {current_profile}: {current_apps}")
+            ConfigManager.save_settings(settings)
+            
+        except Exception as e:
+            print(f"Error in save_applications: {e}")
+            import traceback
+            traceback.print_exc()
 
 def get_windows_accent_color():
     """Retrieve the Windows accent color from the registry."""
