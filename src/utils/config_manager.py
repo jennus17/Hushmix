@@ -26,14 +26,13 @@ class ConfigManager:
             if "profiles" not in existing_settings:
                 existing_settings["profiles"] = {}
             
-            # Get the current profile
-            current_profile = settings.get("current_profile", "Profile 1")
+            current_profile = settings.get("current_profile")
             
             # Update the profile-specific settings
             if current_profile not in existing_settings["profiles"]:
                 existing_settings["profiles"][current_profile] = {}
                 
-            existing_settings["profiles"][current_profile]["applications"] = settings.get("applications", [])
+            existing_settings["profiles"][current_profile]["applications"] = settings.get("applications")
             
             # Update global settings
             existing_settings.update({
@@ -104,7 +103,7 @@ class ConfigManager:
                     }
                 
                 # Get current profile
-                current_profile = settings.get("current_profile", "Profile 1")
+                current_profile = settings.get("current_profile")
                 
                 # Get profile-specific applications
                 profile_settings = settings.get("profiles", {}).get(current_profile, {"applications": []})

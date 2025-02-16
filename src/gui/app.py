@@ -422,7 +422,7 @@ class HushmixApp:
 
         # Update volume label
         if index < len(self.volume_labels):
-            self.root.after(0, lambda l=self.volume_labels[index], v=volume_level: 
+            self.root.after(10, lambda l=self.volume_labels[index], v=volume_level: 
                           l.configure(text=f"{v}%"))
 
         if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:
