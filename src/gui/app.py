@@ -435,14 +435,11 @@ class HushmixApp:
     def on_profile_change(self, profile):
         """Handle profile selection changes."""
         try:
-            # Get the current (old) profile and its apps
             old_profile = self.profile_listbox.get()
             old_apps = [entry.get() for entry in self.entries]
             
-            # Load existing settings
             settings = ConfigManager.load_settings()
             
-            # Save the old profile's apps
             settings_to_save = {
                 "current_profile": old_profile,
                 "applications": old_apps,
@@ -453,17 +450,11 @@ class HushmixApp:
             }
             ConfigManager.save_settings(settings_to_save)
             
-            # Now switch to the new profile
-            # Get the new profile's existing apps from the loaded settings
             new_profile_apps = settings.get("profiles", {}).get(profile, {}).get("applications", [])
-            
-            # Update the current apps list
             self.current_apps = new_profile_apps
-            
-            # Update the GUI
+        
             self.refresh_gui()
             
-            # Save the current profile selection
             settings_to_save = {
                 "current_profile": profile,
                 "applications": new_profile_apps,
