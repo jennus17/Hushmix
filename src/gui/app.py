@@ -107,13 +107,14 @@ class HushmixApp:
             self.main_frame,
             values=["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"],
             command=self.on_profile_change,
-            font=("Segoe UI", self.normal_font_size),
+            font=("Segoe UI", self.normal_font_size, "bold"),
             fg_color=self.accent_color,
             button_color=self.accent_color,
             button_hover_color=self.accent_hover,
             dropdown_hover_color=self.accent_hover,
             width=190,
             height=40,
+            corner_radius=10
         )
 
         self.help_button = ctk.CTkButton(
@@ -133,7 +134,7 @@ class HushmixApp:
             self.main_frame,
             text="⚙️",
             command=self.show_settings,
-            font=("Segoe UI", self.normal_font_size, "bold"),
+            font=("Segoe UI", self.normal_font_size + 1, "bold"),
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
