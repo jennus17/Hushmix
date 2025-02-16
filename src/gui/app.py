@@ -339,11 +339,7 @@ class HushmixApp:
         """Load settings from config file."""
         settings = ConfigManager.load_settings()
         
-        self.current_apps = settings.get("applications", ["App 1"])
-        if not self.current_apps:
-            self.current_apps = ["App 1"]
-            
-        # Load other settings with defaults
+        self.current_apps = settings.get("applications")
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", False))
