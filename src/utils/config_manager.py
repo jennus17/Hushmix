@@ -5,36 +5,31 @@ import time
 import requests
 
 class ConfigManager:
-    CONFIG_FILE = "settings.json"
+    CONFIG_FILE = os.path.join(os.getenv('APPDATA'), 'Hushmix', 'settings.json')
 
 
     @staticmethod
     def save_settings(settings):
         """Save settings to JSON file."""
         try:
-            # Get the directory where the script is running
-            script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            config_path = os.path.join(script_dir, ConfigManager.CONFIG_FILE)
+            os.makedirs(os.path.dirname(ConfigManager.CONFIG_FILE), exist_ok=True)
             
             # Load existing settings first
             existing_settings = {}
-            if os.path.exists(config_path):
-                with open(config_path, "r") as file:
+            if os.path.exists(ConfigManager.CONFIG_FILE):
+                with open(ConfigManager.CONFIG_FILE, "r") as file:
                     existing_settings = json.load(file)
             
-            # Initialize profiles if they don't exist
             if "profiles" not in existing_settings:
                 existing_settings["profiles"] = {}
             
             current_profile = settings.get("current_profile")
             
-            # Update the profile-specific settings
             if current_profile not in existing_settings["profiles"]:
                 existing_settings["profiles"][current_profile] = {}
                 
             existing_settings["profiles"][current_profile]["applications"] = settings.get("applications")
             
-            # Update global settings
             existing_settings.update({
                 "current_profile": current_profile,
                 "invert_volumes": settings.get("invert_volumes", False),
@@ -42,17 +37,10 @@ class ConfigManager:
                 "dark_mode": settings.get("dark_mode", True),
                 "launch_in_tray": settings.get("launch_in_tray", False)
             })
-            
-            # Print debug information
-            print(f"Saving settings for profile {current_profile}")
-            print(f"Applications: {settings.get('applications', [])}")
-            print(f"Full settings: {existing_settings}")
-            
-            # Save to file
-            with open(config_path, "w") as file:
+            with open(ConfigManager.CONFIG_FILE, "w") as file:
                 json.dump(existing_settings, file, indent=4)
             
-            print(f"Settings successfully saved to {config_path}")
+            print(f"Settings successfully saved to {ConfigManager.CONFIG_FILE}")
             
         except Exception as e:
             print(f"Error saving settings: {e}")
@@ -65,12 +53,7 @@ class ConfigManager:
         try:
             time.sleep(0.1)
 
-            # Get the directory where the script is running
-            script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            config_path = os.path.join(script_dir, ConfigManager.CONFIG_FILE)
-            
-            # Check if file exists
-            if not os.path.exists(config_path):
+            if not os.path.exists(ConfigManager.CONFIG_FILE):
                 print("No settings file found, using defaults")
                 default_settings = {
                     "current_profile": "Profile 1",
@@ -88,11 +71,9 @@ class ConfigManager:
                 }
                 return default_settings
             
-            # Load settings from file
-            with open(config_path, "r") as file:
+            with open(ConfigManager.CONFIG_FILE, "r") as file:
                 settings = json.load(file)
                 
-                # Ensure profiles structure exists
                 if "profiles" not in settings:
                     settings["profiles"] = {
                         "Profile 1": {"applications": []},
@@ -102,13 +83,9 @@ class ConfigManager:
                         "Profile 5": {"applications": []}
                     }
                 
-                # Get current profile
                 current_profile = settings.get("current_profile")
-                
-                # Get profile-specific applications
                 profile_settings = settings.get("profiles", {}).get(current_profile, {"applications": []})
                 
-                # Return full settings structure
                 return {
                     "current_profile": current_profile,
                     "profiles": settings.get("profiles", {}),
