@@ -53,7 +53,6 @@ class HushmixApp:
         # Check if the application should launch in the tray
         if self.launch_in_tray.get():
             self.root.withdraw()
-            self.icon.visible = True
         else:
             self.root.deiconify()
 
@@ -179,10 +178,6 @@ class HushmixApp:
     def hide_tray_icon(self):
         """Hide the tray icon."""
         time.sleep(0.1)
-        if self.icon.visible is True:
-            self.icon.visible = False
-        else:
-            self.hide_tray_icon()
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -198,9 +193,7 @@ class HushmixApp:
 
     def on_exit(self, icon=None, item=None):
         """Handle application exit."""
-        if hasattr(self, 'icon') and self.icon:
-            self.icon.visible = False
-            self.icon.stop()
+        self.icon.stop()
         
         self.running = False
         
@@ -249,13 +242,10 @@ class HushmixApp:
             self.root.deiconify()
             self.root.lift()
             self.root.focus_force()
-            self.icon.visible = False
 
     def on_close(self):
         """Handle window close button."""
         self.root.withdraw()
-        if hasattr(self, 'icon'):
-            self.icon.visible = True
 
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
