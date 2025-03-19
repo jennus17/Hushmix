@@ -170,14 +170,8 @@ class HushmixApp:
 
         # Run the icon in a separate thread
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-                
-        if not self.launch_in_tray.get():
-            self.root.after(50, self.hide_tray_icon)        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)     
 
-    def hide_tray_icon(self):
-        """Hide the tray icon."""
-        time.sleep(0.1)
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -193,6 +187,7 @@ class HushmixApp:
 
     def on_exit(self, icon=None, item=None):
         """Handle application exit."""
+        self.icon.visible = False
         self.icon.stop()
         
         self.running = False
