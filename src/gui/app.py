@@ -249,6 +249,7 @@ class HushmixApp:
 
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
+
         # Clear existing widgets
         for label in self.labels:
             label.destroy()
@@ -312,6 +313,12 @@ class HushmixApp:
         self.main_frame.columnconfigure(2, weight=0)
 
         self.previous_volumes = [None] * len(self.current_apps)
+
+        if self.entries:
+            entry_names = [entry.get() for entry in self.entries]
+            if entry_names != self.current_apps:
+                self.load_settings()
+                return
 
     def apply_theme(self):
         """Apply the current theme to all widgets."""
