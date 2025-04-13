@@ -21,6 +21,8 @@ class VersionWindow:
         self.setup_gui(latest_version)
         self.center_window(parent)
 
+        self.window.protocol("WM_DELETE_WINDOW", self.close)
+
 
     def center_window(self, parent):
         self.window.update_idletasks()
@@ -42,8 +44,6 @@ class VersionWindow:
         self.window.geometry(f"+{x}+{y}")
 
     def setup_window(self):
-        """Show a pop-up window to inform the user about the update."""
-        # Create a new window
         self.window.title("Update")
         self.window.resizable(False, False)
 

@@ -56,7 +56,7 @@ class HushmixApp:
         else:
             self.root.deiconify()
 
-        self.version_manager = VersionManager(self.root)
+        self.version_manager = VersionManager(root)
 
     def setup_window(self):
         """Setup main window properties."""
@@ -178,7 +178,7 @@ class HushmixApp:
         # Update GUI if number of inputs changes
         if len(volumes) != len(self.current_apps):
             self.current_apps = [f"App {i + 1}" for i in range(len(volumes))]
-            self.root.after(0, self.refresh_gui)
+            self.root.after(20, self.refresh_gui)
             return
 
         # Process each volume value
@@ -415,7 +415,7 @@ class HushmixApp:
 
         # Update volume label
         if index < len(self.volume_labels):
-            self.root.after(10, lambda l=self.volume_labels[index], v=volume_level: 
+            self.root.after(20, lambda l=self.volume_labels[index], v=volume_level: 
                           l.configure(text=f"{v}%"))
 
         if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:

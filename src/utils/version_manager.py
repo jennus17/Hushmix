@@ -5,9 +5,10 @@ import sys
 import threading
 import time
 from gui.version_window import VersionWindow
-class VersionManager:
 
+class VersionManager:
     def __init__(self, parent):
+        self.root = parent
         self.start_version_check_thread(parent)
 
     def start_version_check_thread(self, parent):
@@ -52,7 +53,7 @@ class VersionManager:
         # GitHub API URL for releases
         url = f"https://api.github.com/repos/jennus17/Hushmix/releases/latest"
     
-        while not new_version:
+        while new_version is False:
             try:
                 response = requests.get(url)
                 response.raise_for_status()  # Raise an error for bad responses
@@ -63,13 +64,19 @@ class VersionManager:
                 print(f"Current version: {current_version}, Latest version: {latest_version}")
                 if current_version != latest_version:
                     new_version = True
-                    self.version_window = VersionWindow(latest_version, parent)
+                    self.restore_parent_window(parent)
+                    VersionWindow(latest_version, parent)
                     return
-                time.sleep(600)
             except requests.RequestException as e:
                 print(f"Error checking for updates: {e}")
 
-                time.sleep(600)
+            time.sleep(600)
+
+    def restore_parent_window(self, parent):
+        if not parent.winfo_viewable():
+            parent.deiconify()
+            parent.lift()
+            parent.focus_force()
                 
 
 
