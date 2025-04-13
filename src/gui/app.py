@@ -191,13 +191,8 @@ class HushmixApp:
         self.icon.stop()
         
         self.running = False
-        
-        try:
-            self.save_settings()
-        except Exception as e:
-            print(f"Error saving settings during exit: {e}")
 
-        # Cleanup controllers
+     # Cleanup controllers
         if hasattr(self, 'serial_controller'):
             try:
                 self.serial_controller.cleanup()
@@ -324,11 +319,6 @@ class HushmixApp:
         
         # Force update
         self.root.update_idletasks()
-
-    def set_applications(self):
-        """Update application names from entry fields."""
-        self.current_apps = [entry.get() for entry in self.entries]
-        self.save_settings()
 
     def load_settings(self):
         """Load settings from config file."""
