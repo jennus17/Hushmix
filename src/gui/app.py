@@ -403,9 +403,8 @@ class HushmixApp:
         if self.invert_volumes.get():
             volume_level = 100 - volume_level
 
-        # Update volume label
         if index < len(self.volume_labels):
-            self.root.after(20, lambda l=self.volume_labels[index], v=volume_level: 
+            self.root.after(1, lambda l=self.volume_labels[index], v=volume_level: 
                           l.configure(text=f"{v}%"))
 
         if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:

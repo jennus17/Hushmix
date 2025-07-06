@@ -12,6 +12,7 @@ class SerialController:
         self.volume_callback = volume_callback
         self.running = True
         self.arduino = None
+        self.device_name = "USB-SERIAL CH340", "Dispositivo de Série USB"
         self.initialize_serial()
         self.start_serial_thread()
 
