@@ -177,7 +177,7 @@ class HushmixApp:
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
         # Update GUI if number of inputs changes
-        if len(volumes) != len(self.current_apps):
+        if self.current_apps == []:
             self.current_apps = [f"App {i + 1}" for i in range(len(volumes))]
             self.root.after(20, self.refresh_gui)
             return
