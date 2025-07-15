@@ -111,10 +111,11 @@ class HushmixApp:
             button_color=self.accent_color,
             button_hover_color=self.accent_hover,
             dropdown_hover_color=self.accent_hover,
-            width=190,
+            width=170,
             height=40,
             corner_radius=10
         )
+        self.profile_listbox.grid(column=1, pady=6, padx=10, sticky="nsew")
 
         self.help_button = ctk.CTkButton(
             self.main_frame,
@@ -124,7 +125,7 @@ class HushmixApp:
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
             cursor="hand2",
-            width=30,
+            width=25,
             height=40,
             corner_radius=10
         )
@@ -137,7 +138,7 @@ class HushmixApp:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=30,
+            width=25,
             height=40,
             corner_radius=10
         )
@@ -254,13 +255,6 @@ class HushmixApp:
 
         # Create new widgets for each application
         for i, app_name in enumerate(self.current_apps):
-            # Application label
-            label = ctk.CTkLabel(
-                self.main_frame,
-                text=f"App {i+1}:",
-                font=("Segoe UI", self.normal_font_size, "bold")
-            )
-            label.grid(row=i, column=0, sticky="nsew", pady=6, padx=(10, 0))
 
             entry = ctk.CTkEntry(
                 self.main_frame,
@@ -271,7 +265,11 @@ class HushmixApp:
                 corner_radius=10
             )
             entry.insert(0, app_name)
-            entry.grid(row=i, column=1, pady=6, padx=10, sticky="w")
+            if i is 0:
+                entry.grid(row=i, column=0, columnspan=2, pady=(10,4), padx=(10,5), sticky="nsew")
+            else:
+                entry.grid(row=i, column=0, columnspan=2, pady=4, padx=(10,5), sticky="nsew")
+            
             
             # Bind to any changes in the entry
             entry.bind('<KeyRelease>', lambda e: self.save_applications())
@@ -281,16 +279,16 @@ class HushmixApp:
                 text="100%",
                 font=("Segoe UI", self.normal_font_size, "bold")
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=(0, 10), sticky="nsew")
+            volume_label.grid(row=i, column=2, pady=6, padx=(0, 8), sticky="nsew")
             
-            self.labels.append(label)
+            #self.labels.append(label)
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
         
 
-        self.profile_listbox.grid(row=len(self.current_apps), column=1, columnspan=1, pady=10)
-        self.help_button.grid(row=len(self.current_apps), column=0, padx=(10, 0), sticky="e")
-        self.settings_button.grid(row=len(self.current_apps), column=2, padx=(0, 10), sticky="w")
+        self.profile_listbox.grid(row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10)
+        self.help_button.grid(row=len(self.current_apps), column=1, pady=10, padx=5, sticky="e")
+        self.settings_button.grid(row=len(self.current_apps), column=2, pady=10, padx=(0, 10), sticky="w")
 
         if self.help_visible.get():
             self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0)
@@ -404,7 +402,7 @@ class HushmixApp:
             volume_level = 100 - volume_level
 
         if index < len(self.volume_labels):
-            self.root.after(1, lambda l=self.volume_labels[index], v=volume_level: 
+            self.root.after(10, lambda l=self.volume_labels[index], v=volume_level: 
                           l.configure(text=f"{v}%"))
 
         if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:

@@ -89,7 +89,7 @@ class HelpWindow:
 
         self.extra_text_label = ctk.CTkLabel(
             self.frame,
-            text="For specific applications, use the full name\n(e.g., chrome.exe, discord.exe, etc.)",
+            text="For specific applications, use the name\n(e.g., chrome, discord, etc.)\nthe same as in the task manager",
             font=("Segoe UI", self.normal_font_size),
             justify="center"
         )
@@ -97,7 +97,7 @@ class HelpWindow:
 
         self.extra_text_label2 = ctk.CTkLabel(
             self.frame,
-            text="You can also group applications by using a comma\n(e.g., App 1: chrome.exe, discord.exe, master, etc.)",
+            text="You can also group applications by using a comma\n(e.g., App 1: chrome, discord, master, etc.)",
             font=("Segoe UI", self.normal_font_size),
             justify="center"
         )
