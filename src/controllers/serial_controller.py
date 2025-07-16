@@ -49,12 +49,12 @@ class SerialController:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
             except serial.SerialException as e:
-                time.sleep(1)  # Wait before retrying
-                self.reconnect_serial()  # Retry reconnecting
+                time.sleep(1) 
+                self.reconnect_serial() 
         else:
             print("Serial port not found. Retrying...")
-            time.sleep(1)  # Wait before retrying
-            self.reconnect_serial()  # Retry reconnecting
+            time.sleep(1)
+            self.reconnect_serial() 
 
     def start_serial_thread(self):
         """Start serial communication thread."""

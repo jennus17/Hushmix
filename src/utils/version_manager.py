@@ -28,7 +28,7 @@ class VersionManager:
                 self.exe_path = os.path.join(self.script_dir, "Hushmix.exe")
 
             self.pe = pefile.PE(self.exe_path)
-            # Access the version information
+
             for fileinfo in self.pe.FileInfo:
 
                 for entry in fileinfo:
@@ -50,13 +50,12 @@ class VersionManager:
             return
 
         new_version = False
-        # GitHub API URL for releases
         url = f"https://api.github.com/repos/jennus17/Hushmix/releases/latest"
     
         while new_version is False:
             try:
                 response = requests.get(url)
-                response.raise_for_status()  # Raise an error for bad responses
+                response.raise_for_status()
                 latest_release = response.json()
                 latest_version = latest_release['tag_name']
 

@@ -14,7 +14,6 @@ class ConfigManager:
         try:
             os.makedirs(os.path.dirname(ConfigManager.CONFIG_FILE), exist_ok=True)
             
-            # Load existing settings first
             existing_settings = {}
             if os.path.exists(ConfigManager.CONFIG_FILE):
                 with open(ConfigManager.CONFIG_FILE, "r") as file:

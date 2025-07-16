@@ -39,7 +39,6 @@ class HelpWindow:
         )
         self.frame.pack(expand=True, fill="both")
 
-        # Bold label for "Special commands:"
         self.special_commands_label = ctk.CTkLabel(
             self.frame, 
             text="Special Commands", 
@@ -48,7 +47,6 @@ class HelpWindow:
         )
         self.special_commands_label.pack(anchor="center", padx=10, pady=(5,10))
 
-        # Create labels for commands with descriptions
         self.commands = [
             ("master", "Controls the speaker volume"),
             ("system", "Controls the system sounds volume"),
@@ -108,7 +106,6 @@ class HelpWindow:
         self.window.update_idletasks()
         parent.update_idletasks()
 
-        # Get the parent window's center on screen
         parent_x = parent.winfo_rootx()
         parent_y = parent.winfo_rooty()
         parent_width = parent.winfo_width()
@@ -117,14 +114,11 @@ class HelpWindow:
         center_x = parent_x + parent_width // 2
         center_y = parent_y + parent_height // 2
 
-        # Get the actual size of the child window
         window_width = self.window.winfo_width()
         window_height = self.window.winfo_height()
 
-        # Offset to truly center the child window over the parent
         x = center_x - window_width // 2
         y = center_y - window_height // 1.8
 
-        # Move the window
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
 

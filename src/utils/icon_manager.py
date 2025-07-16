@@ -7,7 +7,6 @@ class IconManager:
     def get_ico_file():
         """Creates and saves a temporary .ico file for Windows compatibility."""
         try:
-            # Load both icons
             bundle_dir = Path(__file__).parent
             icon_path = Path.cwd() / bundle_dir / "assets\\volume_icon32.ico"
             return icon_path

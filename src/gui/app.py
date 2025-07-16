@@ -182,7 +182,6 @@ class HushmixApp:
             self.root.after(20, self.refresh_gui)
             return
 
-        # Process each volume value
         for i, volume in enumerate(volumes):
             self.update_volume(i, int(volume))
 
@@ -193,7 +192,6 @@ class HushmixApp:
         
         self.running = False
 
-     # Cleanup controllers
         if hasattr(self, 'serial_controller'):
             try:
                 self.serial_controller.cleanup()
@@ -206,7 +204,6 @@ class HushmixApp:
             except Exception as e:
                 print(f"Error cleaning up audio controller: {e}")
 
-        # Destroy windows
         if hasattr(self, 'settings_window') and self.settings_window:
             try:
                 self.settings_window.window.destroy()
@@ -219,7 +216,6 @@ class HushmixApp:
             except Exception as e:
                 print(f"Error quitting root: {e}")
 
-        # Force exit the application
         try:
             import os
             os._exit(0)
@@ -241,7 +237,6 @@ class HushmixApp:
     def refresh_gui(self):  
         """Refresh the GUI to match the current applications."""
 
-        # Clear existing widgets
         for label in self.labels:
             label.destroy()
         for entry in self.entries:
@@ -253,7 +248,6 @@ class HushmixApp:
         self.entries.clear()
         self.volume_labels.clear()
 
-        # Create new widgets for each application
         for i, app_name in enumerate(self.current_apps):
 
             entry = ctk.CTkEntry(
@@ -270,8 +264,7 @@ class HushmixApp:
             else:
                 entry.grid(row=i, column=0, columnspan=2, pady=4, padx=(10,5), sticky="nsew")
             
-            
-            # Bind to any changes in the entry
+
             entry.bind('<KeyRelease>', lambda e: self.save_applications())
 
             volume_label = ctk.CTkLabel(
@@ -281,7 +274,6 @@ class HushmixApp:
             )
             volume_label.grid(row=i, column=2, pady=6, padx=(0, 8), sticky="nsew")
             
-            #self.labels.append(label)
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
         
@@ -295,7 +287,6 @@ class HushmixApp:
         else:
             self.help_label.grid_remove()
 
-        # Configure grid columns
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.columnconfigure(1, weight=2)
         self.main_frame.columnconfigure(2, weight=0)
@@ -315,27 +306,22 @@ class HushmixApp:
         else:
             ctk.set_appearance_mode("light")
         
-        # Force update
         self.root.update_idletasks()
 
     def load_settings(self):
         """Load settings from config file."""
         settings = ConfigManager.load_settings()
         
-        # Get the last used profile
         current_profile = settings.get("current_profile")
         
-        # Get the applications for the last used profile
         profile_apps = settings.get("profiles", {}).get(current_profile, {}).get("applications", [])
         self.current_apps = profile_apps if profile_apps else []
         
-        # Load other settings
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", True))
         self.launch_in_tray.set(settings.get("launch_in_tray", False))
-        
-        # Set the correct profile in the dropdown
+
         self.profile_listbox.set(current_profile)
         
         self.refresh_gui()
@@ -359,7 +345,6 @@ class HushmixApp:
 
     def show_settings(self):
         """Show settings window."""
-        # If settings window exists but is invalid, clean it up first
         if self.settings_window is not None:
             try:
                 if hasattr(self.settings_window, 'window') and self.settings_window.window.winfo_exists():
@@ -370,7 +355,6 @@ class HushmixApp:
             except Exception:
                 self.settings_window = None
         
-        # Create new settings window
         self.settings_window = SettingsWindow(
             self.root,
             ConfigManager,
@@ -479,27 +463,21 @@ class HushmixApp:
 def get_windows_accent_color():
     """Retrieve the Windows accent color from the registry."""
     try:
-        # Check the DWM registry key for ColorizationColor
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as key:
             accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
-            # Extract RGB values from ARGB
             blue = accent_color & 0xFF
             green = (accent_color >> 8) & 0xFF
             red = (accent_color >> 16) & 0xFF
-            # Return the color in hex format
             return "#{:02x}{:02x}{:02x}".format(red, green, blue)
     except OSError as e:
         print(f"Error accessing registry: {e}")
-    # Fallback to a default color if any error occurs
-    return "#2196F3"  # Default color
+    return "#2196F3" 
 
 def darken_color(hex_color, percentage):
     """Darken a hex color by a given percentage."""
-    # Convert hex to RGB
     hex_color = hex_color.lstrip('#')
     r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
     
-    # Calculate the darkened color
     r = int(r * (1 - percentage))
     g = int(g * (1 - percentage))
     b = int(b * (1 - percentage))

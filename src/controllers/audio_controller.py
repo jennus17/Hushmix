@@ -50,10 +50,8 @@ class AudioController:
     def set_application_volume(self, app_names, level):
         self._init_com()
         
-        # Split the app_names by comma and strip whitespace
         app_names_list = [name.strip() for name in app_names.split(',')]
         
-        # Check if the current device has changed
         current_device = AudioUtilities.GetSpeakers()
         if current_device != self.devices:
             self.devices = current_device
@@ -80,8 +78,7 @@ class AudioController:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
                                 volume = None
-                            break  # Exit the loop after setting volume for the current app
-
+                            break
                 elif app_name.lower() == "master":
                     with self._lock:
                         self.volume.SetMasterVolumeLevelScalar(level / 100, None)
@@ -103,7 +100,7 @@ class AudioController:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
                                 volume = None
-                            break  # Exit the loop after setting volume for system sounds
+                            break 
                 else:
                     for session in self._get_sessions():
                         if session.Process and app_name.lower() in session.Process.name().lower():
@@ -111,7 +108,7 @@ class AudioController:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
                                 volume = None
-                            break  # Exit the loop after setting volume for the matched app
+                            break
 
         except Exception as e:
             print(f"Error setting volume: {e}")
