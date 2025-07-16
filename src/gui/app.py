@@ -17,6 +17,7 @@ import winreg
 from PIL import Image
 import customtkinter as ctk
 
+
 class HushmixApp:
     def __init__(self, root):
         self.root = root
@@ -26,23 +27,18 @@ class HushmixApp:
         except Exception as e:
             print(f"Error setting DPI awareness: {e}")
 
-        self.root.tk.call('tk', 'scaling', 1.0)
+        self.root.tk.call("tk", "scaling", 1.0)
 
         self.normal_font_size = 16
-        
-        # Setup window and components
+
         self.setup_window()
         self.setup_variables()
-        
-        # Initialize controllers and managers
+
         self.audio_controller = AudioController()
         self.serial_controller = SerialController(self.handle_volume_update)
         self.settings_window = None
-        
-        # Set the accent color dynamically
+
         self.accent_color = get_windows_accent_color()
-        
-        # Set the accent_hover color to be darker
         self.accent_hover = darken_color(self.accent_color, 0.2)
 
         self.setup_gui()
@@ -50,7 +46,6 @@ class HushmixApp:
 
         self.setup_tray_icon()
 
-        # Check if the application should launch in the tray
         if self.launch_in_tray.get():
             self.root.withdraw()
         else:
@@ -62,12 +57,11 @@ class HushmixApp:
         """Setup main window properties."""
         self.root.title("Hushmix")
         self.root.resizable(False, False)
-        
-        # Set window icon
+
         ico_path = IconManager.get_ico_file()
         if ico_path:
             try:
-                myappid = 'Hushmix'
+                myappid = "Hushmix"
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
                 self.root.iconbitmap(default=ico_path)
                 self.root.wm_iconbitmap(ico_path)
@@ -101,7 +95,7 @@ class HushmixApp:
             border_width=0,
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
-        
+
         self.profile_listbox = ctk.CTkOptionMenu(
             self.main_frame,
             values=["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"],
@@ -113,7 +107,7 @@ class HushmixApp:
             dropdown_hover_color=self.accent_hover,
             width=170,
             height=40,
-            corner_radius=10
+            corner_radius=10,
         )
         self.profile_listbox.grid(column=1, pady=6, padx=10, sticky="nsew")
 
@@ -127,7 +121,7 @@ class HushmixApp:
             cursor="hand2",
             width=25,
             height=40,
-            corner_radius=10
+            corner_radius=10,
         )
 
         self.settings_button = ctk.CTkButton(
@@ -140,7 +134,7 @@ class HushmixApp:
             cursor="hand2",
             width=25,
             height=40,
-            corner_radius=10
+            corner_radius=10,
         )
 
         for entry in self.entries:
@@ -153,26 +147,20 @@ class HushmixApp:
         """Setup system tray icon."""
         menu = Menu(
             MenuItem("Restore", self.restore_window, default=True, visible=False),
-            MenuItem("Exit", self.on_exit)
+            MenuItem("Exit", self.on_exit),
         )
-        
+
         ico_path = IconManager.get_ico_file()
 
         try:
             icon_image = Image.open(ico_path)
-            self.icon = Icon(
-                "Hushmix",
-                icon=icon_image,
-                menu=menu,
-                title="Hushmix"
-            )
+            self.icon = Icon("Hushmix", icon=icon_image, menu=menu, title="Hushmix")
         except Exception as e:
             print(f"Error setting up tray icon: {e}")
 
         # Run the icon in a separate thread
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)     
-
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -189,28 +177,28 @@ class HushmixApp:
         """Handle application exit."""
         self.icon.visible = False
         self.icon.stop()
-        
+
         self.running = False
 
-        if hasattr(self, 'serial_controller'):
+        if hasattr(self, "serial_controller"):
             try:
                 self.serial_controller.cleanup()
             except Exception as e:
                 print(f"Error cleaning up serial controller: {e}")
 
-        if hasattr(self, 'audio_controller'):
+        if hasattr(self, "audio_controller"):
             try:
                 self.audio_controller.cleanup()
             except Exception as e:
                 print(f"Error cleaning up audio controller: {e}")
 
-        if hasattr(self, 'settings_window') and self.settings_window:
+        if hasattr(self, "settings_window") and self.settings_window:
             try:
                 self.settings_window.window.destroy()
             except Exception as e:
                 print(f"Error destroying settings window: {e}")
 
-        if hasattr(self, 'root') and self.root:
+        if hasattr(self, "root") and self.root:
             try:
                 self.root.quit()
             except Exception as e:
@@ -218,6 +206,7 @@ class HushmixApp:
 
         try:
             import os
+
             os._exit(0)
         except Exception as e:
             print(f"Error during force exit: {e}")
@@ -234,7 +223,7 @@ class HushmixApp:
         """Handle window close button."""
         self.root.withdraw()
 
-    def refresh_gui(self):  
+    def refresh_gui(self):
         """Refresh the GUI to match the current applications."""
 
         for label in self.labels:
@@ -256,34 +245,49 @@ class HushmixApp:
                 width=190,
                 height=30,
                 border_width=2,
-                corner_radius=10
+                corner_radius=10,
             )
             entry.insert(0, app_name)
             if i is 0:
-                entry.grid(row=i, column=0, columnspan=2, pady=(10,4), padx=(10,5), sticky="nsew")
+                entry.grid(
+                    row=i,
+                    column=0,
+                    columnspan=2,
+                    pady=(10, 4),
+                    padx=(10, 5),
+                    sticky="nsew",
+                )
             else:
-                entry.grid(row=i, column=0, columnspan=2, pady=4, padx=(10,5), sticky="nsew")
-            
+                entry.grid(
+                    row=i, column=0, columnspan=2, pady=4, padx=(10, 5), sticky="nsew"
+                )
 
-            entry.bind('<KeyRelease>', lambda e: self.save_applications())
+            entry.bind("<KeyRelease>", lambda e: self.save_applications())
 
             volume_label = ctk.CTkLabel(
                 self.main_frame,
                 text="100%",
-                font=("Segoe UI", self.normal_font_size, "bold")
+                font=("Segoe UI", self.normal_font_size, "bold"),
             )
             volume_label.grid(row=i, column=2, pady=6, padx=(0, 8), sticky="nsew")
-            
+
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
-        
 
-        self.profile_listbox.grid(row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10)
-        self.help_button.grid(row=len(self.current_apps), column=1, pady=10, padx=5, sticky="e")
-        self.settings_button.grid(row=len(self.current_apps), column=2, pady=10, padx=(0, 10), sticky="w")
+        self.profile_listbox.grid(
+            row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10
+        )
+        self.help_button.grid(
+            row=len(self.current_apps), column=1, pady=10, padx=5, sticky="e"
+        )
+        self.settings_button.grid(
+            row=len(self.current_apps), column=2, pady=10, padx=(0, 10), sticky="w"
+        )
 
         if self.help_visible.get():
-            self.help_label.grid(row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0)
+            self.help_label.grid(
+                row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0
+            )
         else:
             self.help_label.grid_remove()
 
@@ -305,27 +309,31 @@ class HushmixApp:
             ctk.set_appearance_mode("dark")
         else:
             ctk.set_appearance_mode("light")
-        
+
         self.root.update_idletasks()
 
     def load_settings(self):
         """Load settings from config file."""
         settings = ConfigManager.load_settings()
-        
+
         current_profile = settings.get("current_profile")
-        
-        profile_apps = settings.get("profiles", {}).get(current_profile, {}).get("applications", [])
+
+        profile_apps = (
+            settings.get("profiles", {})
+            .get(current_profile, {})
+            .get("applications", [])
+        )
         self.current_apps = profile_apps if profile_apps else []
-        
+
         self.invert_volumes.set(settings.get("invert_volumes", False))
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", True))
         self.launch_in_tray.set(settings.get("launch_in_tray", False))
 
         self.profile_listbox.set(current_profile)
-        
+
         self.refresh_gui()
-        
+
         print(f"Loaded settings for profile {current_profile}")
         print(f"Loaded applications: {self.current_apps}")
 
@@ -337,9 +345,11 @@ class HushmixApp:
             "invert_volumes": self.invert_volumes.get(),
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get(),
-            "launch_in_tray": self.launch_in_tray.get()
-        }      
-        ConfigManager.toggle_auto_startup(self.auto_startup.get(), "Hushmix", sys.executable)  
+            "launch_in_tray": self.launch_in_tray.get(),
+        }
+        ConfigManager.toggle_auto_startup(
+            self.auto_startup.get(), "Hushmix", sys.executable
+        )
         ConfigManager.save_settings(settings)
         print("Settings saved:", settings)
 
@@ -347,14 +357,17 @@ class HushmixApp:
         """Show settings window."""
         if self.settings_window is not None:
             try:
-                if hasattr(self.settings_window, 'window') and self.settings_window.window.winfo_exists():
+                if (
+                    hasattr(self.settings_window, "window")
+                    and self.settings_window.window.winfo_exists()
+                ):
                     self.settings_window.window.lift()
                     return
                 else:
                     self.settings_window = None
             except Exception:
                 self.settings_window = None
-        
+
         self.settings_window = SettingsWindow(
             self.root,
             ConfigManager,
@@ -362,13 +375,12 @@ class HushmixApp:
             self.invert_volumes,
             self.auto_startup,
             self.launch_in_tray,
-            self.on_settings_close
-            
+            self.on_settings_close,
         )
 
     def on_settings_close(self):
         """Handle settings window close."""
-        if self.settings_window and hasattr(self.settings_window, 'window'):
+        if self.settings_window and hasattr(self.settings_window, "window"):
             try:
                 self.settings_window.window.destroy()
             except Exception:
@@ -386,10 +398,17 @@ class HushmixApp:
             volume_level = 100 - volume_level
 
         if index < len(self.volume_labels):
-            self.root.after(10, lambda l=self.volume_labels[index], v=volume_level: 
-                          l.configure(text=f"{v}%"))
+            self.root.after(
+                10,
+                lambda l=self.volume_labels[index], v=volume_level: l.configure(
+                    text=f"{v}%"
+                ),
+            )
 
-        if index < len(self.current_apps) and volume_level != self.previous_volumes[index]:
+        if (
+            index < len(self.current_apps)
+            and volume_level != self.previous_volumes[index]
+        ):
             app_name = self.entries[index].get()
             if app_name:
                 self.audio_controller.set_application_volume(app_name, volume_level)
@@ -400,41 +419,44 @@ class HushmixApp:
         try:
             old_profile = self.profile_listbox.get()
             old_apps = [entry.get() for entry in self.entries]
-            
+
             settings = ConfigManager.load_settings()
-            
+
             settings_to_save = {
                 "current_profile": old_profile,
                 "applications": old_apps,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get()
+                "launch_in_tray": self.launch_in_tray.get(),
             }
             ConfigManager.save_settings(settings_to_save)
-            
-            new_profile_apps = settings.get("profiles", {}).get(profile, {}).get("applications", [])
+
+            new_profile_apps = (
+                settings.get("profiles", {}).get(profile, {}).get("applications", [])
+            )
             self.current_apps = new_profile_apps
-        
+
             self.refresh_gui()
-            
+
             settings_to_save = {
                 "current_profile": profile,
                 "applications": new_profile_apps,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get()
+                "launch_in_tray": self.launch_in_tray.get(),
             }
             ConfigManager.save_settings(settings_to_save)
-            
+
             print(f"Switched from {old_profile} to {profile}")
             print(f"Old apps: {old_apps}")
             print(f"New apps: {new_profile_apps}")
-            
+
         except Exception as e:
             print(f"Error in profile change: {e}")
             import traceback
+
             traceback.print_exc()
 
     def save_applications(self, event=None):
@@ -442,28 +464,32 @@ class HushmixApp:
         try:
             current_profile = self.profile_listbox.get()
             current_apps = [entry.get() for entry in self.entries]
-            
+
             settings = {
                 "current_profile": current_profile,
                 "applications": current_apps,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get()
+                "launch_in_tray": self.launch_in_tray.get(),
             }
-            
+
             print(f"Attempting to save apps for {current_profile}: {current_apps}")
             ConfigManager.save_settings(settings)
-            
+
         except Exception as e:
             print(f"Error in save_applications: {e}")
             import traceback
+
             traceback.print_exc()
+
 
 def get_windows_accent_color():
     """Retrieve the Windows accent color from the registry."""
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as key:
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM"
+        ) as key:
             accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
             blue = accent_color & 0xFF
             green = (accent_color >> 8) & 0xFF
@@ -471,16 +497,17 @@ def get_windows_accent_color():
             return "#{:02x}{:02x}{:02x}".format(red, green, blue)
     except OSError as e:
         print(f"Error accessing registry: {e}")
-    return "#2196F3" 
+    return "#2196F3"
+
 
 def darken_color(hex_color, percentage):
     """Darken a hex color by a given percentage."""
-    hex_color = hex_color.lstrip('#')
-    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-    
+    hex_color = hex_color.lstrip("#")
+    r, g, b = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+
     r = int(r * (1 - percentage))
     g = int(g * (1 - percentage))
     b = int(b * (1 - percentage))
-    
+
     # Convert back to hex
     return "#{:02x}{:02x}{:02x}".format(r, g, b)

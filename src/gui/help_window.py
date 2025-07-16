@@ -2,10 +2,11 @@ import customtkinter as ctk
 from utils.icon_manager import IconManager
 import gui.app as app
 
+
 class HelpWindow:
     def __init__(self, parent):
         self.window = ctk.CTkToplevel(parent)
-        self.window.tk.call('tk', 'scaling', 1.0)
+        self.window.tk.call("tk", "scaling", 1.0)
         self.window.withdraw()
 
         self.setup_window()
@@ -17,8 +18,10 @@ class HelpWindow:
         self.normal_font_size = 16
 
         self.setup_gui()
-        self.window.after(50, lambda: (self.window.deiconify(), self.center_window(parent)))
-        
+        self.window.after(
+            50, lambda: (self.window.deiconify(), self.center_window(parent))
+        )
+
     def setup_window(self):
         self.window.title("Help")
         self.window.resizable(False, False)
@@ -32,57 +35,53 @@ class HelpWindow:
                 print(f"Error setting icon: {e}")
 
     def setup_gui(self):
-        self.frame = ctk.CTkFrame(
-            self.window,
-            corner_radius=0,
-            border_width=0
-        )
+        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
         self.special_commands_label = ctk.CTkLabel(
-            self.frame, 
-            text="Special Commands", 
+            self.frame,
+            text="Special Commands",
             font=("Segoe UI", self.normal_font_size + 10, "bold"),
-            text_color=self.accent_color
+            text_color=self.accent_color,
         )
-        self.special_commands_label.pack(anchor="center", padx=10, pady=(5,10))
+        self.special_commands_label.pack(anchor="center", padx=10, pady=(5, 10))
 
         self.commands = [
             ("master", "Controls the speaker volume"),
             ("system", "Controls the system sounds volume"),
             ("current", "Controls the current application in focus"),
-            ("mic", "Controls the default microphone")
+            ("mic", "Controls the default microphone"),
         ]
-        
+
         for command, description in self.commands:
             command_frame = ctk.CTkFrame(
                 self.frame,
                 corner_radius=0,
                 border_width=0,
-                fg_color=self.frame.cget("fg_color")
+                fg_color=self.frame.cget("fg_color"),
             )
             command_frame.pack(anchor="w", padx=10)
 
             self.command_label = ctk.CTkLabel(
-                command_frame, 
-                text=f" • {command}:", 
+                command_frame,
+                text=f" • {command}:",
                 text_color=self.accent_color,
-                font=("Segoe UI", self.normal_font_size + 1, "bold")
-                )
-            self.command_label.pack(side="left") 
+                font=("Segoe UI", self.normal_font_size + 1, "bold"),
+            )
+            self.command_label.pack(side="left")
 
             self.description_label = ctk.CTkLabel(
-                command_frame, 
+                command_frame,
                 text=description,
-                font=("Segoe UI", self.normal_font_size)
-                )
+                font=("Segoe UI", self.normal_font_size),
+            )
             self.description_label.pack(side="left", padx=(10, 0))
 
         self.divider_label = ctk.CTkLabel(
             self.frame,
             text="------------------------------------------------------------",
             font=("Segoe UI", self.normal_font_size),
-            justify="center"
+            justify="center",
         )
         self.divider_label.pack(anchor="center", padx=5, pady=0)
 
@@ -90,7 +89,7 @@ class HelpWindow:
             self.frame,
             text="For specific applications, use the process name\nthat can be found in the task manager\nin the 'Details' section.\nYou don't need to use the extension '.exe'\n(e.g., chrome, discord, etc.)\n",
             font=("Segoe UI", self.normal_font_size),
-            justify="center"
+            justify="center",
         )
         self.extra_text_label.pack(anchor="center", padx=5, pady=0)
 
@@ -98,7 +97,7 @@ class HelpWindow:
             self.frame,
             text="You can also group applications by using a comma\n(e.g., chrome, firefox, msedge, etc.)",
             font=("Segoe UI", self.normal_font_size),
-            justify="center"
+            justify="center",
         )
         self.extra_text_label2.pack(anchor="center", padx=5, pady=(5, 10))
 
@@ -121,4 +120,3 @@ class HelpWindow:
         y = center_y - window_height // 1.8
 
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-

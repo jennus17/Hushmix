@@ -6,6 +6,7 @@ import win32.win32process as win32process
 import psutil
 from threading import Lock, local
 
+
 class AudioController:
     _instance = None
     _thread_local = local()
@@ -19,7 +20,7 @@ class AudioController:
         return cls._instance
 
     def __init__(self):
-        if not hasattr(self, '_initialized'):
+        if not hasattr(self, "_initialized"):
             self._initialized = True
             self._init_com()
             self._sessions_cache = None
@@ -27,7 +28,7 @@ class AudioController:
 
     def _init_com(self):
         """Initialize COM for the current thread if not already initialized."""
-        if not hasattr(self._thread_local, 'initialized'):
+        if not hasattr(self._thread_local, "initialized"):
             pythoncom.CoInitialize()
             self._thread_local.initialized = True
             self.devices = AudioUtilities.GetSpeakers()
@@ -39,19 +40,23 @@ class AudioController:
     def _get_sessions(self):
         """Cache audio sessions to reduce CPU usage"""
         import time
+
         current_time = time.time()
-        
+
         with self._lock:
-            if self._sessions_cache is None or (current_time - self._last_session_refresh) > 2:
+            if (
+                self._sessions_cache is None
+                or (current_time - self._last_session_refresh) > 2
+            ):
                 self._sessions_cache = AudioUtilities.GetAllSessions()
                 self._last_session_refresh = current_time
             return self._sessions_cache
 
     def set_application_volume(self, app_names, level):
         self._init_com()
-        
-        app_names_list = [name.strip() for name in app_names.split(',')]
-        
+
+        app_names_list = [name.strip() for name in app_names.split(",")]
+
         current_device = AudioUtilities.GetSpeakers()
         if current_device != self.devices:
             self.devices = current_device
@@ -73,7 +78,10 @@ class AudioController:
                     process_name = process.name()
 
                     for session in self._get_sessions():
-                        if session.Process and session.Process.name().lower() == process_name.lower():
+                        if (
+                            session.Process
+                            and session.Process.name().lower() == process_name.lower()
+                        ):
                             with self._lock:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
@@ -89,7 +97,9 @@ class AudioController:
                         mic_volume_interface = mic_device.Activate(
                             IAudioEndpointVolume._iid_, CLSCTX_ALL, None
                         )
-                        mic_volume = mic_volume_interface.QueryInterface(IAudioEndpointVolume)
+                        mic_volume = mic_volume_interface.QueryInterface(
+                            IAudioEndpointVolume
+                        )
                         mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
                         mic_volume = None
 
@@ -100,10 +110,13 @@ class AudioController:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
                                 volume = None
-                            break 
+                            break
                 else:
                     for session in self._get_sessions():
-                        if session.Process and app_name.lower() in session.Process.name().lower():
+                        if (
+                            session.Process
+                            and app_name.lower() in session.Process.name().lower()
+                        ):
                             with self._lock:
                                 volume = session._ctl.QueryInterface(ISimpleAudioVolume)
                                 volume.SetMasterVolume(level / 100, None)
@@ -116,10 +129,10 @@ class AudioController:
     def cleanup(self):
         """Explicit cleanup method to be called when shutting down."""
         with self._lock:
-            if hasattr(self, 'volume'):
+            if hasattr(self, "volume"):
                 self.volume = None
-            if hasattr(self, 'interface'):
+            if hasattr(self, "interface"):
                 self.interface = None
-            if hasattr(self._thread_local, 'initialized'):
+            if hasattr(self._thread_local, "initialized"):
                 pythoncom.CoUninitialize()
-                self._thread_local.initialized = False 
+                self._thread_local.initialized = False

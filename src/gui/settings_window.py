@@ -5,31 +5,41 @@ from utils.icon_manager import IconManager
 
 
 class SettingsWindow:
-    def __init__(self, parent, config_manager, dark_mode, invert_volumes, auto_startup, launch_in_tray, on_close):
+    def __init__(
+        self,
+        parent,
+        config_manager,
+        dark_mode,
+        invert_volumes,
+        auto_startup,
+        launch_in_tray,
+        on_close,
+    ):
         self.window = ctk.CTkToplevel(parent)
-        self.window.tk.call('tk', 'scaling', 1.0)
+        self.window.tk.call("tk", "scaling", 1.0)
         self.window.withdraw()
 
         self.setup_window()
-        
+
         self.window.transient(parent)
         self.window.grab_set()
 
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
-        
+
         self.config_manager = config_manager
         self.dark_mode = dark_mode
         self.invert_volumes = invert_volumes
         self.auto_startup = auto_startup
         self.launch_in_tray = launch_in_tray
         self.on_close = on_close
-        
 
         self.normal_font_size = 14
-        
+
         self.setup_gui()
-        self.window.after(50, lambda: (self.window.deiconify(), self.center_window(parent)))
+        self.window.after(
+            50, lambda: (self.window.deiconify(), self.center_window(parent))
+        )
 
         self.window.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -37,7 +47,7 @@ class SettingsWindow:
         """Setup main window properties."""
         self.window.title("Settings")
         self.window.resizable(False, False)
-        
+
         ico_path = IconManager.get_ico_file()
         if ico_path:
             try:
@@ -45,19 +55,15 @@ class SettingsWindow:
             except Exception as e:
                 print(f"Error setting icon: {e}")
 
-    def setup_gui(self):  
-        self.frame = ctk.CTkFrame(
-            self.window,
-            corner_radius=0,
-            border_width=0
-        )
+    def setup_gui(self):
+        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
-        
+
         self.create_checkbox(
             "Invert Volume Range (100 - 0)",
             self.invert_volumes,
         )
-        
+
         self.create_checkbox(
             "Enable Auto Startup",
             self.auto_startup,
@@ -67,7 +73,7 @@ class SettingsWindow:
             "Launch in Tray",
             self.launch_in_tray,
         )
-        
+
         self.create_checkbox(
             "Dark Mode",
             self.dark_mode,

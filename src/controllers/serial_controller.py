@@ -6,6 +6,7 @@ import pythoncom
 from tkinter.messagebox import showerror
 import sys
 
+
 class SerialController:
     def __init__(self, volume_callback):
         """Initialize serial controller."""
@@ -34,10 +35,12 @@ class SerialController:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
             except Exception as e:
-                showerror('Error', f"Could not connect to the Mixer. Mixer already in use.")
+                showerror(
+                    "Error", f"Could not connect to the Mixer. Mixer already in use."
+                )
                 sys.exit(1)
         else:
-            showerror('Error', 'Mixer not found. Check your connection.')
+            showerror("Error", "Mixer not found. Check your connection.")
             sys.exit(1)
 
     def reconnect_serial(self, device_name="Dispositivo de Série USB", baud_rate=9600):
@@ -49,12 +52,12 @@ class SerialController:
                 self.arduino = serial.Serial(serial_port, baud_rate)
                 return self.arduino
             except serial.SerialException as e:
-                time.sleep(1) 
-                self.reconnect_serial() 
+                time.sleep(1)
+                self.reconnect_serial()
         else:
             print("Serial port not found. Retrying...")
             time.sleep(1)
-            self.reconnect_serial() 
+            self.reconnect_serial()
 
     def start_serial_thread(self):
         """Start serial communication thread."""
@@ -64,12 +67,12 @@ class SerialController:
     def read_serial_data(self):
         """Process serial data from the device."""
         pythoncom.CoInitialize()
-        
+
         while self.running:
             time.sleep(0.01)
             try:
                 if self.arduino and self.arduino.in_waiting > 0:
-                    data = self.arduino.readline().decode('utf-8').strip()
+                    data = self.arduino.readline().decode("utf-8").strip()
                     self.process_volume_data(data)
                 else:
                     if self.arduino is None:
@@ -81,10 +84,10 @@ class SerialController:
             except Exception as e:
                 print(f"Exception occurred: {e}")
                 continue
-                    
+
     def process_volume_data(self, data):
         """Process volume data received from serial."""
-        volumes = data.split('|')
+        volumes = data.split("|")
         self.volume_callback(volumes)
 
     def cleanup(self):
