@@ -7,6 +7,7 @@ class VersionWindow:
     def __init__(self, latest_version, parent):
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call('tk', 'scaling', 1.0)
+        self.window.withdraw()
 
         self.setup_window()
 
@@ -19,29 +20,34 @@ class VersionWindow:
         self.normal_font_size = 14
 
         self.setup_gui(latest_version)
-        self.center_window(parent)
+        self.window.after(50, lambda: (self.window.deiconify(), self.center_window(parent)))
 
         self.window.protocol("WM_DELETE_WINDOW", self.close)
 
 
     def center_window(self, parent):
         self.window.update_idletasks()
-        
-        # Get parent window position and size
-        parent_x = parent.winfo_x()
-        parent_y = parent.winfo_y()
+        parent.update_idletasks()
+
+        # Get the parent window's center on screen
+        parent_x = parent.winfo_rootx()
+        parent_y = parent.winfo_rooty()
         parent_width = parent.winfo_width()
         parent_height = parent.winfo_height()
-        
-        # Get this window's size
+
+        center_x = parent_x + parent_width // 2
+        center_y = parent_y + parent_height // 2
+
+        # Get the actual size of the child window
         window_width = self.window.winfo_width()
         window_height = self.window.winfo_height()
-        
-        # Calculate position
-        x = parent_x + (parent_width - window_width) // 2
-        y = parent_y + (parent_height - window_height) // 2
-        
-        self.window.geometry(f"+{x}+{y}")
+
+        # Offset to truly center the child window over the parent
+        x = center_x - window_width // 2
+        y = center_y - window_height // 1.8
+
+        # Move the window
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
     def setup_window(self):
         self.window.title("Update")
@@ -78,7 +84,8 @@ class VersionWindow:
         self.update_button = ctk.CTkButton(
             self.frame, 
             text="Update", 
-            command=lambda: [webbrowser.open("https://github.com/jennus17/Hushmix/releases/latest"), self.close()],
+            command=lambda: [webbrowser.open(f"https://github.com/jennus17/Hushmix/releases/download/{latest_version}/Hushmix.exe"),
+                              webbrowser.open("https://github.com/jennus17/Hushmix/releases/latest"), self.close()],
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             font=("Segoe UI", self.normal_font_size),
