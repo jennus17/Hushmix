@@ -78,7 +78,7 @@ class VersionManager:
             except requests.RequestException as e:
                 print(f"Error checking for updates: {e}")
 
-            time.sleep(600)
+            time.sleep(1800)
 
     def restore_parent_window(self, parent):
         if not parent.winfo_viewable():
