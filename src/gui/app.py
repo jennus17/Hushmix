@@ -74,6 +74,7 @@ class HushmixApp:
         self.volumes = []
         self.entries = []
         self.labels = []
+        self.buttons = []
         self.help_label = ctk.CTkLabel(None)
         self.previous_volumes = []
         self.invert_volumes = ctk.BooleanVar(value=False)
@@ -105,11 +106,10 @@ class HushmixApp:
             button_color=self.accent_color,
             button_hover_color=self.accent_hover,
             dropdown_hover_color=self.accent_hover,
-            width=170,
+            width=190,
             height=40,
             corner_radius=10,
         )
-        self.profile_listbox.grid(column=1, pady=6, padx=10, sticky="nsew")
 
         self.help_button = ctk.CTkButton(
             self.main_frame,
@@ -119,7 +119,7 @@ class HushmixApp:
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
             cursor="hand2",
-            width=25,
+            width=30,
             height=40,
             corner_radius=10,
         )
@@ -132,7 +132,7 @@ class HushmixApp:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
-            width=25,
+            width=40,
             height=40,
             corner_radius=10,
         )
@@ -226,40 +226,54 @@ class HushmixApp:
     def refresh_gui(self):
         """Refresh the GUI to match the current applications."""
 
-        for label in self.labels:
-            label.destroy()
         for entry in self.entries:
             entry.destroy()
+        for buttons in self.buttons:
+            buttons.destroy()
         for label in self.volume_labels:
             label.destroy()
 
-        self.labels.clear()
         self.entries.clear()
         self.volume_labels.clear()
 
         for i, app_name in enumerate(self.current_apps):
+            
+            sliders = len(self.current_apps)
+
+            if i > 0 and i < sliders - 1:
+                buttons = ctk.CTkButton(
+                    self.main_frame,
+                    text="!",
+                    command=lambda: HelpWindow(self.root),
+                    hover_color=self.accent_hover,
+                    fg_color=self.accent_color,
+                    cursor="hand2",
+                    width=20,
+                    height=20,
+                    corner_radius=5,
+                )
+                buttons.grid(row=i, column=2, columnspan=1, pady=10, padx=5, sticky="ns")
 
             entry = ctk.CTkEntry(
                 self.main_frame,
                 font=("Segoe UI", self.normal_font_size),
-                width=190,
                 height=30,
                 border_width=2,
                 corner_radius=10,
             )
             entry.insert(0, app_name)
-            if i is 0:
+            if i == 0 or i == sliders - 1:
                 entry.grid(
                     row=i,
                     column=0,
-                    columnspan=2,
+                    columnspan=3,
                     pady=(10, 4),
-                    padx=(10, 5),
+                    padx=(10, 1),
                     sticky="nsew",
                 )
             else:
                 entry.grid(
-                    row=i, column=0, columnspan=2, pady=4, padx=(10, 5), sticky="nsew"
+                    row=i, column=0, columnspan=2, pady=4, padx=(10, 1), sticky="nsew"
                 )
 
             entry.bind("<KeyRelease>", lambda e: self.save_applications())
@@ -267,9 +281,10 @@ class HushmixApp:
             volume_label = ctk.CTkLabel(
                 self.main_frame,
                 text="100%",
+                width=45,
                 font=("Segoe UI", self.normal_font_size, "bold"),
             )
-            volume_label.grid(row=i, column=2, pady=6, padx=(0, 8), sticky="nsew")
+            volume_label.grid(row=i, column=3, pady=6, padx=5, sticky="w")
 
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
@@ -278,10 +293,10 @@ class HushmixApp:
             row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10
         )
         self.help_button.grid(
-            row=len(self.current_apps), column=1, pady=10, padx=5, sticky="e"
+            row=len(self.current_apps), column=1, columnspan=2, pady=10, padx=5, sticky="ew"
         )
         self.settings_button.grid(
-            row=len(self.current_apps), column=2, pady=10, padx=(0, 10), sticky="w"
+            row=len(self.current_apps), column=2, columnspan=2, pady=10, padx=(0, 10), sticky="e"
         )
 
         if self.help_visible.get():
