@@ -30,6 +30,9 @@ class ConfigManager:
             existing_settings["profiles"][current_profile]["applications"] = (
                 settings.get("applications")
             )
+            existing_settings["profiles"][current_profile]["mute"] = settings.get(
+                "mute", []
+            )
 
             existing_settings.update(
                 {
@@ -62,11 +65,11 @@ class ConfigManager:
                 default_settings = {
                     "current_profile": "Profile 1",
                     "profiles": {
-                        "Profile 1": {"applications": []},
-                        "Profile 2": {"applications": []},
-                        "Profile 3": {"applications": []},
-                        "Profile 4": {"applications": []},
-                        "Profile 5": {"applications": []},
+                        "Profile 1": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 2": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 3": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 4": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 5": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
                     },
                     "invert_volumes": False,
                     "auto_startup": False,
@@ -80,22 +83,23 @@ class ConfigManager:
 
                 if "profiles" not in settings:
                     settings["profiles"] = {
-                        "Profile 1": {"applications": []},
-                        "Profile 2": {"applications": []},
-                        "Profile 3": {"applications": []},
-                        "Profile 4": {"applications": []},
-                        "Profile 5": {"applications": []},
+                        "Profile 1": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 2": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 3": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 4": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
+                        "Profile 5": {"applications": ["App 1", "App 2", "App 3", "App 4", "App 5"], "mute": []},
                     }
 
                 current_profile = settings.get("current_profile")
                 profile_settings = settings.get("profiles", {}).get(
-                    current_profile, {"applications": []}
+                    current_profile, {"applications": [], "mute": []}
                 )
 
                 return {
                     "current_profile": current_profile,
                     "profiles": settings.get("profiles", {}),
                     "applications": profile_settings.get("applications", []),
+                    "mute": profile_settings.get("mute", []),
                     "invert_volumes": settings.get("invert_volumes", False),
                     "auto_startup": settings.get("auto_startup", False),
                     "dark_mode": settings.get("dark_mode", True),

@@ -84,7 +84,6 @@ class HushmixApp:
         self.dark_mode = ctk.BooleanVar(value=True)
         self.launch_in_tray = ctk.BooleanVar(value=False)
         self.volume_labels = []
-        self.help_visible = ctk.BooleanVar(value=False)
         self.running = True
         self.button_frame = None
         self.help_button = None
@@ -180,7 +179,7 @@ class HushmixApp:
             self.root.after(20, self.refresh_gui)
             return
 
-        for i, volume in enumerate(volumes):     
+        for i, volume in enumerate(volumes):
             self.update_volume(i, int(volume))
 
     def on_exit(self, icon=None, item=None):
@@ -259,7 +258,7 @@ class HushmixApp:
                     hover_color=self.accent_hover,
                     fg_color=self.accent_color,
                     cursor="hand2",
-                    width=10,
+                    width=5,
                     height=25,
                     corner_radius=8,
                 )
@@ -311,7 +310,6 @@ class HushmixApp:
 
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
-            
 
         self.profile_listbox.grid(
             row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10
@@ -333,13 +331,6 @@ class HushmixApp:
             sticky="e",
         )
 
-        if self.help_visible.get():
-            self.help_label.grid(
-                row=len(self.current_apps) + 2, column=0, columnspan=3, pady=0
-            )
-        else:
-            self.help_label.grid_remove()
-
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.columnconfigure(1, weight=2)
         self.main_frame.columnconfigure(2, weight=0)
@@ -352,12 +343,8 @@ class HushmixApp:
                 self.load_settings()
                 return
 
-
     def show_buttonSettings(self, index):
         """Show settings window."""
-        
-
-        print(index)
         if self.buttonSettings_window is not None:
             try:
                 if (
@@ -373,7 +360,7 @@ class HushmixApp:
 
         self.buttonSettings_window = ButtonSettingsWindow(
             self.root,
-            1-index,
+            index - 1,
             self.mute,
             self.on_buttonSettings_close,
         )
@@ -409,6 +396,11 @@ class HushmixApp:
             .get(current_profile, {})
             .get("applications", [])
         )
+
+        profile_mute = (
+            settings.get("profiles", {}).get(current_profile, {}).get("mute", [])
+        )
+
         self.current_apps = profile_apps if profile_apps else []
 
         self.invert_volumes.set(settings.get("invert_volumes", False))
@@ -418,10 +410,11 @@ class HushmixApp:
 
         self.profile_listbox.set(current_profile)
 
-        self.refresh_gui()
+        for i, mute_state in enumerate(profile_mute):
+            if i < len(self.mute):
+                self.mute[i].set(mute_state)
 
-        print(f"Loaded settings for profile {current_profile}")
-        print(f"Loaded applications: {self.current_apps}")
+        self.refresh_gui()
 
     def save_settings(self):
         """Save current settings to config file."""
@@ -432,12 +425,12 @@ class HushmixApp:
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get(),
             "launch_in_tray": self.launch_in_tray.get(),
+            "mute": [mute_state.get() for mute_state in self.mute],
         }
         ConfigManager.toggle_auto_startup(
             self.auto_startup.get(), "Hushmix", sys.executable
         )
         ConfigManager.save_settings(settings)
-        print("Settings saved:", settings)
 
     def show_settings(self):
         """Show settings window."""
@@ -505,12 +498,14 @@ class HushmixApp:
         try:
             old_profile = self.profile_listbox.get()
             old_apps = [entry.get() for entry in self.entries]
+            old_mute = [mute_state.get() for mute_state in self.mute]
 
             settings = ConfigManager.load_settings()
 
             settings_to_save = {
                 "current_profile": old_profile,
                 "applications": old_apps,
+                "mute": old_mute,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
@@ -521,23 +516,27 @@ class HushmixApp:
             new_profile_apps = (
                 settings.get("profiles", {}).get(profile, {}).get("applications", [])
             )
+            new_profile_mute = (
+                settings.get("profiles", {}).get(profile, {}).get("mute", [])
+            )
             self.current_apps = new_profile_apps
+
+            for i, mute_state in enumerate(new_profile_mute):
+                if i < len(self.mute):
+                    self.mute[i].set(mute_state)
 
             self.refresh_gui()
 
             settings_to_save = {
                 "current_profile": profile,
                 "applications": new_profile_apps,
+                "mute": new_profile_mute,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
                 "launch_in_tray": self.launch_in_tray.get(),
             }
             ConfigManager.save_settings(settings_to_save)
-
-            print(f"Switched from {old_profile} to {profile}")
-            print(f"Old apps: {old_apps}")
-            print(f"New apps: {new_profile_apps}")
 
         except Exception as e:
             print(f"Error in profile change: {e}")
@@ -560,7 +559,6 @@ class HushmixApp:
                 "launch_in_tray": self.launch_in_tray.get(),
             }
 
-            print(f"Attempting to save apps for {current_profile}: {current_apps}")
             ConfigManager.save_settings(settings)
 
         except Exception as e:
