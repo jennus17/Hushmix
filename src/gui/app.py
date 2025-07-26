@@ -128,7 +128,7 @@ class HushmixApp:
             self.main_frame,
             text="⚙️",
             command=self.show_settings,
-            font=("Segoe UI", self.normal_font_size + 1, "bold"),
+            font=("Segoe UI", self.normal_font_size + 1),
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
             cursor="hand2",
@@ -243,16 +243,16 @@ class HushmixApp:
             if i > 0 and i < sliders - 1:
                 buttons = ctk.CTkButton(
                     self.main_frame,
-                    text="!",
+                    text="⋮",
                     command=lambda: HelpWindow(self.root),
                     hover_color=self.accent_hover,
                     fg_color=self.accent_color,
                     cursor="hand2",
-                    width=20,
-                    height=20,
+                    width=25,
+                    height=25,
                     corner_radius=5,
                 )
-                buttons.grid(row=i, column=2, columnspan=1, pady=10, padx=5, sticky="ns")
+                buttons.grid(row=i, column=2, columnspan=1, pady=0, padx=(2, 5), sticky="ew")
 
             entry = ctk.CTkEntry(
                 self.main_frame,
@@ -262,12 +262,21 @@ class HushmixApp:
                 corner_radius=10,
             )
             entry.insert(0, app_name)
-            if i == 0 or i == sliders - 1:
+            if i == 0:
                 entry.grid(
                     row=i,
                     column=0,
                     columnspan=3,
                     pady=(10, 4),
+                    padx=(10, 1),
+                    sticky="nsew",
+                )
+            elif i == sliders - 1:
+                entry.grid(
+                    row=i,
+                    column=0,
+                    columnspan=3,
+                    pady=4,
                     padx=(10, 1),
                     sticky="nsew",
                 )
