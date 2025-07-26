@@ -13,6 +13,7 @@ from utils.icon_manager import IconManager
 from gui.settings_window import SettingsWindow
 from utils.version_manager import VersionManager
 from gui.help_window import HelpWindow
+from gui.buttonSettings_window import ButtonSettingsWindow
 import winreg
 from PIL import Image
 import customtkinter as ctk
@@ -37,6 +38,7 @@ class HushmixApp:
         self.audio_controller = AudioController()
         self.serial_controller = SerialController(self.handle_volume_update)
         self.settings_window = None
+        self.buttonSettings_window = None
 
         self.accent_color = get_windows_accent_color()
         self.accent_hover = darken_color(self.accent_color, 0.2)
@@ -87,6 +89,14 @@ class HushmixApp:
         self.button_frame = None
         self.help_button = None
         self.settings_button = None
+        self.profile_listbox = None
+        self.mute = [
+            ctk.BooleanVar(value=True),
+            ctk.BooleanVar(value=True),
+            ctk.BooleanVar(value=True),
+            ctk.BooleanVar(value=True),
+            ctk.BooleanVar(value=True),
+        ]
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -170,7 +180,7 @@ class HushmixApp:
             self.root.after(20, self.refresh_gui)
             return
 
-        for i, volume in enumerate(volumes):
+        for i, volume in enumerate(volumes):     
             self.update_volume(i, int(volume))
 
     def on_exit(self, icon=None, item=None):
@@ -233,26 +243,30 @@ class HushmixApp:
         for label in self.volume_labels:
             label.destroy()
 
+        self.buttons.clear()
         self.entries.clear()
         self.volume_labels.clear()
 
         for i, app_name in enumerate(self.current_apps):
-            
+
             sliders = len(self.current_apps)
 
             if i > 0 and i < sliders - 1:
-                buttons = ctk.CTkButton(
+                button = ctk.CTkButton(
                     self.main_frame,
                     text="⋮",
-                    command=lambda: HelpWindow(self.root),
+                    command=lambda idx=i: self.show_buttonSettings(idx),
                     hover_color=self.accent_hover,
                     fg_color=self.accent_color,
                     cursor="hand2",
-                    width=25,
+                    width=10,
                     height=25,
-                    corner_radius=5,
+                    corner_radius=8,
                 )
-                buttons.grid(row=i, column=2, columnspan=1, pady=0, padx=(2, 5), sticky="ew")
+                button.grid(
+                    row=i, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
+                )
+                self.buttons.append(button)
 
             entry = ctk.CTkEntry(
                 self.main_frame,
@@ -297,15 +311,26 @@ class HushmixApp:
 
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
+            
 
         self.profile_listbox.grid(
             row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10
         )
         self.help_button.grid(
-            row=len(self.current_apps), column=1, columnspan=2, pady=10, padx=5, sticky="ew"
+            row=len(self.current_apps),
+            column=1,
+            columnspan=2,
+            pady=10,
+            padx=5,
+            sticky="ew",
         )
         self.settings_button.grid(
-            row=len(self.current_apps), column=2, columnspan=2, pady=10, padx=(0, 10), sticky="e"
+            row=len(self.current_apps),
+            column=2,
+            columnspan=2,
+            pady=10,
+            padx=(0, 10),
+            sticky="e",
         )
 
         if self.help_visible.get():
@@ -326,6 +351,43 @@ class HushmixApp:
             if entry_names != self.current_apps:
                 self.load_settings()
                 return
+
+
+    def show_buttonSettings(self, index):
+        """Show settings window."""
+        
+
+        print(index)
+        if self.buttonSettings_window is not None:
+            try:
+                if (
+                    hasattr(self.buttonSettings_window, "window")
+                    and self.buttonSettings_window.window.winfo_exists()
+                ):
+                    self.buttonSettings_window.window.lift()
+                    return
+                else:
+                    self.buttonSettings_window = None
+            except Exception:
+                self.buttonSettings_window = None
+
+        self.buttonSettings_window = ButtonSettingsWindow(
+            self.root,
+            1-index,
+            self.mute,
+            self.on_buttonSettings_close,
+        )
+
+    def on_buttonSettings_close(self):
+        """Handle settings window close."""
+        if self.buttonSettings_window and hasattr(self.buttonSettings_window, "window"):
+            try:
+                self.buttonSettings_window.window.destroy()
+            except Exception:
+                pass
+        self.buttonSettings_window = None
+        self.save_settings()
+        self.apply_theme()
 
     def apply_theme(self):
         """Apply the current theme to all widgets."""
