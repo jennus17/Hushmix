@@ -345,6 +345,7 @@ class HushmixApp:
             )
             volume_label.grid(row=i, column=3, pady=6, padx=5, sticky="w")
             volume_label.bind("<Button-1>", lambda event: event.widget.focus_force())
+            volume_label.default_text_color = volume_label.cget("text_color")
 
 
             self.entries.append(entry)
@@ -534,10 +535,16 @@ class HushmixApp:
 
 
         if index < len(self.volume_labels):
+            is_muted = (
+                index < len(self.muted_state) and self.muted_state[index]
+            )
+            displayed_volume = 0 if is_muted else volume_level
+            color = "red" if is_muted else self.volume_labels[index].default_text_color
+        
             self.root.after(
                 10,
-                lambda l=self.volume_labels[index], v=volume_level: l.configure(
-                    text=f"{v}%"
+                lambda l=self.volume_labels[index]: l.configure(
+                    text=f"{displayed_volume}%", text_color=color
                 ),
             )
 
