@@ -99,6 +99,7 @@ class HushmixApp:
             border_width=0,
         )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
+        self.main_frame.bind("<Button-1>", lambda event: event.widget.focus_force())
 
         self.profile_listbox = ctk.CTkOptionMenu(
             self.main_frame,
@@ -303,6 +304,8 @@ class HushmixApp:
                 font=("Segoe UI", self.normal_font_size, "bold"),
             )
             volume_label.grid(row=i, column=3, pady=6, padx=5, sticky="w")
+            volume_label.bind("<Button-1>", lambda event: event.widget.focus_force())
+
 
             self.entries.append(entry)
             self.volume_labels.append(volume_label)
