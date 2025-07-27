@@ -418,6 +418,15 @@ class HushmixApp:
 
     def save_settings(self):
         """Save current settings to config file."""
+        if len(self.mute) == 0:
+            self.mute = [
+                ctk.BooleanVar(value=True),
+                ctk.BooleanVar(value=True),
+                ctk.BooleanVar(value=True),
+                ctk.BooleanVar(value=True),
+                ctk.BooleanVar(value=True),
+            ]
+
         settings = {
             "current_profile": self.profile_listbox.get(),
             "applications": [entry.get() for entry in self.entries],
@@ -525,8 +534,6 @@ class HushmixApp:
                 if i < len(self.mute):
                     self.mute[i].set(mute_state)
 
-            self.refresh_gui()
-
             settings_to_save = {
                 "current_profile": profile,
                 "applications": new_profile_apps,
@@ -537,6 +544,10 @@ class HushmixApp:
                 "launch_in_tray": self.launch_in_tray.get(),
             }
             ConfigManager.save_settings(settings_to_save)
+
+            self.save_settings()
+
+            self.refresh_gui()
 
         except Exception as e:
             print(f"Error in profile change: {e}")
