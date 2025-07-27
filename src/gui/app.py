@@ -260,7 +260,7 @@ class HushmixApp:
                     row=i, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
                 )
                 self.buttons.append(button)
-            
+
             entry = ctk.CTkEntry(
                 self.main_frame,
                 font=("Segoe UI", self.normal_font_size),
@@ -411,6 +411,7 @@ class HushmixApp:
                 self.mute[i].set(mute_state)
 
         self.refresh_gui()
+        self.save_settings()
 
     def save_settings(self):
         """Save current settings to config file."""
@@ -501,6 +502,7 @@ class HushmixApp:
     def on_profile_change(self, profile):
         """Handle profile selection changes."""
         try:
+
             old_profile = self.profile_listbox.get()
             old_apps = [entry.get() for entry in self.entries]
             old_mute = [mute_state.get() for mute_state in self.mute]
@@ -541,9 +543,8 @@ class HushmixApp:
             }
             ConfigManager.save_settings(settings_to_save)
 
-            self.save_settings()
-
             self.refresh_gui()
+            self.save_settings()
 
         except Exception as e:
             print(f"Error in profile change: {e}")
