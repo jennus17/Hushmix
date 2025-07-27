@@ -92,7 +92,6 @@ class HushmixApp:
         self.mute = []
         self.buttons_state = []
         self.muted_state = []
-        self.last_known_volume = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -171,16 +170,21 @@ class HushmixApp:
 
     def toggle_mute(self, index):
         """Toggle mute/unmute and apply volume."""
-        if index >= len(self.muted_state) or index >= len(self.last_known_volume):
-            print(f"Index {index} out of bounds for mute lists.")
+        if index >= len(self.muted_state):
+            print(f"Index {index} out of bounds for mute list.")
             return
-
+    
         self.muted_state[index] = not self.muted_state[index]
-        index += 1
+    
         if self.muted_state[index]:
-            self.update_volume(index, 0)
+            self.update_volume(index, 0)  # Mute to zero
         else:
-            self.update_volume(index, self.last_known_volume[index])
+            volume_str = self.entries[index].get()
+            try:
+                volume_level = int(volume_str)
+                self.update_volume(index, volume_level)
+            except ValueError:
+                print(f"Invalid volume input: {volume_str}")
 
     def handle_button_update(self, button_states):
         """Handle button states from serial controller."""
@@ -188,23 +192,25 @@ class HushmixApp:
         num_buttons = len(button_states)
         num_apps = len(self.current_apps)
         BUTTON_VOLUME_OFFSET = 1
-
-        self.last_button_states = getattr(self, "last_button_states", [0] * num_buttons)
-        self.mute = getattr(self, "mute", [True] * num_buttons)
+    
+        # Initialize state tracking lists
+        if not hasattr(self, "last_button_states") or len(self.last_button_states) != num_buttons:
+            self.last_button_states = [0] * num_buttons
+    
+        if not hasattr(self, "mute") or len(self.mute) != num_buttons:
+            self.mute = [tk.BooleanVar(value=True) for _ in range(num_buttons)]  # GUI checkboxes?
+    
         if not hasattr(self, "muted_state") or len(self.muted_state) != num_apps:
             self.muted_state = [False] * num_apps
-
-        if not hasattr(self, "last_known_volume") or len(self.last_known_volume) != num_apps:
-            self.last_known_volume = [100] * num_apps
-
+    
         self.button_states = button_states
-
+    
         for i, (current, previous) in enumerate(zip(button_states, self.last_button_states)):
-            if current == 1 and previous == 0: 
+            if current == 1 and previous == 0:  # Rising edge
                 volume_index = i + BUTTON_VOLUME_OFFSET
                 if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
                     self.toggle_mute(volume_index)
-
+    
         self.last_button_states = button_states
 
     def handle_volume_update(self, volumes):
@@ -530,7 +536,6 @@ class HushmixApp:
             volume_level = 100 - volume_level
 
         if index < len(self.muted_state) and self.muted_state[index]:
-            self.last_known_volume[index] = volume_level
             volume_level = 0
 
 
