@@ -36,7 +36,7 @@ class HushmixApp:
         self.setup_variables()
 
         self.audio_controller = AudioController()
-        self.serial_controller = SerialController(self.handle_volume_update)
+        self.serial_controller = SerialController(self.handle_volume_update, self.handle_button_update)
         self.settings_window = None
         self.buttonSettings_window = None
 
@@ -90,6 +90,9 @@ class HushmixApp:
         self.settings_button = None
         self.profile_listbox = None
         self.mute = []
+        self.buttons_state = []
+        self.muted_state = []
+        self.last_known_volume = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -166,9 +169,46 @@ class HushmixApp:
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def toggle_mute(self, index):
+        """Toggle mute/unmute and apply volume."""
+        if index >= len(self.muted_state) or index >= len(self.last_known_volume):
+            print(f"Index {index} out of bounds for mute lists.")
+            return
+
+        self.muted_state[index] = not self.muted_state[index]
+        index += 1
+        if self.muted_state[index]:
+            self.update_volume(index, 0)
+        else:
+            self.update_volume(index, self.last_known_volume[index])
+
+    def handle_button_update(self, button_states):
+        """Handle button states from serial controller."""
+        button_states = [int(state) for state in button_states]
+        num_buttons = len(button_states)
+        num_apps = len(self.current_apps)
+        BUTTON_VOLUME_OFFSET = 1
+
+        self.last_button_states = getattr(self, "last_button_states", [0] * num_buttons)
+        self.mute = getattr(self, "mute", [True] * num_buttons)
+        if not hasattr(self, "muted_state") or len(self.muted_state) != num_apps:
+            self.muted_state = [False] * num_apps
+
+        if not hasattr(self, "last_known_volume") or len(self.last_known_volume) != num_apps:
+            self.last_known_volume = [100] * num_apps
+
+        self.button_states = button_states
+
+        for i, (current, previous) in enumerate(zip(button_states, self.last_button_states)):
+            if current == 1 and previous == 0: 
+                volume_index = i + BUTTON_VOLUME_OFFSET
+                if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
+                    self.toggle_mute(volume_index)
+
+        self.last_button_states = button_states
+
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
-        # Update GUI if number of inputs changes
         if self.current_apps == []:
             self.current_apps = ["" for i in range(len(volumes))]
             self.root.after(20, self.refresh_gui)
@@ -397,7 +437,9 @@ class HushmixApp:
         )
 
         profile_mute = (
-            settings.get("profiles", {}).get(current_profile, {}).get("mute", [])
+            settings.get("profiles", {})
+            .get(current_profile, {})
+            .get("mute", [])
         )
 
         self.current_apps = profile_apps if profile_apps else []
@@ -406,19 +448,20 @@ class HushmixApp:
         self.auto_startup.set(settings.get("auto_startup", False))
         self.dark_mode.set(settings.get("dark_mode", True))
         self.launch_in_tray.set(settings.get("launch_in_tray", False))
-
         self.profile_listbox.set(current_profile)
 
-        for i, mute_state in enumerate(profile_mute):
-            if i < len(self.mute):
-                self.mute[i].set(mute_state)
+        self.mute = []
+        for mute_value in profile_mute:
+            var = ctk.BooleanVar(value=mute_value)
+            self.mute.append(var)
 
         self.refresh_gui()
         self.save_settings()
 
+
     def save_settings(self):
         """Save current settings to config file."""
-        if len(self.mute) == 0:
+        if self.mute == []:
             self.mute = [
                 ctk.BooleanVar(value=True),
                 ctk.BooleanVar(value=True),
@@ -485,6 +528,11 @@ class HushmixApp:
         if self.invert_volumes.get():
             volume_level = 100 - volume_level
 
+        if index < len(self.muted_state) and self.muted_state[index]:
+            self.last_known_volume[index] = volume_level
+            volume_level = 0
+
+
         if index < len(self.volume_labels):
             self.root.after(
                 10,
@@ -531,9 +579,10 @@ class HushmixApp:
             )
             self.current_apps = new_profile_apps
 
-            for i, mute_state in enumerate(new_profile_mute):
-                if i < len(self.mute):
-                    self.mute[i].set(mute_state)
+            self.mute = []
+            for mute_value in new_profile_mute:
+                var = ctk.BooleanVar(value=mute_value)
+                self.mute.append(var)
 
             settings_to_save = {
                 "current_profile": profile,

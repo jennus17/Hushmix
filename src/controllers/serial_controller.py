@@ -8,11 +8,14 @@ import sys
 
 
 class SerialController:
-    def __init__(self, volume_callback):
+    def __init__(self, volume_callback, button_callback):
         """Initialize serial controller."""
         self.volume_callback = volume_callback
+        self.button_callback = button_callback
+        self.button_state = None
         self.running = True
         self.arduino = None
+        self.data_split = None
         self.device_name = "USB-SERIAL CH340", "Dispositivo de Série USB"
         self.initialize_serial()
         self.start_serial_thread()
@@ -73,7 +76,9 @@ class SerialController:
             try:
                 if self.arduino and self.arduino.in_waiting > 0:
                     data = self.arduino.readline().decode("utf-8").strip()
-                    self.process_volume_data(data)
+                    data_split = data.split("-")
+                    self.process_volume_data(data_split[0])
+                    self.process_button_data(data_split[1])
                 else:
                     if self.arduino is None:
                         time.sleep(1)
@@ -89,6 +94,11 @@ class SerialController:
         """Process volume data received from serial."""
         volumes = data.split("|")
         self.volume_callback(volumes)
+
+    def process_button_data(self, data):
+        buttons = data.split("|")
+        self.button_callback(buttons)
+
 
     def cleanup(self):
         """Clean up resources"""
