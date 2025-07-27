@@ -440,7 +440,7 @@ class HushmixApp:
         profile_mute = (
             settings.get("profiles", {})
             .get(current_profile, {})
-            .get("mute", [])
+            .get("mute_settings", [])
         )
 
         self.current_apps = profile_apps if profile_apps else []
@@ -478,7 +478,7 @@ class HushmixApp:
             "auto_startup": self.auto_startup.get(),
             "dark_mode": self.dark_mode.get(),
             "launch_in_tray": self.launch_in_tray.get(),
-            "mute": [mute_state.get() for mute_state in self.mute],
+            "mute_settings": [mute_state.get() for mute_state in self.mute],
         }
         ConfigManager.toggle_auto_startup(
             self.auto_startup.get(), "Hushmix", sys.executable
@@ -540,7 +540,7 @@ class HushmixApp:
             )
             displayed_volume = 0 if is_muted else volume_level
             color = "red" if is_muted else self.volume_labels[index].default_text_color
-        
+
             self.root.after(
                 10,
                 lambda l=self.volume_labels[index]: l.configure(
@@ -570,7 +570,7 @@ class HushmixApp:
             settings_to_save = {
                 "current_profile": old_profile,
                 "applications": old_apps,
-                "mute": old_mute,
+                "mute_settings": old_mute,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
@@ -582,7 +582,7 @@ class HushmixApp:
                 settings.get("profiles", {}).get(profile, {}).get("applications", [])
             )
             new_profile_mute = (
-                settings.get("profiles", {}).get(profile, {}).get("mute", [])
+                settings.get("profiles", {}).get(profile, {}).get("mute_settings", [])
             )
             self.current_apps = new_profile_apps
 
@@ -594,7 +594,7 @@ class HushmixApp:
             settings_to_save = {
                 "current_profile": profile,
                 "applications": new_profile_apps,
-                "mute": new_profile_mute,
+                "mute_settings": new_profile_mute,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),
@@ -616,10 +616,13 @@ class HushmixApp:
         try:
             current_profile = self.profile_listbox.get()
             current_apps = [entry.get() for entry in self.entries]
+            mute_settings = [mute_state.get() for mute_state in self.mute]
+
 
             settings = {
                 "current_profile": current_profile,
                 "applications": current_apps,
+                "mute_settings": mute_settings,
                 "invert_volumes": self.invert_volumes.get(),
                 "auto_startup": self.auto_startup.get(),
                 "dark_mode": self.dark_mode.get(),

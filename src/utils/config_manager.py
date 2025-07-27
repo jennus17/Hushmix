@@ -30,8 +30,8 @@ class ConfigManager:
             existing_settings["profiles"][current_profile]["applications"] = (
                 settings.get("applications")
             )
-            existing_settings["profiles"][current_profile]["mute"] = settings.get(
-                "mute", []
+            existing_settings["profiles"][current_profile]["mute_settings"] = settings.get(
+                "mute_settings", []
             )
 
             existing_settings.update(
@@ -65,11 +65,11 @@ class ConfigManager:
                 default_settings = {
                     "current_profile": "Profile 1",
                     "profiles": {
-                        "Profile 1": {"applications": [], "mute": []},
-                        "Profile 2": {"applications": [], "mute": []},
-                        "Profile 3": {"applications": [], "mute": []},
-                        "Profile 4": {"applications": [], "mute": []},
-                        "Profile 5": {"applications": [], "mute": []},
+                        "Profile 1": {"applications": [], "mute_settings": []},
+                        "Profile 2": {"applications": [], "mute_settings": []},
+                        "Profile 3": {"applications": [], "mute_settings": []},
+                        "Profile 4": {"applications": [], "mute_settings": []},
+                        "Profile 5": {"applications": [], "mute_settings": []},
                     },
                     "invert_volumes": False,
                     "auto_startup": False,
@@ -83,23 +83,23 @@ class ConfigManager:
 
                 if "profiles" not in settings:
                     settings["profiles"] = {
-                        "Profile 1": {"applications": [], "mute": []},
-                        "Profile 2": {"applications": [], "mute": []},
-                        "Profile 3": {"applications": [], "mute": []},
-                        "Profile 4": {"applications": [], "mute": []},
-                        "Profile 5": {"applications": [], "mute": []},
+                        "Profile 1": {"applications": [], "mute_settings": []},
+                        "Profile 2": {"applications": [], "mute_settings": []},
+                        "Profile 3": {"applications": [], "mute_settings": []},
+                        "Profile 4": {"applications": [], "mute_settings": []},
+                        "Profile 5": {"applications": [], "mute_settings": []},
                     }
 
                 current_profile = settings.get("current_profile")
                 profile_settings = settings.get("profiles", {}).get(
-                    current_profile, {"applications": [], "mute": []}
+                    current_profile, {"applications": [], "mute_settings": []}
                 )
 
                 return {
                     "current_profile": current_profile,
                     "profiles": settings.get("profiles", {}),
                     "applications": profile_settings.get("applications", []),
-                    "mute": profile_settings.get("mute", []),
+                    "mute_settings": profile_settings.get("mute_settings", []),
                     "invert_volumes": settings.get("invert_volumes", False),
                     "auto_startup": settings.get("auto_startup", False),
                     "dark_mode": settings.get("dark_mode", True),
