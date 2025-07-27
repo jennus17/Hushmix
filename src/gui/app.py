@@ -89,13 +89,7 @@ class HushmixApp:
         self.help_button = None
         self.settings_button = None
         self.profile_listbox = None
-        self.mute = [
-            ctk.BooleanVar(value=True),
-            ctk.BooleanVar(value=True),
-            ctk.BooleanVar(value=True),
-            ctk.BooleanVar(value=True),
-            ctk.BooleanVar(value=True),
-        ]
+        self.mute = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -175,7 +169,7 @@ class HushmixApp:
         """Handle volume updates from serial controller."""
         # Update GUI if number of inputs changes
         if self.current_apps == []:
-            self.current_apps = [f"App {i + 1}" for i in range(len(volumes))]
+            self.current_apps = ["" for i in range(len(volumes))]
             self.root.after(20, self.refresh_gui)
             return
 
@@ -266,15 +260,17 @@ class HushmixApp:
                     row=i, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
                 )
                 self.buttons.append(button)
-
+            
             entry = ctk.CTkEntry(
                 self.main_frame,
                 font=("Segoe UI", self.normal_font_size),
                 height=30,
+                placeholder_text=f"App {i + 1}",
                 border_width=2,
                 corner_radius=10,
             )
-            entry.insert(0, app_name)
+            if app_name != "":
+                entry.insert(0, app_name)
             if i == 0:
                 entry.grid(
                     row=i,
