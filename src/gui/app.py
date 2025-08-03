@@ -9,6 +9,7 @@ import time
 from controllers.audio_controller import AudioController
 from controllers.serial_controller import SerialController
 from utils.config_manager import ConfigManager
+from utils.settings_manager import SettingsManager
 from utils.icon_manager import IconManager
 from gui.settings_window import SettingsWindow
 from utils.version_manager import VersionManager
@@ -43,12 +44,14 @@ class HushmixApp:
         self.accent_color = get_windows_accent_color()
         self.accent_hover = darken_color(self.accent_color, 0.2)
 
+        self.settings_manager = SettingsManager(self)
+
         self.setup_gui()
         self.load_settings()
 
         self.setup_tray_icon()
 
-        if self.launch_in_tray.get():
+        if self.settings_manager.get_setting("launch_in_tray"):
             self.root.withdraw()
         else:
             self.root.deiconify()
@@ -79,10 +82,6 @@ class HushmixApp:
         self.buttons = []
         self.help_label = ctk.CTkLabel(None)
         self.previous_volumes = []
-        self.invert_volumes = ctk.BooleanVar(value=False)
-        self.auto_startup = ctk.BooleanVar(value=False)
-        self.dark_mode = ctk.BooleanVar(value=True)
-        self.launch_in_tray = ctk.BooleanVar(value=False)
         self.volume_labels = []
         self.running = True
         self.button_frame = None
@@ -90,8 +89,8 @@ class HushmixApp:
         self.settings_button = None
         self.profile_listbox = None
         self.mute = []
-        self.buttons_state = []
         self.muted_state = []
+        self.current_mute_state = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -164,7 +163,6 @@ class HushmixApp:
         except Exception as e:
             print(f"Error setting up tray icon: {e}")
 
-        # Run the icon in a separate thread
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -175,14 +173,15 @@ class HushmixApp:
             return
     
         self.muted_state[index] = not self.muted_state[index]
+
+        if index < len(self.current_mute_state):
+            self.current_mute_state[index] = self.muted_state[index]
     
         if self.muted_state[index]:
-            self.update_volume(index, 0)  # Mute to zero
+            self.update_volume(index, 0)
         else:
-            volume_str = self.entries[index].get()
-
-            volume_level = int(volume_str)
-            self.update_volume(index, volume_level)
+            pass
+        self.save_settings()
 
     def handle_button_update(self, button_states):
         """Handle button states from serial controller."""
@@ -191,20 +190,20 @@ class HushmixApp:
         num_apps = len(self.current_apps)
         BUTTON_VOLUME_OFFSET = 1
     
-        # Initialize state tracking lists
         if not hasattr(self, "last_button_states") or len(self.last_button_states) != num_buttons:
             self.last_button_states = [0] * num_buttons
     
         if not hasattr(self, "mute") or len(self.mute) != num_buttons:
-            self.mute = [ctk.BooleanVar(value=True) for _ in range(num_buttons)]  # GUI checkboxes?
+            self.mute = [ctk.BooleanVar(value=True) for _ in range(num_buttons)]
     
         if not hasattr(self, "muted_state") or len(self.muted_state) != num_apps:
-            self.muted_state = [False] * num_apps
-    
-        self.button_states = button_states
+            if hasattr(self, "current_mute_state") and len(self.current_mute_state) == num_apps:
+                self.muted_state = self.current_mute_state.copy()
+            else:
+                self.muted_state = [False] * num_apps
     
         for i, (current, previous) in enumerate(zip(button_states, self.last_button_states)):
-            if current == 1 and previous == 0:  # Rising edge
+            if current == 1 and previous == 0:
                 volume_index = i + BUTTON_VOLUME_OFFSET
                 if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
                     self.toggle_mute(volume_index)
@@ -217,6 +216,12 @@ class HushmixApp:
             self.current_apps = ["" for i in range(len(volumes))]
             self.root.after(20, self.refresh_gui)
             return
+
+        if not hasattr(self, "muted_state") or len(self.muted_state) != len(volumes):
+            if hasattr(self, "current_mute_state") and len(self.current_mute_state) == len(volumes):
+                self.muted_state = self.current_mute_state.copy()
+            else:
+                self.muted_state = [False] * len(volumes)
 
         for i, volume in enumerate(volumes):
             self.update_volume(i, int(volume))
@@ -422,7 +427,7 @@ class HushmixApp:
 
     def apply_theme(self):
         """Apply the current theme to all widgets."""
-        if self.dark_mode.get():
+        if self.settings_manager.get_setting("dark_mode"):
             ctk.set_appearance_mode("dark")
         else:
             ctk.set_appearance_mode("light")
@@ -431,34 +436,28 @@ class HushmixApp:
 
     def load_settings(self):
         """Load settings from config file."""
-        settings = ConfigManager.load_settings()
+        settings = self.settings_manager.load_from_config()
 
         current_profile = settings.get("current_profile")
+        self.settings_manager.settings_vars["current_profile"] = current_profile
 
-        profile_apps = (
-            settings.get("profiles", {})
-            .get(current_profile, {})
-            .get("applications", [])
-        )
-
-        profile_mute = (
-            settings.get("profiles", {})
-            .get(current_profile, {})
-            .get("mute_settings", [])
-        )
-
-        self.current_apps = profile_apps if profile_apps else []
-
-        self.invert_volumes.set(settings.get("invert_volumes", False))
-        self.auto_startup.set(settings.get("auto_startup", False))
-        self.dark_mode.set(settings.get("dark_mode", True))
-        self.launch_in_tray.set(settings.get("launch_in_tray", False))
-        self.profile_listbox.set(current_profile)
+        self.current_apps = settings.get("applications", [])
+        self.settings_manager.settings_vars["applications"] = self.current_apps
+        profile_mute = settings.get("mute_settings", [])
+        profile_mute_state = settings.get("mute_state", [])
 
         self.mute = []
         for mute_value in profile_mute:
             var = ctk.BooleanVar(value=mute_value)
             self.mute.append(var)
+
+        self.current_mute_state = profile_mute_state.copy()
+        self.muted_state = self.current_mute_state.copy()
+
+        self.settings_manager.settings_vars["mute_settings"] = profile_mute
+        self.settings_manager.settings_vars["mute_state"] = profile_mute_state
+        if hasattr(self, 'profile_listbox') and self.profile_listbox:
+            self.profile_listbox.set(current_profile)
 
         self.refresh_gui()
         self.save_settings()
@@ -474,20 +473,30 @@ class HushmixApp:
                 ctk.BooleanVar(value=True),
                 ctk.BooleanVar(value=True),
             ]
+        if self.current_mute_state == []:
+            self.current_mute_state = [
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+            ]
 
-        settings = {
-            "current_profile": self.profile_listbox.get(),
-            "applications": [entry.get() for entry in self.entries],
-            "invert_volumes": self.invert_volumes.get(),
-            "auto_startup": self.auto_startup.get(),
-            "dark_mode": self.dark_mode.get(),
-            "launch_in_tray": self.launch_in_tray.get(),
-            "mute_settings": [mute_state.get() for mute_state in self.mute],
-        }
-        ConfigManager.toggle_auto_startup(
-            self.auto_startup.get(), "Hushmix", sys.executable
-        )
-        ConfigManager.save_settings(settings)
+        if hasattr(self, 'profile_listbox') and self.profile_listbox:
+            self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
+        
+        if hasattr(self, 'entries'):
+            self.settings_manager.settings_vars["applications"] = [entry.get() for entry in self.entries]
+        
+        self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
+        self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
+
+        current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
+        self.save_current_profile_data(current_profile)
+        
+        self.settings_manager.save_to_config()
 
     def show_settings(self):
         """Show settings window."""
@@ -507,10 +516,7 @@ class HushmixApp:
         self.settings_window = SettingsWindow(
             self.root,
             ConfigManager,
-            self.dark_mode,
-            self.invert_volumes,
-            self.auto_startup,
-            self.launch_in_tray,
+            self.settings_manager,
             self.on_settings_close,
         )
 
@@ -530,12 +536,11 @@ class HushmixApp:
         volume_level = min(max(volume_level, 0), 100)
         volume_level = round(volume_level / 2) * 2
 
-        if self.invert_volumes.get():
+        if self.settings_manager.get_setting("invert_volumes"):
             volume_level = 100 - volume_level
 
         if index < len(self.muted_state) and self.muted_state[index]:
             volume_level = 0
-
 
         if index < len(self.volume_labels):
             is_muted = (
@@ -563,81 +568,104 @@ class HushmixApp:
     def on_profile_change(self, profile):
         """Handle profile selection changes."""
         try:
-
-            old_profile = self.profile_listbox.get()
-            old_apps = [entry.get() for entry in self.entries]
-            old_mute = [mute_state.get() for mute_state in self.mute]
+            current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
+            
+            self.save_current_profile_data(current_profile)
 
             settings = ConfigManager.load_settings()
-
-            settings_to_save = {
-                "current_profile": old_profile,
-                "applications": old_apps,
-                "mute_settings": old_mute,
-                "invert_volumes": self.invert_volumes.get(),
-                "auto_startup": self.auto_startup.get(),
-                "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get(),
-            }
-            ConfigManager.save_settings(settings_to_save)
-
+            
             new_profile_apps = (
                 settings.get("profiles", {}).get(profile, {}).get("applications", [])
             )
             new_profile_mute = (
                 settings.get("profiles", {}).get(profile, {}).get("mute_settings", [])
             )
+            new_profile_mute_state = (
+                settings.get("profiles", {}).get(profile, {}).get("mute_state", [])
+            )
+            
             self.current_apps = new_profile_apps
+            self.settings_manager.settings_vars["applications"] = new_profile_apps
+            self.settings_manager.settings_vars["current_profile"] = profile
 
             self.mute = []
             for mute_value in new_profile_mute:
                 var = ctk.BooleanVar(value=mute_value)
                 self.mute.append(var)
 
-            settings_to_save = {
-                "current_profile": profile,
-                "applications": new_profile_apps,
-                "mute_settings": new_profile_mute,
-                "invert_volumes": self.invert_volumes.get(),
-                "auto_startup": self.auto_startup.get(),
-                "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get(),
-            }
-            ConfigManager.save_settings(settings_to_save)
+            self.current_mute_state = new_profile_mute_state.copy()
+            self.muted_state = self.current_mute_state.copy()
+            
+            self.settings_manager.settings_vars["mute_settings"] = new_profile_mute
+            self.settings_manager.settings_vars["mute_state"] = new_profile_mute_state
+
+            self.settings_manager.save_to_config()
 
             self.refresh_gui()
-            self.save_settings()
 
         except Exception as e:
             print(f"Error in profile change: {e}")
             import traceback
+            traceback.print_exc()
 
+    def save_current_profile_data(self, profile_name):
+        """Save current profile-specific data to the specified profile."""
+        try:
+            if self.mute == []:
+                self.mute = [
+                    ctk.BooleanVar(value=True),
+                    ctk.BooleanVar(value=True),
+                    ctk.BooleanVar(value=True),
+                    ctk.BooleanVar(value=True),
+                    ctk.BooleanVar(value=True),
+                ]
+            if self.current_mute_state == []:
+                self.current_mute_state = [
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                ]
+
+            current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
+            current_mute_settings = [mute_state.get() for mute_state in self.mute]
+            current_mute_state = self.current_mute_state
+
+
+
+            settings = ConfigManager.load_settings()
+            
+            if "profiles" not in settings:
+                settings["profiles"] = {}
+            if profile_name not in settings["profiles"]:
+                settings["profiles"][profile_name] = {}
+            
+            settings["profiles"][profile_name]["applications"] = current_apps
+            settings["profiles"][profile_name]["mute_settings"] = current_mute_settings
+            settings["profiles"][profile_name]["mute_state"] = current_mute_state
+
+            ConfigManager.save_all_settings(settings)
+
+        except Exception as e:
+            print(f"Error in save_current_profile_data: {e}")
+            import traceback
             traceback.print_exc()
 
     def save_applications(self, event=None):
         """Save applications when a key is released in the entry fields."""
         try:
-            current_profile = self.profile_listbox.get()
-            current_apps = [entry.get() for entry in self.entries]
-            mute_settings = [mute_state.get() for mute_state in self.mute]
-
-
-            settings = {
-                "current_profile": current_profile,
-                "applications": current_apps,
-                "mute_settings": mute_settings,
-                "invert_volumes": self.invert_volumes.get(),
-                "auto_startup": self.auto_startup.get(),
-                "dark_mode": self.dark_mode.get(),
-                "launch_in_tray": self.launch_in_tray.get(),
-            }
-
-            ConfigManager.save_settings(settings)
+            if hasattr(self, 'entries'):
+                self.settings_manager.settings_vars["applications"] = [entry.get() for entry in self.entries]
+            
+            current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
+            self.save_current_profile_data(current_profile)
 
         except Exception as e:
             print(f"Error in save_applications: {e}")
             import traceback
-
             traceback.print_exc()
 
 
@@ -666,5 +694,4 @@ def darken_color(hex_color, percentage):
     g = int(g * (1 - percentage))
     b = int(b * (1 - percentage))
 
-    # Convert back to hex
     return "#{:02x}{:02x}{:02x}".format(r, g, b)

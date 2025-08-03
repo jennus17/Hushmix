@@ -9,10 +9,7 @@ class SettingsWindow:
         self,
         parent,
         config_manager,
-        dark_mode,
-        invert_volumes,
-        auto_startup,
-        launch_in_tray,
+        settings_manager,
         on_close,
     ):
         self.window = ctk.CTkToplevel(parent)
@@ -28,10 +25,7 @@ class SettingsWindow:
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
 
         self.config_manager = config_manager
-        self.dark_mode = dark_mode
-        self.invert_volumes = invert_volumes
-        self.auto_startup = auto_startup
-        self.launch_in_tray = launch_in_tray
+        self.settings_manager = settings_manager
         self.on_close = on_close
 
         self.normal_font_size = 14
@@ -59,27 +53,23 @@ class SettingsWindow:
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
-        self.create_checkbox(
-            "Invert Volume Range (100 - 0)",
-            self.invert_volumes,
-        )
+        settings_config = [
+            ("Invert Volume Range (100 - 0)", "invert_volumes"),
+            ("Enable Auto Startup", "auto_startup"),
+            ("Launch in Tray", "launch_in_tray"),
+            ("Dark Mode", "dark_mode"),
+        ]
 
-        self.create_checkbox(
-            "Enable Auto Startup",
-            self.auto_startup,
-        )
+        for text, setting_key in settings_config:
+            self.create_checkbox(text, setting_key)
 
-        self.create_checkbox(
-            "Launch in Tray",
-            self.launch_in_tray,
-        )
-
-        self.create_checkbox(
-            "Dark Mode",
-            self.dark_mode,
-        )
-
-    def create_checkbox(self, text, variable):
+    def create_checkbox(self, text, setting_key):
+        """Create a checkbox for a setting."""
+        variable = self.settings_manager.settings_vars.get(setting_key)
+        if variable is None:
+            print(f"Warning: Setting '{setting_key}' not found in settings manager")
+            return
+            
         checkbox = ctk.CTkCheckBox(
             self.frame,
             text=text,

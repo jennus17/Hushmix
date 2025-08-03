@@ -7,6 +7,34 @@ import requests
 
 class ConfigManager:
     CONFIG_FILE = os.path.join(os.getenv("APPDATA"), "Hushmix", "settings.json")
+    
+    GLOBAL_SETTINGS = {
+        "invert_volumes": False,
+        "auto_startup": False,
+        "dark_mode": True,
+        "launch_in_tray": False,
+    }
+    
+    PROFILE_SETTINGS = {
+        "applications": [],
+        "mute_settings": [],
+        "mute_state": [],
+    }
+    
+    DEFAULT_PROFILES = ["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"]
+
+    @staticmethod
+    def get_default_settings():
+        """Get complete default settings structure."""
+        profiles = {}
+        for profile_name in ConfigManager.DEFAULT_PROFILES:
+            profiles[profile_name] = ConfigManager.PROFILE_SETTINGS.copy()
+        
+        return {
+            "current_profile": "Profile 1",
+            "profiles": profiles,
+            **ConfigManager.GLOBAL_SETTINGS
+        }
 
     @staticmethod
     def save_settings(settings):
@@ -23,26 +51,15 @@ class ConfigManager:
                 existing_settings["profiles"] = {}
 
             current_profile = settings.get("current_profile")
-
             if current_profile not in existing_settings["profiles"]:
                 existing_settings["profiles"][current_profile] = {}
 
-            existing_settings["profiles"][current_profile]["applications"] = (
-                settings.get("applications")
-            )
-            existing_settings["profiles"][current_profile]["mute_settings"] = settings.get(
-                "mute_settings", []
-            )
+            for key, value in settings.items():
+                if key in ConfigManager.PROFILE_SETTINGS:
+                    existing_settings["profiles"][current_profile][key] = value
+                elif key in ConfigManager.GLOBAL_SETTINGS or key == "current_profile":
+                    existing_settings[key] = value
 
-            existing_settings.update(
-                {
-                    "current_profile": current_profile,
-                    "invert_volumes": settings.get("invert_volumes", False),
-                    "auto_startup": settings.get("auto_startup", False),
-                    "dark_mode": settings.get("dark_mode", True),
-                    "launch_in_tray": settings.get("launch_in_tray", False),
-                }
-            )
             with open(ConfigManager.CONFIG_FILE, "w") as file:
                 json.dump(existing_settings, file, indent=4)
 
@@ -51,7 +68,6 @@ class ConfigManager:
         except Exception as e:
             print(f"Error saving settings: {e}")
             import traceback
-
             traceback.print_exc()
 
     @staticmethod
@@ -62,54 +78,65 @@ class ConfigManager:
 
             if not os.path.exists(ConfigManager.CONFIG_FILE):
                 print("No settings file found, using defaults")
-                default_settings = {
-                    "current_profile": "Profile 1",
-                    "profiles": {
-                        "Profile 1": {"applications": [], "mute_settings": []},
-                        "Profile 2": {"applications": [], "mute_settings": []},
-                        "Profile 3": {"applications": [], "mute_settings": []},
-                        "Profile 4": {"applications": [], "mute_settings": []},
-                        "Profile 5": {"applications": [], "mute_settings": []},
-                    },
-                    "invert_volumes": False,
-                    "auto_startup": False,
-                    "dark_mode": True,
-                    "launch_in_tray": False,
-                }
-                return default_settings
+                return ConfigManager.get_default_settings()
 
             with open(ConfigManager.CONFIG_FILE, "r") as file:
                 settings = json.load(file)
 
-                if "profiles" not in settings:
-                    settings["profiles"] = {
-                        "Profile 1": {"applications": [], "mute_settings": []},
-                        "Profile 2": {"applications": [], "mute_settings": []},
-                        "Profile 3": {"applications": [], "mute_settings": []},
-                        "Profile 4": {"applications": [], "mute_settings": []},
-                        "Profile 5": {"applications": [], "mute_settings": []},
-                    }
+            if "profiles" not in settings:
+                settings["profiles"] = {}
+            
+            for profile_name in ConfigManager.DEFAULT_PROFILES:
+                if profile_name not in settings["profiles"]:
+                    settings["profiles"][profile_name] = ConfigManager.PROFILE_SETTINGS.copy()
 
-                current_profile = settings.get("current_profile")
-                profile_settings = settings.get("profiles", {}).get(
-                    current_profile, {"applications": [], "mute_settings": []}
-                )
+            current_profile = settings.get("current_profile", "Profile 1")
+            if current_profile not in settings["profiles"]:
+                settings["profiles"][current_profile] = ConfigManager.PROFILE_SETTINGS.copy()
+            
+            for profile_name in settings["profiles"]:
+                for key, default_value in ConfigManager.PROFILE_SETTINGS.items():
+                    if key not in settings["profiles"][profile_name]:
+                        settings["profiles"][profile_name][key] = default_value
 
-                return {
-                    "current_profile": current_profile,
-                    "profiles": settings.get("profiles", {}),
-                    "applications": profile_settings.get("applications", []),
-                    "mute_settings": profile_settings.get("mute_settings", []),
-                    "invert_volumes": settings.get("invert_volumes", False),
-                    "auto_startup": settings.get("auto_startup", False),
-                    "dark_mode": settings.get("dark_mode", True),
-                    "launch_in_tray": settings.get("launch_in_tray", False),
-                }
+            for key, default_value in ConfigManager.GLOBAL_SETTINGS.items():
+                if key not in settings:
+                    settings[key] = default_value
+
+            profile_settings = settings["profiles"][current_profile]
+
+            return {
+                "current_profile": current_profile,
+                "profiles": settings["profiles"],
+                **profile_settings,
+                **{k: settings[k] for k in ConfigManager.GLOBAL_SETTINGS}
+            }
 
         except Exception as e:
             time.sleep(1)
             print(f"Error loading settings: {e}")
             return ConfigManager.load_settings()
+
+    @staticmethod
+    def get_all_settings():
+        """Get all settings including profiles for advanced operations."""
+        return ConfigManager.load_settings()
+
+    @staticmethod
+    def save_all_settings(all_settings):
+        """Save complete settings structure including all profiles."""
+        try:
+            os.makedirs(os.path.dirname(ConfigManager.CONFIG_FILE), exist_ok=True)
+            
+            with open(ConfigManager.CONFIG_FILE, "w") as file:
+                json.dump(all_settings, file, indent=4)
+                
+            print(f"All settings successfully saved to {ConfigManager.CONFIG_FILE}")
+            
+        except Exception as e:
+            print(f"Error saving all settings: {e}")
+            import traceback
+            traceback.print_exc()
 
     @staticmethod
     def toggle_auto_startup(enable, app_name="Hushmix", executable_path=None):
