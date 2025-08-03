@@ -50,6 +50,7 @@ class HushmixApp:
         self.load_settings()
 
         self.setup_tray_icon()
+        self.setup_window_position_tracking()
 
         if self.settings_manager.get_setting("launch_in_tray"):
             self.root.withdraw()
@@ -166,6 +167,92 @@ class HushmixApp:
         threading.Thread(target=self.icon.run_detached, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def setup_window_position_tracking(self):
+        """Setup window position tracking to save position when moved."""
+        self.last_position = None
+        self.root.bind("<Configure>", self.on_window_configure)
+        
+    def on_window_configure(self, event):
+        """Handle window configuration changes (move, resize)."""
+        if event.widget == self.root:
+            current_position = (self.root.winfo_x(), self.root.winfo_y())
+            
+            if self.last_position != current_position:
+                self.last_position = current_position
+                self.save_window_position()
+                
+    def save_window_position(self):
+        """Save current window position to settings."""
+        try:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            
+            monitors = self.get_monitor_info()
+            window_width = self.root.winfo_width()
+            window_height = self.root.winfo_height()
+            
+            target_monitor = self.find_monitor_for_position(x, y, monitors)
+            
+            if target_monitor is not None:
+                self.settings_manager.set_setting("window_x", x)
+                self.settings_manager.set_setting("window_y", y)
+                
+                self.settings_manager.save_to_config()
+            else:
+                print("Window position is not on any monitor, not saving position")
+                
+        except Exception as e:
+            print(f"Error saving window position: {e}")
+    
+    def get_monitor_info(self):
+        """Get information about all monitors."""
+        import ctypes
+        from ctypes.wintypes import RECT
+        
+        monitors = []
+        
+        def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
+            rect = lprcMonitor.contents
+            monitors.append({
+                'left': rect.left,
+                'top': rect.top,
+                'right': rect.right,
+                'bottom': rect.bottom,
+                'width': rect.right - rect.left,
+                'height': rect.bottom - rect.top
+            })
+            return True
+        
+        enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
+        enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
+        
+        try:
+            ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
+        except Exception as e:
+            print(f"Error enumerating monitors: {e}")
+            monitors = [{
+                'left': 0,
+                'top': 0,
+                'right': ctypes.windll.user32.GetSystemMetrics(0),
+                'bottom': ctypes.windll.user32.GetSystemMetrics(1),
+                'width': ctypes.windll.user32.GetSystemMetrics(0),
+                'height': ctypes.windll.user32.GetSystemMetrics(1)
+            }]
+        
+        return monitors
+    
+    def is_position_on_monitor(self, x, y, monitor):
+        """Check if a position is within a specific monitor bounds."""
+        return (monitor['left'] <= x <= monitor['right'] and 
+                monitor['top'] <= y <= monitor['bottom'])
+    
+    def find_monitor_for_position(self, x, y, monitors):
+        """Find which monitor contains the given position."""
+        for monitor in monitors:
+            if self.is_position_on_monitor(x, y, monitor):
+                return monitor
+        return None
+
     def toggle_mute(self, index):
         """Toggle mute/unmute and apply volume."""
         if index >= len(self.muted_state):
@@ -228,6 +315,8 @@ class HushmixApp:
 
     def on_exit(self, icon=None, item=None):
         """Handle application exit."""
+        self.save_window_position()
+        
         self.icon.visible = False
         self.icon.stop()
 
@@ -274,6 +363,7 @@ class HushmixApp:
 
     def on_close(self):
         """Handle window close button."""
+        self.save_window_position()
         self.root.withdraw()
 
     def refresh_gui(self):

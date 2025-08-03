@@ -19,6 +19,11 @@ class SettingsManager:
         })
         
         self.settings_vars.update({
+            "window_x": None,
+            "window_y": None,
+        })
+        
+        self.settings_vars.update({
             "applications": [],
             "mute_settings": [],
             "mute_state": [],
@@ -46,7 +51,7 @@ class SettingsManager:
         """Load all settings from config file."""
         settings = ConfigManager.load_settings()
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
             if key in settings:
                 self.set_setting(key, settings[key])
         
@@ -65,7 +70,7 @@ class SettingsManager:
             "current_profile": self.settings_vars.get("current_profile", "Profile 1"),
         }
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
             settings[key] = self.get_setting(key)
         
         ConfigManager.toggle_auto_startup(
@@ -78,7 +83,7 @@ class SettingsManager:
         """Get all settings as a dictionary."""
         all_settings = {}
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
             all_settings[key] = self.get_setting(key)
 
         for key in ["applications", "mute_settings", "mute_state"]:

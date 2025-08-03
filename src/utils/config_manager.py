@@ -13,6 +13,8 @@ class ConfigManager:
         "auto_startup": False,
         "dark_mode": True,
         "launch_in_tray": False,
+        "window_x": None,
+        "window_y": None,
     }
     
     PROFILE_SETTINGS = {
