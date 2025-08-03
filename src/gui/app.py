@@ -800,6 +800,14 @@ class HushmixApp:
                     False,
                     False,
                 ]
+            if self.app_launch_paths == []:
+                self.app_launch_paths = [
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                ]
 
             current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
             current_mute_settings = [mute_state.get() for mute_state in self.mute]
