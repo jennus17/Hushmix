@@ -17,7 +17,7 @@ A modern Windows application for controlling individual application volumes usin
 
 ### Option 1: Download from GitHub Releases (Recommended)
 
-1. Go to the [Releases page](https://github.com/yourusername/Hushmix/releases)
+1. Go to the [Releases page](https://github.com/jennus17/Hushmix/releases)
 2. Download the latest release for Windows
 3. Extract the ZIP file to your desired location
 4. Run `Hushmix.exe` to start the application
