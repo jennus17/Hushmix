@@ -1,10 +1,23 @@
 # Required packages for the Hushmix application
 
+# Audio control and Windows API
 pycaw==20181226  # Python Core Audio Windows Library for controlling audio
 comtypes==1.2.0  # COM support for Python, used for Windows API calls
-pyserial==3.5    # Serial communication library for Python
-psutil==5.9.5    # Cross-platform library for retrieving information on running processes and system utilization
-pystray==0.19.4  # Library for creating system tray applications
-Pillow==10.0.0   # Python Imaging Library (PIL) fork for image processing
 pywin32>=305     # Python bindings for Windows APIs
+
+# Serial communication
+pyserial==3.5    # Serial communication library for Python
+
+# System utilities
+psutil==5.9.5    # Cross-platform library for retrieving information on running processes and system utilization
+
+# GUI and system tray
 customtkinter==5.1.0  # CustomTkinter for enhanced tkinter UI
+pystray==0.19.4  # Library for creating system tray applications
+
+# Image processing
+Pillow==10.0.0   # Python Imaging Library (PIL) fork for image processing
+
+# HTTP requests and file processing
+requests>=2.31.0  # HTTP library for making requests to GitHub API
+pefile>=2023.2.7  # PE file parser for reading executable version information
