@@ -154,9 +154,14 @@ class ConfigManager:
                     )
                 print(f"Auto-startup enabled for {app_name}")
             else:
-                with winreg.OpenKey(key, subkey, 0, winreg.KEY_WRITE) as registry_key:
-                    winreg.DeleteValue(registry_key, app_name)
-                print(f"Auto-startup disabled for {app_name}")
+                try:
+                    with winreg.OpenKey(key, subkey, 0, winreg.KEY_READ) as registry_key:
+                        winreg.QueryValueEx(registry_key, app_name)
+                    with winreg.OpenKey(key, subkey, 0, winreg.KEY_WRITE) as registry_key:
+                        winreg.DeleteValue(registry_key, app_name)
+                    print(f"Auto-startup disabled for {app_name}")
+                except FileNotFoundError:
+                    print(f"Auto-startup was already disabled for {app_name}")
         except Exception as e:
             print(f"Error managing auto-startup: {e}")
 
