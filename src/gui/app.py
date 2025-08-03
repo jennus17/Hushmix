@@ -92,6 +92,8 @@ class HushmixApp:
         self.mute = []
         self.muted_state = []
         self.current_mute_state = []
+        self.app_launch_enabled = []
+        self.app_launch_paths = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -294,8 +296,30 @@ class HushmixApp:
                 volume_index = i + BUTTON_VOLUME_OFFSET
                 if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
                     self.toggle_mute(volume_index)
+                
+                # Launch application if enabled
+                if (i < len(self.app_launch_enabled) and 
+                    self.app_launch_enabled[i].get() and 
+                    i < len(self.app_launch_paths) and 
+                    self.app_launch_paths[i].get()):
+                    self.launch_application(i)
     
         self.last_button_states = button_states
+
+    def launch_application(self, index):
+        """Launch the application specified for the given button index."""
+        try:
+            import subprocess
+            import os
+            
+            app_path = self.app_launch_paths[index].get()
+            if app_path and os.path.exists(app_path):
+                subprocess.Popen([app_path], shell=True)
+                print(f"Launched application: {app_path}")
+            else:
+                print(f"Application path not found: {app_path}")
+        except Exception as e:
+            print(f"Error launching application: {e}")
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -501,6 +525,8 @@ class HushmixApp:
             self.root,
             index - 1,
             self.mute,
+            self.app_launch_enabled,
+            self.app_launch_paths,
             self.on_buttonSettings_close,
         )
 
@@ -544,8 +570,24 @@ class HushmixApp:
         self.current_mute_state = profile_mute_state.copy()
         self.muted_state = self.current_mute_state.copy()
 
+        # Load app launch settings
+        profile_app_launch_enabled = settings.get("app_launch_enabled", [])
+        profile_app_launch_paths = settings.get("app_launch_paths", [])
+
+        self.app_launch_enabled = []
+        for enabled_value in profile_app_launch_enabled:
+            var = ctk.BooleanVar(value=enabled_value)
+            self.app_launch_enabled.append(var)
+
+        self.app_launch_paths = []
+        for path_value in profile_app_launch_paths:
+            var = ctk.StringVar(value=path_value)
+            self.app_launch_paths.append(var)
+
         self.settings_manager.settings_vars["mute_settings"] = profile_mute
         self.settings_manager.settings_vars["mute_state"] = profile_mute_state
+        self.settings_manager.settings_vars["app_launch_enabled"] = profile_app_launch_enabled
+        self.settings_manager.settings_vars["app_launch_paths"] = profile_app_launch_paths
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.profile_listbox.set(current_profile)
 
@@ -573,6 +615,24 @@ class HushmixApp:
                 False,
                 False,
             ]
+        
+        if self.app_launch_enabled == []:
+            self.app_launch_enabled = [
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+            ]
+        
+        if self.app_launch_paths == []:
+            self.app_launch_paths = [
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+            ]
 
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
@@ -582,6 +642,8 @@ class HushmixApp:
         
         self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
+        self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
+        self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
 
         current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
         self.save_current_profile_data(current_profile)
@@ -673,6 +735,12 @@ class HushmixApp:
             new_profile_mute_state = (
                 settings.get("profiles", {}).get(profile, {}).get("mute_state", [])
             )
+            new_profile_app_launch_enabled = (
+                settings.get("profiles", {}).get(profile, {}).get("app_launch_enabled", [])
+            )
+            new_profile_app_launch_paths = (
+                settings.get("profiles", {}).get(profile, {}).get("app_launch_paths", [])
+            )
             
             self.current_apps = new_profile_apps
             self.settings_manager.settings_vars["applications"] = new_profile_apps
@@ -686,8 +754,21 @@ class HushmixApp:
             self.current_mute_state = new_profile_mute_state.copy()
             self.muted_state = self.current_mute_state.copy()
             
+            # Load app launch settings
+            self.app_launch_enabled = []
+            for enabled_value in new_profile_app_launch_enabled:
+                var = ctk.BooleanVar(value=enabled_value)
+                self.app_launch_enabled.append(var)
+
+            self.app_launch_paths = []
+            for path_value in new_profile_app_launch_paths:
+                var = ctk.StringVar(value=path_value)
+                self.app_launch_paths.append(var)
+            
             self.settings_manager.settings_vars["mute_settings"] = new_profile_mute
             self.settings_manager.settings_vars["mute_state"] = new_profile_mute_state
+            self.settings_manager.settings_vars["app_launch_enabled"] = new_profile_app_launch_enabled
+            self.settings_manager.settings_vars["app_launch_paths"] = new_profile_app_launch_paths
 
             self.settings_manager.save_to_config()
 
@@ -723,6 +804,8 @@ class HushmixApp:
             current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
             current_mute_settings = [mute_state.get() for mute_state in self.mute]
             current_mute_state = self.current_mute_state
+            current_app_launch_enabled = [enabled.get() for enabled in self.app_launch_enabled]
+            current_app_launch_paths = [path.get() for path in self.app_launch_paths]
 
 
 
@@ -736,6 +819,8 @@ class HushmixApp:
             settings["profiles"][profile_name]["applications"] = current_apps
             settings["profiles"][profile_name]["mute_settings"] = current_mute_settings
             settings["profiles"][profile_name]["mute_state"] = current_mute_state
+            settings["profiles"][profile_name]["app_launch_enabled"] = current_app_launch_enabled
+            settings["profiles"][profile_name]["app_launch_paths"] = current_app_launch_paths
 
             ConfigManager.save_all_settings(settings)
 

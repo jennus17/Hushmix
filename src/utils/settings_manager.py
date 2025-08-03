@@ -27,6 +27,8 @@ class SettingsManager:
             "applications": [],
             "mute_settings": [],
             "mute_state": [],
+            "app_launch_enabled": [],
+            "app_launch_paths": [],
         })
     
     def get_setting(self, key, default=None):
@@ -55,7 +57,7 @@ class SettingsManager:
             if key in settings:
                 self.set_setting(key, settings[key])
         
-        for key in ["applications", "mute_settings", "mute_state"]:
+        for key in ["applications", "mute_settings", "mute_state", "app_launch_enabled", "app_launch_paths"]:
             if key in settings:
                 self.settings_vars[key] = settings[key]
         
@@ -86,7 +88,7 @@ class SettingsManager:
         for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
             all_settings[key] = self.get_setting(key)
 
-        for key in ["applications", "mute_settings", "mute_state"]:
+        for key in ["applications", "mute_settings", "mute_state", "app_launch_enabled", "app_launch_paths"]:
             if key in self.settings_vars:
                 all_settings[key] = self.settings_vars[key]
         
