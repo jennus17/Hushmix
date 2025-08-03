@@ -180,11 +180,9 @@ class HushmixApp:
             self.update_volume(index, 0)  # Mute to zero
         else:
             volume_str = self.entries[index].get()
-            try:
-                volume_level = int(volume_str)
-                self.update_volume(index, volume_level)
-            except ValueError:
-                print(f"Invalid volume input: {volume_str}")
+
+            volume_level = int(volume_str)
+            self.update_volume(index, volume_level)
 
     def handle_button_update(self, button_states):
         """Handle button states from serial controller."""
@@ -198,7 +196,7 @@ class HushmixApp:
             self.last_button_states = [0] * num_buttons
     
         if not hasattr(self, "mute") or len(self.mute) != num_buttons:
-            self.mute = [tk.BooleanVar(value=True) for _ in range(num_buttons)]  # GUI checkboxes?
+            self.mute = [ctk.BooleanVar(value=True) for _ in range(num_buttons)]  # GUI checkboxes?
     
         if not hasattr(self, "muted_state") or len(self.muted_state) != num_apps:
             self.muted_state = [False] * num_apps
@@ -544,7 +542,7 @@ class HushmixApp:
                 index < len(self.muted_state) and self.muted_state[index]
             )
             displayed_volume = 0 if is_muted else volume_level
-            color = "red" if is_muted else self.volume_labels[index].default_text_color
+            color = "red3" if is_muted else self.volume_labels[index].default_text_color
 
             self.root.after(
                 10,

@@ -30,7 +30,7 @@ class SerialController:
 
         return None
 
-    def initialize_serial(self, device_name="Dispositivo de Série USB", baud_rate=9600):
+    def initialize_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """Initialize serial connection with the device."""
         serial_port = self.get_com_port_by_device_name(device_name)
         if serial_port:
@@ -46,7 +46,7 @@ class SerialController:
             showerror("Error", "Mixer not found. Check your connection.")
             sys.exit(1)
 
-    def reconnect_serial(self, device_name="Dispositivo de Série USB", baud_rate=9600):
+    def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """Reconnect to the mixer."""
         self.arduino.close()
         serial_port = self.get_com_port_by_device_name(device_name)
