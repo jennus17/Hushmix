@@ -13,8 +13,13 @@ class ConfigManager:
         "auto_startup": False,
         "dark_mode": True,
         "launch_in_tray": False,
+        "auto_check_updates": True,
         "window_x": None,
         "window_y": None,
+        "update_source": "github",
+        "update_check_interval": 1800,
+        "skip_version": None,
+        "last_update_check": None,
     }
     
     PROFILE_SETTINGS = {

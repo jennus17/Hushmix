@@ -12,7 +12,7 @@ from utils.config_manager import ConfigManager
 from utils.settings_manager import SettingsManager
 from utils.icon_manager import IconManager
 from gui.settings_window import SettingsWindow
-from utils.version_manager import VersionManager
+from utils.enhanced_version_manager import EnhancedVersionManager
 from gui.help_window import HelpWindow
 from gui.buttonSettings_window import ButtonSettingsWindow
 import winreg
@@ -57,7 +57,7 @@ class HushmixApp:
         else:
             self.root.deiconify()
 
-        self.version_manager = VersionManager(root)
+        self.version_manager = EnhancedVersionManager(root, self.settings_manager)
 
     def setup_window(self):
         """Setup main window properties."""

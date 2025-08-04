@@ -16,11 +16,16 @@ class SettingsManager:
             "auto_startup": ctk.BooleanVar(value=False),
             "dark_mode": ctk.BooleanVar(value=True),
             "launch_in_tray": ctk.BooleanVar(value=False),
+            "auto_check_updates": ctk.BooleanVar(value=True),
         })
         
         self.settings_vars.update({
             "window_x": None,
             "window_y": None,
+            "update_source": "github",
+            "update_check_interval": 1800,
+            "skip_version": None,
+            "last_update_check": None,
         })
         
         self.settings_vars.update({
@@ -53,9 +58,13 @@ class SettingsManager:
         """Load all settings from config file."""
         settings = ConfigManager.load_settings()
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "auto_check_updates", "window_x", "window_y"]:
             if key in settings:
                 self.set_setting(key, settings[key])
+        
+        for key in ["update_source", "update_check_interval", "skip_version", "last_update_check"]:
+            if key in settings:
+                self.settings_vars[key] = settings[key]
         
         for key in ["applications", "mute_settings", "mute_state", "app_launch_enabled", "app_launch_paths"]:
             if key in settings:
@@ -72,8 +81,11 @@ class SettingsManager:
             "current_profile": self.settings_vars.get("current_profile", "Profile 1"),
         }
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "auto_check_updates", "window_x", "window_y"]:
             settings[key] = self.get_setting(key)
+        
+        for key in ["update_source", "update_check_interval", "skip_version", "last_update_check"]:
+            settings[key] = self.settings_vars[key]
         
         ConfigManager.toggle_auto_startup(
             self.get_setting("auto_startup"), "Hushmix", sys.executable
@@ -85,8 +97,11 @@ class SettingsManager:
         """Get all settings as a dictionary."""
         all_settings = {}
         
-        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "window_x", "window_y"]:
+        for key in ["invert_volumes", "auto_startup", "dark_mode", "launch_in_tray", "auto_check_updates", "window_x", "window_y"]:
             all_settings[key] = self.get_setting(key)
+
+        for key in ["update_source", "update_check_interval", "skip_version", "last_update_check"]:
+            all_settings[key] = self.settings_vars[key]
 
         for key in ["applications", "mute_settings", "mute_state", "app_launch_enabled", "app_launch_paths"]:
             if key in self.settings_vars:

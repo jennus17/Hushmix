@@ -53,15 +53,38 @@ class SettingsWindow:
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
-        settings_config = [
+        general_label = ctk.CTkLabel(
+            self.frame,
+            text="General Settings",
+            font=("Segoe UI", 16, "bold")
+        )
+        general_label.pack(pady=(20, 10), padx=15, anchor="w")
+
+        general_settings = [
             ("Invert Volume Range (100 - 0)", "invert_volumes"),
             ("Enable Auto Startup", "auto_startup"),
             ("Launch in Tray", "launch_in_tray"),
             ("Dark Mode", "dark_mode"),
         ]
 
-        for text, setting_key in settings_config:
+        for text, setting_key in general_settings:
             self.create_checkbox(text, setting_key)
+
+        update_label = ctk.CTkLabel(
+            self.frame,
+            text="Update Settings",
+            font=("Segoe UI", 16, "bold")
+        )
+        update_label.pack(pady=(20, 10), padx=15, anchor="w")
+
+        update_settings = [
+            ("Automatically check for updates", "auto_check_updates"),
+        ]
+
+        for text, setting_key in update_settings:
+            self.create_checkbox(text, setting_key)
+
+        self.create_update_interval_setting()
 
     def create_checkbox(self, text, setting_key):
         """Create a checkbox for a setting."""
@@ -79,6 +102,55 @@ class SettingsWindow:
             hover_color=self.accent_hover,
         )
         checkbox.pack(pady=10, padx=15, anchor="w")
+
+    def create_update_interval_setting(self):
+        """Create the update interval setting."""
+        interval_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+        interval_frame.pack(pady=(5, 10), padx=15, fill="x")
+        
+        interval_label = ctk.CTkLabel(
+            interval_frame,
+            text="Check for updates every:",
+            font=("Segoe UI", self.normal_font_size)
+        )
+        interval_label.pack(side="left", padx=(0, 10))
+        
+        current_interval = self.settings_manager.get_setting('update_check_interval', 1800)
+        interval_minutes = current_interval // 60
+        
+        interval_options = ["15", "30", "60", "120", "240", "480"]
+        interval_var = ctk.StringVar(value=str(interval_minutes))
+        
+        interval_menu = ctk.CTkOptionMenu(
+            interval_frame,
+            values=interval_options,
+            variable=interval_var,
+            command=self.change_update_interval,
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+        )
+        interval_menu.pack(side="left")
+        
+        minutes_label = ctk.CTkLabel(
+            interval_frame,
+            text="minutes",
+            font=("Segoe UI", self.normal_font_size)
+        )
+        minutes_label.pack(side="left", padx=(10, 0))
+
+    def change_update_interval(self, value):
+        """Change the update check interval."""
+        try:
+            minutes = int(value)
+            seconds = minutes * 60
+            self.settings_manager.set_setting('update_check_interval', seconds)
+        except ValueError:
+            pass
+
+
 
     def center_window(self, parent):
         self.window.update_idletasks()
