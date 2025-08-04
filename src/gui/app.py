@@ -521,9 +521,17 @@ class HushmixApp:
             except Exception:
                 self.buttonSettings_window = None
 
+        button_index = index - 1
+        while len(self.mute) <= button_index:
+            self.mute.append(ctk.BooleanVar(value=True))
+        while len(self.app_launch_enabled) <= button_index:
+            self.app_launch_enabled.append(ctk.BooleanVar(value=False))
+        while len(self.app_launch_paths) <= button_index:
+            self.app_launch_paths.append(ctk.StringVar(value=""))
+
         self.buttonSettings_window = ButtonSettingsWindow(
             self.root,
-            index - 1,
+            button_index,
             self.mute,
             self.app_launch_enabled,
             self.app_launch_paths,
@@ -539,16 +547,10 @@ class HushmixApp:
                 pass
         self.buttonSettings_window = None
         self.save_settings()
-        self.apply_theme()
+        
+        self.apply_theme_changes()
 
-    def apply_theme(self):
-        """Apply the current theme to all widgets."""
-        if self.settings_manager.get_setting("dark_mode"):
-            ctk.set_appearance_mode("dark")
-        else:
-            ctk.set_appearance_mode("light")
 
-        self.root.update_idletasks()
 
     def load_settings(self):
         """Load settings from config file."""
@@ -563,31 +565,48 @@ class HushmixApp:
         profile_mute_state = settings.get("mute_state", [])
 
         self.mute = []
-        for mute_value in profile_mute:
-            var = ctk.BooleanVar(value=mute_value)
-            self.mute.append(var)
+        if profile_mute:
+            for mute_value in profile_mute:
+                var = ctk.BooleanVar(value=mute_value)
+                self.mute.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.BooleanVar(value=True)
+                self.mute.append(var)
 
-        self.current_mute_state = profile_mute_state.copy()
+        if profile_mute_state:
+            self.current_mute_state = profile_mute_state.copy()
+        else:
+            self.current_mute_state = [False] * 7
         self.muted_state = self.current_mute_state.copy()
 
-        # Load app launch settings
         profile_app_launch_enabled = settings.get("app_launch_enabled", [])
         profile_app_launch_paths = settings.get("app_launch_paths", [])
 
         self.app_launch_enabled = []
-        for enabled_value in profile_app_launch_enabled:
-            var = ctk.BooleanVar(value=enabled_value)
-            self.app_launch_enabled.append(var)
+        if profile_app_launch_enabled:
+            for enabled_value in profile_app_launch_enabled:
+                var = ctk.BooleanVar(value=enabled_value)
+                self.app_launch_enabled.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.BooleanVar(value=False)
+                self.app_launch_enabled.append(var)
 
         self.app_launch_paths = []
-        for path_value in profile_app_launch_paths:
-            var = ctk.StringVar(value=path_value)
-            self.app_launch_paths.append(var)
+        if profile_app_launch_paths:
+            for path_value in profile_app_launch_paths:
+                var = ctk.StringVar(value=path_value)
+                self.app_launch_paths.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="")
+                self.app_launch_paths.append(var)
 
-        self.settings_manager.settings_vars["mute_settings"] = profile_mute
-        self.settings_manager.settings_vars["mute_state"] = profile_mute_state
-        self.settings_manager.settings_vars["app_launch_enabled"] = profile_app_launch_enabled
-        self.settings_manager.settings_vars["app_launch_paths"] = profile_app_launch_paths
+        self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
+        self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
+        self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
+        self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.profile_listbox.set(current_profile)
 
@@ -681,7 +700,55 @@ class HushmixApp:
                 pass
         self.settings_window = None
         self.save_settings()
-        self.apply_theme()
+        
+        self.apply_theme_changes()
+
+    def apply_theme_changes(self):
+        """Apply theme changes dynamically without restart."""
+        try:
+            dark_mode = self.settings_manager.get_setting("dark_mode")
+            
+            if dark_mode:
+                ctk.set_appearance_mode("dark")
+            else:
+                ctk.set_appearance_mode("light")
+            
+            self.root.update_idletasks()
+            
+            self.accent_color = get_windows_accent_color()
+            self.accent_hover = darken_color(self.accent_color, 0.2)
+            
+            if hasattr(self, 'profile_listbox') and self.profile_listbox:
+                self.profile_listbox.configure(
+                    fg_color=self.accent_color,
+                    button_color=self.accent_color,
+                    button_hover_color=self.accent_hover,
+                    dropdown_hover_color=self.accent_hover
+                )
+            
+            if hasattr(self, 'help_button') and self.help_button:
+                self.help_button.configure(
+                    fg_color=self.accent_color,
+                    hover_color=self.accent_hover
+                )
+            
+            if hasattr(self, 'settings_button') and self.settings_button:
+                self.settings_button.configure(
+                    fg_color=self.accent_color,
+                    hover_color=self.accent_hover
+                )
+            
+            for button in self.buttons:
+                if button.winfo_exists():
+                    button.configure(
+                        fg_color=self.accent_color,
+                        hover_color=self.accent_hover
+                    )
+            
+            print(f"Theme changed to {'dark' if dark_mode else 'light'} mode")
+            
+        except Exception as e:
+            print(f"Error applying theme changes: {e}")
 
     def update_volume(self, index, volume_level):
         """Update volume for a specific application."""
@@ -747,28 +814,45 @@ class HushmixApp:
             self.settings_manager.settings_vars["current_profile"] = profile
 
             self.mute = []
-            for mute_value in new_profile_mute:
-                var = ctk.BooleanVar(value=mute_value)
-                self.mute.append(var)
+            if new_profile_mute:
+                for mute_value in new_profile_mute:
+                    var = ctk.BooleanVar(value=mute_value)
+                    self.mute.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.BooleanVar(value=True)
+                    self.mute.append(var)
 
-            self.current_mute_state = new_profile_mute_state.copy()
+            if new_profile_mute_state:
+                self.current_mute_state = new_profile_mute_state.copy()
+            else:
+                self.current_mute_state = [False] * 7
             self.muted_state = self.current_mute_state.copy()
             
-            # Load app launch settings
             self.app_launch_enabled = []
-            for enabled_value in new_profile_app_launch_enabled:
-                var = ctk.BooleanVar(value=enabled_value)
-                self.app_launch_enabled.append(var)
+            if new_profile_app_launch_enabled:
+                for enabled_value in new_profile_app_launch_enabled:
+                    var = ctk.BooleanVar(value=enabled_value)
+                    self.app_launch_enabled.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.BooleanVar(value=False)
+                    self.app_launch_enabled.append(var)
 
             self.app_launch_paths = []
-            for path_value in new_profile_app_launch_paths:
-                var = ctk.StringVar(value=path_value)
-                self.app_launch_paths.append(var)
+            if new_profile_app_launch_paths:
+                for path_value in new_profile_app_launch_paths:
+                    var = ctk.StringVar(value=path_value)
+                    self.app_launch_paths.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="")
+                    self.app_launch_paths.append(var)
             
-            self.settings_manager.settings_vars["mute_settings"] = new_profile_mute
-            self.settings_manager.settings_vars["mute_state"] = new_profile_mute_state
-            self.settings_manager.settings_vars["app_launch_enabled"] = new_profile_app_launch_enabled
-            self.settings_manager.settings_vars["app_launch_paths"] = new_profile_app_launch_paths
+            self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
+            self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
+            self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
+            self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
 
             self.settings_manager.save_to_config()
 

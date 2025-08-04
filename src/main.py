@@ -82,10 +82,17 @@ def validate_window_position(x, y, window_width, window_height, monitors):
 
 
 def main():
+    settings = ConfigManager.load_settings()
+    dark_mode = settings.get("dark_mode", True)
+    
+    if dark_mode:
+        ctk.set_appearance_mode("dark")
+    else:
+        ctk.set_appearance_mode("light")
+    
     root = ctk.CTk()  
     root.update_idletasks()
 
-    settings = ConfigManager.load_settings()
     saved_x = settings.get("window_x")
     saved_y = settings.get("window_y")
     
