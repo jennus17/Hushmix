@@ -100,7 +100,13 @@ class AudioController:
                         mic_volume = mic_volume_interface.QueryInterface(
                             IAudioEndpointVolume
                         )
-                        mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
+                        
+                        if level == 0:
+                            mic_volume.SetMute(1, None)
+                        else:
+                            mic_volume.SetMute(0, None)
+                            mic_volume.SetMasterVolumeLevelScalar(level / 100, None)
+                        
                         mic_volume = None
 
                 elif app_name.lower() == "system":
@@ -125,6 +131,40 @@ class AudioController:
 
         except Exception as e:
             print(f"Error setting volume: {e}")
+
+    def get_microphone_volume(self):
+        """Get the current volume level of the microphone."""
+        try:
+            self._init_com()
+            mic_device = AudioUtilities.GetMicrophone()
+            mic_volume_interface = mic_device.Activate(
+                IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+            )
+            mic_volume = mic_volume_interface.QueryInterface(IAudioEndpointVolume)
+            
+            volume_level = mic_volume.GetMasterVolumeLevelScalar()
+            mic_volume = None
+            return int(volume_level * 100)
+        except Exception as e:
+            print(f"Error getting microphone volume: {e}")
+            return 50
+
+    def get_microphone_mute_state(self):
+        """Get the current mute state of the microphone."""
+        try:
+            self._init_com()
+            mic_device = AudioUtilities.GetMicrophone()
+            mic_volume_interface = mic_device.Activate(
+                IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+            )
+            mic_volume = mic_volume_interface.QueryInterface(IAudioEndpointVolume)
+            
+            mute_state = mic_volume.GetMute()
+            mic_volume = None
+            return mute_state
+        except Exception as e:
+            print(f"Error getting microphone mute state: {e}")
+            return False
 
     def cleanup(self):
         """Explicit cleanup method to be called when shutting down."""

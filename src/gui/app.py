@@ -274,7 +274,17 @@ class HushmixApp:
         if self.muted_state[index]:
             self.update_volume(index, 0)
         else:
-            pass
+            app_name = self.entries[index].get() if index < len(self.entries) else ""
+            if app_name and app_name.lower() == "mic":
+                mic_volume = self.audio_controller.get_microphone_volume()
+                if mic_volume > 0:
+                    self.update_volume(index, mic_volume)
+                else:
+                    self.update_volume(index, 50)
+            elif index < len(self.previous_volumes) and self.previous_volumes[index] is not None:
+                self.update_volume(index, self.previous_volumes[index])
+            else:
+                self.update_volume(index, 50)
         self.save_settings()
 
     def handle_button_update(self, button_states):
@@ -1019,6 +1029,11 @@ class HushmixApp:
         ):
             app_name = self.entries[index].get()
             if app_name:
+                if app_name.lower() == "mic" and not self.muted_state[index] and self.previous_volumes[index] == 0:
+                    mic_volume = self.audio_controller.get_microphone_volume()
+                    if mic_volume > 0:
+                        volume_level = mic_volume
+                
                 self.audio_controller.set_application_volume(app_name, volume_level)
                 self.previous_volumes[index] = volume_level
 
