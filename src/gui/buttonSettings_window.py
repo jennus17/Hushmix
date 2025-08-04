@@ -14,6 +14,8 @@ class ButtonSettingsWindow:
         mute,
         app_launch_enabled,
         app_launch_paths,
+        keyboard_shortcut_enabled,
+        keyboard_shortcuts,
         on_close,
         
     ):
@@ -34,6 +36,8 @@ class ButtonSettingsWindow:
         self.mute = mute
         self.app_launch_enabled = app_launch_enabled
         self.app_launch_paths = app_launch_paths
+        self.keyboard_shortcut_enabled = keyboard_shortcut_enabled
+        self.keyboard_shortcuts = keyboard_shortcuts
 
         self.normal_font_size = 14
 
@@ -69,6 +73,12 @@ class ButtonSettingsWindow:
         if self.index >= len(self.app_launch_paths):
             while len(self.app_launch_paths) <= self.index:
                 self.app_launch_paths.append(ctk.StringVar(value=""))
+        if self.index >= len(self.keyboard_shortcut_enabled):
+            while len(self.keyboard_shortcut_enabled) <= self.index:
+                self.keyboard_shortcut_enabled.append(ctk.BooleanVar(value=False))
+        if self.index >= len(self.keyboard_shortcuts):
+            while len(self.keyboard_shortcuts) <= self.index:
+                self.keyboard_shortcuts.append(ctk.StringVar(value=""))
 
         self.create_checkbox(
             "Mute",
@@ -76,6 +86,7 @@ class ButtonSettingsWindow:
         )
 
         self.create_app_launch_section()
+        self.create_keyboard_shortcut_section()
 
     def create_checkbox(self, text, variable):
         checkbox = ctk.CTkCheckBox(
@@ -128,9 +139,63 @@ class ButtonSettingsWindow:
 
         self.update_app_launch_ui()
 
+    def create_keyboard_shortcut_section(self):
+        """Create the keyboard shortcut section with checkbox and input field."""
+        shortcut_frame = ctk.CTkFrame(self.frame, corner_radius=0, border_width=0)
+        shortcut_frame.pack(pady=0, padx=0, fill="x")
+
+        self.shortcut_checkbox = ctk.CTkCheckBox(
+            shortcut_frame,
+            text="Send Keyboard Shortcut",
+            variable=self.keyboard_shortcut_enabled[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            command=self.on_shortcut_toggle
+        )
+        self.shortcut_checkbox.pack(pady=(10, 5), padx=15, anchor="w")
+
+        self.shortcut_input_frame = ctk.CTkFrame(shortcut_frame, corner_radius=10, border_width=0)
+        self.shortcut_input_frame.pack(pady=(0, 10), padx=15, fill="x")
+
+        self.shortcut_label = ctk.CTkLabel(
+            self.shortcut_input_frame,
+            text="Click to record shortcut:",
+            font=("Segoe UI", 12),
+        )
+        self.shortcut_label.pack(pady=(5, 5), padx=15, anchor="w")
+
+        self.shortcut_entry = ctk.CTkEntry(
+            self.shortcut_input_frame,
+            font=("Segoe UI", 12),
+            height=30,
+            placeholder_text="Press keys here...",
+            state="readonly"
+        )
+        self.shortcut_entry.pack(pady=(0, 5), padx=15, fill="x")
+        self.shortcut_entry.bind("<Button-1>", self.start_shortcut_recording)
+
+        self.clear_shortcut_button = ctk.CTkButton(
+            self.shortcut_input_frame,
+            text="Clear",
+            font=("Segoe UI", 12),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            command=self.clear_shortcut,
+            width=80,
+            height=30
+        )
+        self.clear_shortcut_button.pack(pady=(0, 5), padx=15, anchor="w")
+
+        self.update_shortcut_ui()
+
     def on_app_launch_toggle(self):
         """Handle app launch checkbox toggle."""
         self.update_app_launch_ui()
+
+    def on_shortcut_toggle(self):
+        """Handle keyboard shortcut checkbox toggle."""
+        self.update_shortcut_ui()
 
     def update_app_launch_ui(self):
         """Update the UI based on the app launch checkbox state."""
@@ -160,6 +225,113 @@ class ButtonSettingsWindow:
         
         self.window.update_idletasks()
         self.window.geometry(f"{self.window.winfo_width()}x{self.window.winfo_height()}")
+
+    def update_shortcut_ui(self):
+        """Update the UI based on the keyboard shortcut checkbox state."""
+        if self.index >= len(self.keyboard_shortcut_enabled):
+            while len(self.keyboard_shortcut_enabled) <= self.index:
+                self.keyboard_shortcut_enabled.append(ctk.BooleanVar(value=False))
+        if self.index >= len(self.keyboard_shortcuts):
+            while len(self.keyboard_shortcuts) <= self.index:
+                self.keyboard_shortcuts.append(ctk.StringVar(value=""))
+        
+        is_enabled = self.keyboard_shortcut_enabled[self.index].get()
+        
+        if is_enabled:
+            self.shortcut_input_frame.pack(pady=(0, 10), padx=15, fill="x")
+            self.shortcut_entry.configure(state="normal")
+            self.clear_shortcut_button.configure(state="normal")
+            
+            current_shortcut = self.keyboard_shortcuts[self.index].get()
+            if current_shortcut:
+                self.shortcut_entry.configure(state="normal")
+                self.shortcut_entry.delete(0, "end")
+                self.shortcut_entry.insert(0, current_shortcut)
+                self.shortcut_entry.configure(state="readonly")
+            else:
+                self.shortcut_entry.configure(state="normal")
+                self.shortcut_entry.delete(0, "end")
+                self.shortcut_entry.configure(state="readonly")
+        else:
+            self.shortcut_input_frame.pack_forget()
+            self.shortcut_entry.configure(state="disabled")
+            self.clear_shortcut_button.configure(state="disabled")
+        
+        self.window.update_idletasks()
+        self.window.geometry(f"{self.window.winfo_width()}x{self.window.winfo_height()}")
+
+    def start_shortcut_recording(self, event=None):
+        """Start recording keyboard shortcut."""
+        if self.index >= len(self.keyboard_shortcuts):
+            while len(self.keyboard_shortcuts) <= self.index:
+                self.keyboard_shortcuts.append(ctk.StringVar(value=""))
+        
+        self.shortcut_entry.configure(state="normal")
+        self.shortcut_entry.delete(0, "end")
+        self.shortcut_entry.insert(0, "Press keys...")
+        self.shortcut_entry.configure(state="readonly")
+        
+        self.window.focus_force()
+        
+        self.window.bind("<Key>", self.on_key_press)
+        self.window.bind("<KeyRelease>", self.on_key_release)
+        
+        self.recording_shortcut = True
+        self.current_shortcut = []
+
+    def on_key_press(self, event):
+        """Handle key press during shortcut recording."""
+        if not hasattr(self, 'recording_shortcut') or not self.recording_shortcut:
+            return
+        
+        key = event.keysym
+        modifiers = []
+        
+        if event.state & 0x4:  # Control
+            modifiers.append("Ctrl")
+        if event.state & 0x1:  # Shift
+            modifiers.append("Shift")
+        if event.state & 0x8:  # Alt
+            modifiers.append("Alt")
+        if event.state & 0x20000:  # Windows key
+            modifiers.append("Win")
+        
+        if key in ["Control_L", "Control_R", "Shift_L", "Shift_R", "Alt_L", "Alt_R", "Meta_L", "Meta_R"]:
+            return
+        
+        if modifiers:
+            shortcut = "+".join(modifiers) + "+" + key
+        else:
+            shortcut = key
+        
+        self.keyboard_shortcuts[self.index].set(shortcut)
+        self.shortcut_entry.configure(state="normal")
+        self.shortcut_entry.delete(0, "end")
+        self.shortcut_entry.insert(0, shortcut)
+        self.shortcut_entry.configure(state="readonly")
+        
+        self.stop_shortcut_recording()
+
+    def on_key_release(self, event):
+        """Handle key release during shortcut recording."""
+        pass
+
+    def stop_shortcut_recording(self):
+        """Stop recording keyboard shortcut."""
+        self.recording_shortcut = False
+        self.window.unbind("<Key>")
+        self.window.unbind("<KeyRelease>")
+
+    def clear_shortcut(self):
+        """Clear the current keyboard shortcut."""
+        if self.index >= len(self.keyboard_shortcuts):
+            while len(self.keyboard_shortcuts) <= self.index:
+                self.keyboard_shortcuts.append(ctk.StringVar(value=""))
+        
+        self.keyboard_shortcuts[self.index].set("")
+        self.shortcut_entry.configure(state="normal")
+        self.shortcut_entry.delete(0, "end")
+        self.shortcut_entry.configure(state="readonly")
 
     def browse_file(self):
         """Open file dialog to select an application."""

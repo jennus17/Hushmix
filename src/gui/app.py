@@ -94,6 +94,8 @@ class HushmixApp:
         self.current_mute_state = []
         self.app_launch_enabled = []
         self.app_launch_paths = []
+        self.keyboard_shortcut_enabled = []
+        self.keyboard_shortcuts = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -303,6 +305,13 @@ class HushmixApp:
                     i < len(self.app_launch_paths) and 
                     self.app_launch_paths[i].get()):
                     self.launch_application(i)
+                
+                # Send keyboard shortcut if enabled
+                if (i < len(self.keyboard_shortcut_enabled) and 
+                    self.keyboard_shortcut_enabled[i].get() and 
+                    i < len(self.keyboard_shortcuts) and 
+                    self.keyboard_shortcuts[i].get()):
+                    self.send_keyboard_shortcut(i)
     
         self.last_button_states = button_states
 
@@ -320,6 +329,69 @@ class HushmixApp:
                 print(f"Application path not found: {app_path}")
         except Exception as e:
             print(f"Error launching application: {e}")
+
+    def send_keyboard_shortcut(self, index):
+        """Send keyboard shortcut for the given button index."""
+        try:
+            import pyautogui
+            import time
+            
+            if index >= len(self.keyboard_shortcuts):
+                return
+            
+            shortcut = self.keyboard_shortcuts[index].get()
+            if not shortcut:
+                return
+            
+            keys = shortcut.split('+')
+            key_mapping = {
+                'Ctrl': 'ctrl',
+                'Control': 'ctrl',
+                'Shift': 'shift',
+                'Alt': 'alt',
+                'Win': 'win',
+                'Windows': 'win',
+                'Enter': 'enter',
+                'Return': 'enter',
+                'Tab': 'tab',
+                'Space': 'space',
+                'Escape': 'esc',
+                'Esc': 'esc',
+                'Backspace': 'backspace',
+                'Delete': 'delete',
+                'Del': 'delete',
+                'Insert': 'insert',
+                'Home': 'home',
+                'End': 'end',
+                'PageUp': 'pageup',
+                'PageDown': 'pagedown',
+                'Up': 'up',
+                'Down': 'down',
+                'Left': 'left',
+                'Right': 'right',
+                'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
+                'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
+                'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12',
+                'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f', 'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j',
+                'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r', 's': 's', 't': 't',
+                'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': 'z',
+                '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9'
+            }
+            
+            pyautogui_keys = []
+            for key in keys:
+                mapped_key = key_mapping.get(key, key.lower())
+                pyautogui_keys.append(mapped_key)
+            
+            if len(pyautogui_keys) > 1:
+                pyautogui.hotkey(*pyautogui_keys)
+            else:
+                pyautogui.press(pyautogui_keys[0])
+            
+            print(f"Sent keyboard shortcut: {shortcut}")
+            
+        except Exception as e:
+            print(f"Error sending keyboard shortcut: {e}")
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -528,6 +600,10 @@ class HushmixApp:
             self.app_launch_enabled.append(ctk.BooleanVar(value=False))
         while len(self.app_launch_paths) <= button_index:
             self.app_launch_paths.append(ctk.StringVar(value=""))
+        while len(self.keyboard_shortcut_enabled) <= button_index:
+            self.keyboard_shortcut_enabled.append(ctk.BooleanVar(value=False))
+        while len(self.keyboard_shortcuts) <= button_index:
+            self.keyboard_shortcuts.append(ctk.StringVar(value=""))
 
         self.buttonSettings_window = ButtonSettingsWindow(
             self.root,
@@ -535,6 +611,8 @@ class HushmixApp:
             self.mute,
             self.app_launch_enabled,
             self.app_launch_paths,
+            self.keyboard_shortcut_enabled,
+            self.keyboard_shortcuts,
             self.on_buttonSettings_close,
         )
 
@@ -603,10 +681,35 @@ class HushmixApp:
                 var = ctk.StringVar(value="")
                 self.app_launch_paths.append(var)
 
+        profile_keyboard_shortcut_enabled = settings.get("keyboard_shortcut_enabled", [])
+        profile_keyboard_shortcuts = settings.get("keyboard_shortcuts", [])
+
+        self.keyboard_shortcut_enabled = []
+        if profile_keyboard_shortcut_enabled:
+            for enabled_value in profile_keyboard_shortcut_enabled:
+                var = ctk.BooleanVar(value=enabled_value)
+                self.keyboard_shortcut_enabled.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.BooleanVar(value=False)
+                self.keyboard_shortcut_enabled.append(var)
+
+        self.keyboard_shortcuts = []
+        if profile_keyboard_shortcuts:
+            for shortcut_value in profile_keyboard_shortcuts:
+                var = ctk.StringVar(value=shortcut_value)
+                self.keyboard_shortcuts.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="")
+                self.keyboard_shortcuts.append(var)
+
         self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
         self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
         self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
+        self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
+        self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.profile_listbox.set(current_profile)
 
@@ -652,6 +755,24 @@ class HushmixApp:
                 ctk.StringVar(value=""),
                 ctk.StringVar(value=""),
             ]
+        
+        if self.keyboard_shortcut_enabled == []:
+            self.keyboard_shortcut_enabled = [
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+            ]
+        
+        if self.keyboard_shortcuts == []:
+            self.keyboard_shortcuts = [
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+                ctk.StringVar(value=""),
+            ]
 
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
@@ -663,6 +784,8 @@ class HushmixApp:
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
         self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
         self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
+        self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
+        self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
 
         current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
         self.save_current_profile_data(current_profile)
@@ -808,6 +931,12 @@ class HushmixApp:
             new_profile_app_launch_paths = (
                 settings.get("profiles", {}).get(profile, {}).get("app_launch_paths", [])
             )
+            new_profile_keyboard_shortcut_enabled = (
+                settings.get("profiles", {}).get(profile, {}).get("keyboard_shortcut_enabled", [])
+            )
+            new_profile_keyboard_shortcuts = (
+                settings.get("profiles", {}).get(profile, {}).get("keyboard_shortcuts", [])
+            )
             
             self.current_apps = new_profile_apps
             self.settings_manager.settings_vars["applications"] = new_profile_apps
@@ -849,10 +978,32 @@ class HushmixApp:
                     var = ctk.StringVar(value="")
                     self.app_launch_paths.append(var)
             
+            self.keyboard_shortcut_enabled = []
+            if new_profile_keyboard_shortcut_enabled:
+                for enabled_value in new_profile_keyboard_shortcut_enabled:
+                    var = ctk.BooleanVar(value=enabled_value)
+                    self.keyboard_shortcut_enabled.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.BooleanVar(value=False)
+                    self.keyboard_shortcut_enabled.append(var)
+
+            self.keyboard_shortcuts = []
+            if new_profile_keyboard_shortcuts:
+                for shortcut_value in new_profile_keyboard_shortcuts:
+                    var = ctk.StringVar(value=shortcut_value)
+                    self.keyboard_shortcuts.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="")
+                    self.keyboard_shortcuts.append(var)
+            
             self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
             self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
             self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
             self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
+            self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
+            self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
 
             self.settings_manager.save_to_config()
 
@@ -892,12 +1043,30 @@ class HushmixApp:
                     ctk.StringVar(value=""),
                     ctk.StringVar(value=""),
                 ]
+            if self.keyboard_shortcut_enabled == []:
+                self.keyboard_shortcut_enabled = [
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                ]
+            if self.keyboard_shortcuts == []:
+                self.keyboard_shortcuts = [
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                    ctk.StringVar(value=""),
+                ]
 
             current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
             current_mute_settings = [mute_state.get() for mute_state in self.mute]
             current_mute_state = self.current_mute_state
             current_app_launch_enabled = [enabled.get() for enabled in self.app_launch_enabled]
             current_app_launch_paths = [path.get() for path in self.app_launch_paths]
+            current_keyboard_shortcut_enabled = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
+            current_keyboard_shortcuts = [shortcut.get() for shortcut in self.keyboard_shortcuts]
 
 
 
@@ -913,6 +1082,8 @@ class HushmixApp:
             settings["profiles"][profile_name]["mute_state"] = current_mute_state
             settings["profiles"][profile_name]["app_launch_enabled"] = current_app_launch_enabled
             settings["profiles"][profile_name]["app_launch_paths"] = current_app_launch_paths
+            settings["profiles"][profile_name]["keyboard_shortcut_enabled"] = current_keyboard_shortcut_enabled
+            settings["profiles"][profile_name]["keyboard_shortcuts"] = current_keyboard_shortcuts
 
             ConfigManager.save_all_settings(settings)
 

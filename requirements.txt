@@ -21,3 +21,6 @@ Pillow==10.0.0   # Python Imaging Library (PIL) fork for image processing
 # HTTP requests and file processing
 requests>=2.31.0  # HTTP library for making requests to GitHub API
 pefile>=2023.2.7  # PE file parser for reading executable version information
+
+# Keyboard automation
+pyautogui>=0.9.54  # Cross-platform GUI automation for sending keyboard shortcuts
