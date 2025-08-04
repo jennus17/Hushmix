@@ -16,6 +16,9 @@ class ButtonSettingsWindow:
         app_launch_paths,
         keyboard_shortcut_enabled,
         keyboard_shortcuts,
+        mute_button_modes,
+        app_button_modes,
+        shortcut_button_modes,
         on_close,
         
     ):
@@ -38,6 +41,9 @@ class ButtonSettingsWindow:
         self.app_launch_paths = app_launch_paths
         self.keyboard_shortcut_enabled = keyboard_shortcut_enabled
         self.keyboard_shortcuts = keyboard_shortcuts
+        self.mute_button_modes = mute_button_modes
+        self.app_button_modes = app_button_modes
+        self.shortcut_button_modes = shortcut_button_modes
 
         self.normal_font_size = 14
 
@@ -79,33 +85,56 @@ class ButtonSettingsWindow:
         if self.index >= len(self.keyboard_shortcuts):
             while len(self.keyboard_shortcuts) <= self.index:
                 self.keyboard_shortcuts.append(ctk.StringVar(value=""))
+        if self.index >= len(self.mute_button_modes):
+            while len(self.mute_button_modes) <= self.index:
+                self.mute_button_modes.append(ctk.StringVar(value="Click"))
+        if self.index >= len(self.app_button_modes):
+            while len(self.app_button_modes) <= self.index:
+                self.app_button_modes.append(ctk.StringVar(value="Click"))
+        if self.index >= len(self.shortcut_button_modes):
+            while len(self.shortcut_button_modes) <= self.index:
+                self.shortcut_button_modes.append(ctk.StringVar(value="Click"))
 
-        self.create_checkbox(
-            "Mute",
-            self.mute[self.index]
-        )
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(1, weight=0)
 
-        self.create_app_launch_section()
-        self.create_keyboard_shortcut_section()
+        self.create_mute_row()
+        
+        self.create_app_launch_row()
+        
+        self.create_keyboard_shortcut_row()
 
-    def create_checkbox(self, text, variable):
-        checkbox = ctk.CTkCheckBox(
+    def create_mute_row(self):
+        """Create the mute checkbox with button mode dropdown in a row."""
+        self.mute_checkbox = ctk.CTkCheckBox(
             self.frame,
-            text=text,
-            variable=variable,
+            text="Mute",
+            variable=self.mute[self.index],
             font=("Segoe UI", self.normal_font_size),
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
         )
-        checkbox.pack(pady=10, padx=15, anchor="w")
+        self.mute_checkbox.grid(row=0, column=0, pady=10, padx=15, sticky="w")
 
-    def create_app_launch_section(self):
-        """Create the app launch section with checkbox and file browser."""
-        app_frame = ctk.CTkFrame(self.frame, corner_radius=0, border_width=0)
-        app_frame.pack(pady=0, padx=0, fill="x")
+        self.mute_mode_dropdown = ctk.CTkOptionMenu(
+            self.frame,
+            values=["Click", "Double Click", "Hold"],
+            variable=self.mute_button_modes[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+            width=150,
+            height=30,
+            corner_radius=10,
+        )
+        self.mute_mode_dropdown.grid(row=0, column=1, pady=10, padx=15, sticky="e")
 
+    def create_app_launch_row(self):
+        """Create the app launch checkbox with button mode dropdown in a row."""
         self.app_launch_checkbox = ctk.CTkCheckBox(
-            app_frame,
+            self.frame,
             text="Launch Application",
             variable=self.app_launch_enabled[self.index],
             font=("Segoe UI", self.normal_font_size),
@@ -113,10 +142,25 @@ class ButtonSettingsWindow:
             hover_color=self.accent_hover,
             command=self.on_app_launch_toggle
         )
-        self.app_launch_checkbox.pack(pady=(10, 5), padx=15, anchor="w")
+        self.app_launch_checkbox.grid(row=1, column=0, pady=10, padx=15, sticky="w")
 
-        self.file_frame = ctk.CTkFrame(app_frame, corner_radius=10, border_width=0)
-        self.file_frame.pack(pady=(0, 10), padx=15, fill="x")
+        self.app_mode_dropdown = ctk.CTkOptionMenu(
+            self.frame,
+            values=["Click", "Double Click", "Hold"],
+            variable=self.app_button_modes[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+            width=150,
+            height=30,
+            corner_radius=10,
+        )
+        self.app_mode_dropdown.grid(row=1, column=1, pady=10, padx=15, sticky="e")
+
+        self.file_frame = ctk.CTkFrame(self.frame, corner_radius=10, border_width=0)
+        self.file_frame.grid(row=2, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
 
         self.path_label = ctk.CTkLabel(
             self.file_frame,
@@ -139,13 +183,10 @@ class ButtonSettingsWindow:
 
         self.update_app_launch_ui()
 
-    def create_keyboard_shortcut_section(self):
-        """Create the keyboard shortcut section with checkbox and input field."""
-        shortcut_frame = ctk.CTkFrame(self.frame, corner_radius=0, border_width=0)
-        shortcut_frame.pack(pady=0, padx=0, fill="x")
-
+    def create_keyboard_shortcut_row(self):
+        """Create the keyboard shortcut checkbox with button mode dropdown in a row."""
         self.shortcut_checkbox = ctk.CTkCheckBox(
-            shortcut_frame,
+            self.frame,
             text="Send Keyboard Shortcut",
             variable=self.keyboard_shortcut_enabled[self.index],
             font=("Segoe UI", self.normal_font_size),
@@ -153,10 +194,25 @@ class ButtonSettingsWindow:
             hover_color=self.accent_hover,
             command=self.on_shortcut_toggle
         )
-        self.shortcut_checkbox.pack(pady=(10, 5), padx=15, anchor="w")
+        self.shortcut_checkbox.grid(row=3, column=0, pady=10, padx=15, sticky="w")
 
-        self.shortcut_input_frame = ctk.CTkFrame(shortcut_frame, corner_radius=10, border_width=0)
-        self.shortcut_input_frame.pack(pady=(0, 10), padx=15, fill="x")
+        self.shortcut_mode_dropdown = ctk.CTkOptionMenu(
+            self.frame,
+            values=["Click", "Double Click", "Hold"],
+            variable=self.shortcut_button_modes[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+            width=150,
+            height=30,
+            corner_radius=10,
+        )
+        self.shortcut_mode_dropdown.grid(row=3, column=1, pady=10, padx=15, sticky="e")
+
+        self.shortcut_input_frame = ctk.CTkFrame(self.frame, corner_radius=10, border_width=0)
+        self.shortcut_input_frame.grid(row=4, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
 
         self.shortcut_label = ctk.CTkLabel(
             self.shortcut_input_frame,
@@ -189,6 +245,8 @@ class ButtonSettingsWindow:
 
         self.update_shortcut_ui()
 
+
+
     def on_app_launch_toggle(self):
         """Handle app launch checkbox toggle."""
         self.update_app_launch_ui()
@@ -209,7 +267,7 @@ class ButtonSettingsWindow:
         is_enabled = self.app_launch_enabled[self.index].get()
         
         if is_enabled:
-            self.file_frame.pack(pady=(0, 10), padx=15, fill="x")
+            self.file_frame.grid(row=2, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
             self.browse_button.configure(state="normal")
             
             current_path = self.app_launch_paths[self.index].get()
@@ -220,11 +278,18 @@ class ButtonSettingsWindow:
             else:
                 self.path_label.configure(text="No application selected")
         else:
-            self.file_frame.pack_forget()
+            self.file_frame.grid_remove()
             self.browse_button.configure(state="disabled")
         
         self.window.update_idletasks()
-        self.window.geometry(f"{self.window.winfo_width()}x{self.window.winfo_height()}")
+        
+        current_x = self.window.winfo_x()
+        current_y = self.window.winfo_y()
+        
+        required_width = self.window.winfo_reqwidth()
+        required_height = self.window.winfo_reqheight()
+        
+        self.window.geometry(f"{required_width}x{required_height}+{current_x}+{current_y}")
 
     def update_shortcut_ui(self):
         """Update the UI based on the keyboard shortcut checkbox state."""
@@ -238,7 +303,7 @@ class ButtonSettingsWindow:
         is_enabled = self.keyboard_shortcut_enabled[self.index].get()
         
         if is_enabled:
-            self.shortcut_input_frame.pack(pady=(0, 10), padx=15, fill="x")
+            self.shortcut_input_frame.grid(row=4, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
             self.shortcut_entry.configure(state="normal")
             self.clear_shortcut_button.configure(state="normal")
             
@@ -253,12 +318,19 @@ class ButtonSettingsWindow:
                 self.shortcut_entry.delete(0, "end")
                 self.shortcut_entry.configure(state="readonly")
         else:
-            self.shortcut_input_frame.pack_forget()
+            self.shortcut_input_frame.grid_remove()
             self.shortcut_entry.configure(state="disabled")
             self.clear_shortcut_button.configure(state="disabled")
         
         self.window.update_idletasks()
-        self.window.geometry(f"{self.window.winfo_width()}x{self.window.winfo_height()}")
+        
+        current_x = self.window.winfo_x()
+        current_y = self.window.winfo_y()
+        
+        required_width = self.window.winfo_reqwidth()
+        required_height = self.window.winfo_reqheight()
+        
+        self.window.geometry(f"{required_width}x{required_height}+{current_x}+{current_y}")
 
     def start_shortcut_recording(self, event=None):
         """Start recording keyboard shortcut."""

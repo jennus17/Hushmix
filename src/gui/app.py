@@ -96,6 +96,9 @@ class HushmixApp:
         self.app_launch_paths = []
         self.keyboard_shortcut_enabled = []
         self.keyboard_shortcuts = []
+        self.mute_button_modes = []
+        self.app_button_modes = []
+        self.shortcut_button_modes = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -294,24 +297,62 @@ class HushmixApp:
                 self.muted_state = [False] * num_apps
     
         for i, (current, previous) in enumerate(zip(button_states, self.last_button_states)):
-            if current == 1 and previous == 0:
+            if current > 0 and previous == 0:
                 volume_index = i + BUTTON_VOLUME_OFFSET
-                if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
-                    self.toggle_mute(volume_index)
                 
-                # Launch application if enabled
+                if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
+                    mute_mode = "Click" 
+                    if i < len(self.mute_button_modes):
+                        mute_mode = self.mute_button_modes[i].get()
+                    
+                    should_trigger_mute = False
+                    if mute_mode == "Click" and current == 1:
+                        should_trigger_mute = True
+                    elif mute_mode == "Double Click" and current == 3:
+                        should_trigger_mute = True
+                    elif mute_mode == "Hold" and current == 2:
+                        should_trigger_mute = True
+                    
+                    if should_trigger_mute:
+                        self.toggle_mute(volume_index)
+                
                 if (i < len(self.app_launch_enabled) and 
                     self.app_launch_enabled[i].get() and 
                     i < len(self.app_launch_paths) and 
                     self.app_launch_paths[i].get()):
-                    self.launch_application(i)
+                    app_mode = "Click"
+                    if i < len(self.app_button_modes):
+                        app_mode = self.app_button_modes[i].get()
+                    
+                    should_trigger_app = False
+                    if app_mode == "Click" and current == 1:
+                        should_trigger_app = True
+                    elif app_mode == "Double Click" and current == 3:
+                        should_trigger_app = True
+                    elif app_mode == "Hold" and current == 2:
+                        should_trigger_app = True
+                    
+                    if should_trigger_app:
+                        self.launch_application(i)
                 
-                # Send keyboard shortcut if enabled
                 if (i < len(self.keyboard_shortcut_enabled) and 
                     self.keyboard_shortcut_enabled[i].get() and 
                     i < len(self.keyboard_shortcuts) and 
                     self.keyboard_shortcuts[i].get()):
-                    self.send_keyboard_shortcut(i)
+                    shortcut_mode = "Click"
+                    if i < len(self.shortcut_button_modes):
+                        shortcut_mode = self.shortcut_button_modes[i].get()
+                    
+                    should_trigger_shortcut = False
+                    if shortcut_mode == "Click" and current == 1:
+                        should_trigger_shortcut = True
+                    elif shortcut_mode == "Double Click" and current == 3:
+                        should_trigger_shortcut = True
+                    elif shortcut_mode == "Hold" and current == 2:
+                        should_trigger_shortcut = True
+                    
+                    if should_trigger_shortcut:
+                        self.send_keyboard_shortcut(i)
     
         self.last_button_states = button_states
 
@@ -604,6 +645,12 @@ class HushmixApp:
             self.keyboard_shortcut_enabled.append(ctk.BooleanVar(value=False))
         while len(self.keyboard_shortcuts) <= button_index:
             self.keyboard_shortcuts.append(ctk.StringVar(value=""))
+        while len(self.mute_button_modes) <= button_index:
+            self.mute_button_modes.append(ctk.StringVar(value="Click"))
+        while len(self.app_button_modes) <= button_index:
+            self.app_button_modes.append(ctk.StringVar(value="Click"))
+        while len(self.shortcut_button_modes) <= button_index:
+            self.shortcut_button_modes.append(ctk.StringVar(value="Click"))
 
         self.buttonSettings_window = ButtonSettingsWindow(
             self.root,
@@ -613,6 +660,9 @@ class HushmixApp:
             self.app_launch_paths,
             self.keyboard_shortcut_enabled,
             self.keyboard_shortcuts,
+            self.mute_button_modes,
+            self.app_button_modes,
+            self.shortcut_button_modes,
             self.on_buttonSettings_close,
         )
 
@@ -704,12 +754,49 @@ class HushmixApp:
                 var = ctk.StringVar(value="")
                 self.keyboard_shortcuts.append(var)
 
+        profile_mute_button_modes = settings.get("mute_button_modes", [])
+        profile_app_button_modes = settings.get("app_button_modes", [])
+        profile_shortcut_button_modes = settings.get("shortcut_button_modes", [])
+
+        self.mute_button_modes = []
+        if profile_mute_button_modes:
+            for mode_value in profile_mute_button_modes:
+                var = ctk.StringVar(value=mode_value)
+                self.mute_button_modes.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="Click")
+                self.mute_button_modes.append(var)
+
+        self.app_button_modes = []
+        if profile_app_button_modes:
+            for mode_value in profile_app_button_modes:
+                var = ctk.StringVar(value=mode_value)
+                self.app_button_modes.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="Click")
+                self.app_button_modes.append(var)
+
+        self.shortcut_button_modes = []
+        if profile_shortcut_button_modes:
+            for mode_value in profile_shortcut_button_modes:
+                var = ctk.StringVar(value=mode_value)
+                self.shortcut_button_modes.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="Click")
+                self.shortcut_button_modes.append(var)
+
         self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
         self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
         self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
         self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
         self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
+        self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
+        self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
+        self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.profile_listbox.set(current_profile)
 
@@ -773,6 +860,31 @@ class HushmixApp:
                 ctk.StringVar(value=""),
                 ctk.StringVar(value=""),
             ]
+        
+        if self.mute_button_modes == []:
+            self.mute_button_modes = [
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+            ]
+        if self.app_button_modes == []:
+            self.app_button_modes = [
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+            ]
+        if self.shortcut_button_modes == []:
+            self.shortcut_button_modes = [
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+            ]
 
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
@@ -786,6 +898,9 @@ class HushmixApp:
         self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
         self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
         self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
+        self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
+        self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
+        self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
 
         current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
         self.save_current_profile_data(current_profile)
@@ -937,6 +1052,15 @@ class HushmixApp:
             new_profile_keyboard_shortcuts = (
                 settings.get("profiles", {}).get(profile, {}).get("keyboard_shortcuts", [])
             )
+            new_profile_mute_button_modes = (
+                settings.get("profiles", {}).get(profile, {}).get("mute_button_modes", [])
+            )
+            new_profile_app_button_modes = (
+                settings.get("profiles", {}).get(profile, {}).get("app_button_modes", [])
+            )
+            new_profile_shortcut_button_modes = (
+                settings.get("profiles", {}).get(profile, {}).get("shortcut_button_modes", [])
+            )
             
             self.current_apps = new_profile_apps
             self.settings_manager.settings_vars["applications"] = new_profile_apps
@@ -998,12 +1122,45 @@ class HushmixApp:
                     var = ctk.StringVar(value="")
                     self.keyboard_shortcuts.append(var)
             
+            self.mute_button_modes = []
+            if new_profile_mute_button_modes:
+                for mode_value in new_profile_mute_button_modes:
+                    var = ctk.StringVar(value=mode_value)
+                    self.mute_button_modes.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="Click")
+                    self.mute_button_modes.append(var)
+
+            self.app_button_modes = []
+            if new_profile_app_button_modes:
+                for mode_value in new_profile_app_button_modes:
+                    var = ctk.StringVar(value=mode_value)
+                    self.app_button_modes.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="Click")
+                    self.app_button_modes.append(var)
+
+            self.shortcut_button_modes = []
+            if new_profile_shortcut_button_modes:
+                for mode_value in new_profile_shortcut_button_modes:
+                    var = ctk.StringVar(value=mode_value)
+                    self.shortcut_button_modes.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="Click")
+                    self.shortcut_button_modes.append(var)
+            
             self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
             self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
             self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
             self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
             self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
             self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
+            self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
+            self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
+            self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
 
             self.settings_manager.save_to_config()
 
@@ -1059,6 +1216,30 @@ class HushmixApp:
                     ctk.StringVar(value=""),
                     ctk.StringVar(value=""),
                 ]
+            if self.mute_button_modes == []:
+                self.mute_button_modes = [
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                ]
+            if self.app_button_modes == []:
+                self.app_button_modes = [
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                ]
+            if self.shortcut_button_modes == []:
+                self.shortcut_button_modes = [
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                ]
 
             current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
             current_mute_settings = [mute_state.get() for mute_state in self.mute]
@@ -1067,6 +1248,9 @@ class HushmixApp:
             current_app_launch_paths = [path.get() for path in self.app_launch_paths]
             current_keyboard_shortcut_enabled = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
             current_keyboard_shortcuts = [shortcut.get() for shortcut in self.keyboard_shortcuts]
+            current_mute_button_modes = [mode.get() for mode in self.mute_button_modes]
+            current_app_button_modes = [mode.get() for mode in self.app_button_modes]
+            current_shortcut_button_modes = [mode.get() for mode in self.shortcut_button_modes]
 
 
 
@@ -1084,6 +1268,9 @@ class HushmixApp:
             settings["profiles"][profile_name]["app_launch_paths"] = current_app_launch_paths
             settings["profiles"][profile_name]["keyboard_shortcut_enabled"] = current_keyboard_shortcut_enabled
             settings["profiles"][profile_name]["keyboard_shortcuts"] = current_keyboard_shortcuts
+            settings["profiles"][profile_name]["mute_button_modes"] = current_mute_button_modes
+            settings["profiles"][profile_name]["app_button_modes"] = current_app_button_modes
+            settings["profiles"][profile_name]["shortcut_button_modes"] = current_shortcut_button_modes
 
             ConfigManager.save_all_settings(settings)
 
