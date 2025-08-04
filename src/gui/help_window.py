@@ -306,30 +306,99 @@ class HelpWindow:
         self.window.update_idletasks()
         parent.update_idletasks()
 
+        # Get parent window position and size
         parent_x = parent.winfo_rootx()
         parent_y = parent.winfo_rooty()
         parent_width = parent.winfo_width()
         parent_height = parent.winfo_height()
 
+        # Calculate center of parent window
         center_x = parent_x + parent_width // 2
         center_y = parent_y + parent_height // 2
 
         window_width = 600
         window_height = 700
 
+        # Position window relative to parent center
         x = center_x - window_width // 2
         y = center_y - window_height // 2
 
-        screen_width = self.window.winfo_screenwidth()
-        screen_height = self.window.winfo_screenheight()
+        # Get screen dimensions for the monitor where the parent window is located
+        # We need to find which monitor contains the parent window
+        import ctypes
+        from ctypes.wintypes import RECT, POINT
+        
+        def get_monitor_info():
+            monitors = []
+            
+            def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
+                rect = lprcMonitor.contents
+                monitors.append({
+                    'left': rect.left,
+                    'top': rect.top,
+                    'right': rect.right,
+                    'bottom': rect.bottom,
+                    'width': rect.right - rect.left,
+                    'height': rect.bottom - rect.top
+                })
+                return True
+            
+            enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
+            enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
+            
+            try:
+                ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
+            except Exception as e:
+                print(f"Error enumerating monitors: {e}")
+                monitors = [{
+                    'left': 0,
+                    'top': 0,
+                    'right': ctypes.windll.user32.GetSystemMetrics(0),
+                    'bottom': ctypes.windll.user32.GetSystemMetrics(1),
+                    'width': ctypes.windll.user32.GetSystemMetrics(0),
+                    'height': ctypes.windll.user32.GetSystemMetrics(1)
+                }]
+            
+            return monitors
 
-        if x < 0:
-            x = 0
-        if y < 0:
-            y = 0
-        if x + window_width > screen_width:
-            x = screen_width - window_width
-        if y + window_height > screen_height:
-            y = screen_height - window_height
+        def is_position_on_monitor(x, y, monitor):
+            return (monitor['left'] <= x <= monitor['right'] and 
+                    monitor['top'] <= y <= monitor['bottom'])
+
+        def find_monitor_for_position(x, y, monitors):
+            for monitor in monitors:
+                if is_position_on_monitor(x, y, monitor):
+                    return monitor
+            return None
+
+        # Get monitor information
+        monitors = get_monitor_info()
+        
+        # Find which monitor contains the parent window center
+        target_monitor = find_monitor_for_position(center_x, center_y, monitors)
+        
+        if target_monitor is not None:
+            # Ensure window stays within the target monitor bounds
+            if x < target_monitor['left']:
+                x = target_monitor['left']
+            if y < target_monitor['top']:
+                y = target_monitor['top']
+            if x + window_width > target_monitor['right']:
+                x = target_monitor['right'] - window_width
+            if y + window_height > target_monitor['bottom']:
+                y = target_monitor['bottom'] - window_height
+        else:
+            # Fallback: ensure window is on screen
+            screen_width = self.window.winfo_screenwidth()
+            screen_height = self.window.winfo_screenheight()
+
+            if x < 0:
+                x = 0
+            if y < 0:
+                y = 0
+            if x + window_width > screen_width:
+                x = screen_width - window_width
+            if y + window_height > screen_height:
+                y = screen_height - window_height
 
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
