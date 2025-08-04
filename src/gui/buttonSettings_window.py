@@ -187,7 +187,7 @@ class ButtonSettingsWindow:
         """Create the keyboard shortcut checkbox with button mode dropdown in a row."""
         self.shortcut_checkbox = ctk.CTkCheckBox(
             self.frame,
-            text="Send Keyboard Shortcut",
+            text="Keyboard Shortcut",
             variable=self.keyboard_shortcut_enabled[self.index],
             font=("Segoe UI", self.normal_font_size),
             fg_color=self.accent_color,
