@@ -48,7 +48,6 @@ class ButtonSettingsWindow:
         """Setup main window properties."""
         self.window.title("Button Settings")
         self.window.resizable(False, False)
-        self.window.geometry("350x300")
 
         ico_path = IconManager.get_ico_file()
         if ico_path:
@@ -158,6 +157,9 @@ class ButtonSettingsWindow:
         else:
             self.file_frame.pack_forget()
             self.browse_button.configure(state="disabled")
+        
+        self.window.update_idletasks()
+        self.window.geometry(f"{self.window.winfo_width()}x{self.window.winfo_height()}")
 
     def browse_file(self):
         """Open file dialog to select an application."""
