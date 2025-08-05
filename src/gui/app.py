@@ -37,7 +37,7 @@ class HushmixApp:
         self.setup_variables()
 
         self.audio_controller = AudioController()
-        self.serial_controller = SerialController(self.handle_volume_update, self.handle_button_update)
+        self.serial_controller = SerialController(self.handle_volume_update, self.handle_button_update, self.handle_connection_status)
         self.settings_window = None
         self.buttonSettings_window = None
 
@@ -89,6 +89,7 @@ class HushmixApp:
         self.help_button = None
         self.settings_button = None
         self.profile_listbox = None
+        self.connection_status_label = None
         self.mute = []
         self.muted_state = []
         self.current_mute_state = []
@@ -157,7 +158,43 @@ class HushmixApp:
             entry.configure(width=170, height=30)
             entry.bind("<KeyRelease>", self.save_applications)
 
+        self.connection_status_label = ctk.CTkLabel(
+            self.main_frame,
+            text="Mixer Disconnected",
+            font=("Segoe UI", 12, "bold"),
+            text_color="red3"
+        )
+        self.connection_status_label.grid(
+            row=0, 
+            column=0, 
+            columnspan=4, 
+            pady=(10, 5), 
+            padx=10, 
+            sticky="ew"
+        )
+        
+        self.update_connection_status()
+        
         self.refresh_gui()
+
+    def handle_connection_status(self, is_connected):
+        """Handle connection status changes from serial controller."""
+        def update_ui():
+            self.update_connection_status()
+        self.root.after(0, update_ui)
+    
+    def update_connection_status(self):
+        """Update the connection status label."""
+        if self.connection_status_label:
+            is_connected = self.serial_controller.get_connection_status()
+            if is_connected:
+                self.connection_status_label.grid_remove()
+            else:
+                self.connection_status_label.grid()
+                self.connection_status_label.configure(
+                    text="Mixer Disconnected",
+                    text_color="red3"
+                )
 
     def setup_tray_icon(self):
         """Setup system tray icon."""
@@ -594,7 +631,7 @@ class HushmixApp:
                     corner_radius=8,
                 )
                 button.grid(
-                    row=i, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
+                    row=i + 1, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
                 )
                 self.buttons.append(button)
 
@@ -610,7 +647,7 @@ class HushmixApp:
                 entry.insert(0, app_name)
             if i == 0:
                 entry.grid(
-                    row=i,
+                    row=i + 1,
                     column=0,
                     columnspan=3,
                     pady=(10, 4),
@@ -619,7 +656,7 @@ class HushmixApp:
                 )
             elif i == sliders - 1:
                 entry.grid(
-                    row=i,
+                    row=i + 1,
                     column=0,
                     columnspan=3,
                     pady=4,
@@ -628,7 +665,7 @@ class HushmixApp:
                 )
             else:
                 entry.grid(
-                    row=i, column=0, columnspan=2, pady=4, padx=(10, 1), sticky="nsew"
+                    row=i + 1, column=0, columnspan=2, pady=4, padx=(10, 1), sticky="nsew"
                 )
 
             entry.bind("<KeyRelease>", lambda e: self.save_applications())
@@ -639,7 +676,7 @@ class HushmixApp:
                 width=45,
                 font=("Segoe UI", self.normal_font_size, "bold"),
             )
-            volume_label.grid(row=i, column=3, pady=6, padx=5, sticky="w")
+            volume_label.grid(row=i + 1, column=3, pady=6, padx=5, sticky="w")
             volume_label.bind("<Button-1>", lambda event: event.widget.focus_force())
             volume_label.default_text_color = volume_label.cget("text_color")
 
@@ -648,10 +685,10 @@ class HushmixApp:
             self.volume_labels.append(volume_label)
 
         self.profile_listbox.grid(
-            row=len(self.current_apps), column=0, columnspan=1, padx=(10, 0), pady=10
+            row=len(self.current_apps) + 1, column=0, columnspan=1, padx=(10, 0), pady=10
         )
         self.help_button.grid(
-            row=len(self.current_apps),
+            row=len(self.current_apps) + 1,
             column=1,
             columnspan=2,
             pady=10,
@@ -659,13 +696,23 @@ class HushmixApp:
             sticky="ew",
         )
         self.settings_button.grid(
-            row=len(self.current_apps),
+            row=len(self.current_apps) + 1,
             column=2,
             columnspan=2,
             pady=10,
             padx=(0, 10),
             sticky="e",
         )
+
+        if self.connection_status_label:
+            self.connection_status_label.grid(
+                row=0, 
+                column=0, 
+                columnspan=4, 
+                pady=(10, 0), 
+                padx=10, 
+                sticky="ew"
+            )
 
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.columnconfigure(1, weight=2)

@@ -8,15 +8,17 @@ import sys
 
 
 class SerialController:
-    def __init__(self, volume_callback, button_callback):
+    def __init__(self, volume_callback, button_callback, connection_status_callback=None):
         """Initialize serial controller."""
         self.volume_callback = volume_callback
         self.button_callback = button_callback
+        self.connection_status_callback = connection_status_callback
         self.button_state = None
         self.running = True
         self.arduino = None
         self.data_split = None
         self.device_name = "USB-SERIAL CH340", "Dispositivo de Série USB"
+        self.is_connected = False
         self.initialize_serial()
         self.start_serial_thread()
 
@@ -36,31 +38,52 @@ class SerialController:
         if serial_port:
             try:
                 self.arduino = serial.Serial(serial_port, baud_rate)
+                self.is_connected = True
+                if self.connection_status_callback:
+                    self.connection_status_callback(True)
                 return self.arduino
             except Exception as e:
-                showerror(
-                    "Error", f"Could not connect to the Mixer. Mixer already in use."
-                )
-                sys.exit(1)
+                print(f"Could not connect to the Mixer. Mixer already in use: {e}")
+                self.is_connected = False
+                if self.connection_status_callback:
+                    self.connection_status_callback(False)
+                return None
         else:
-            showerror("Error", "Mixer not found. Check your connection.")
-            sys.exit(1)
+            print("Mixer not found. Check your connection.")
+            self.is_connected = False
+            if self.connection_status_callback:
+                self.connection_status_callback(False)
+            return None
 
     def reconnect_serial(self, device_name="USB-SERIAL CH340", baud_rate=9600):
         """Reconnect to the mixer."""
-        self.arduino.close()
+        if self.arduino:
+            try:
+                self.arduino.close()
+            except:
+                pass
         serial_port = self.get_com_port_by_device_name(device_name)
         if serial_port:
             try:
                 self.arduino = serial.Serial(serial_port, baud_rate)
+                self.is_connected = True
+                if self.connection_status_callback:
+                    self.connection_status_callback(True)
                 return self.arduino
             except serial.SerialException as e:
+                print(f"Serial exception during reconnect: {e}")
+                self.is_connected = False
+                if self.connection_status_callback:
+                    self.connection_status_callback(False)
                 time.sleep(1)
-                self.reconnect_serial()
+                return self.reconnect_serial()
         else:
             print("Serial port not found. Retrying...")
+            self.is_connected = False
+            if self.connection_status_callback:
+                self.connection_status_callback(False)
             time.sleep(1)
-            self.reconnect_serial()
+            return self.reconnect_serial()
 
     def start_serial_thread(self):
         """Start serial communication thread."""
@@ -84,6 +107,10 @@ class SerialController:
                         time.sleep(1)
                         self.initialize_serial()
             except serial.SerialException as e:
+                print(f"Serial exception: {e}")
+                self.is_connected = False
+                if self.connection_status_callback:
+                    self.connection_status_callback(False)
                 time.sleep(1)
                 self.reconnect_serial()
             except Exception as e:
@@ -99,6 +126,9 @@ class SerialController:
         buttons = data.split("|")
         self.button_callback(buttons)
 
+    def get_connection_status(self):
+        """Get current connection status."""
+        return self.is_connected
 
     def cleanup(self):
         """Clean up resources"""
