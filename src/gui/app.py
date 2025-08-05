@@ -725,6 +725,8 @@ class HushmixApp:
             if entry_names != self.current_apps:
                 self.load_settings()
                 return
+        
+        self.update_connection_status()
 
     def show_buttonSettings(self, index):
         """Show settings window."""
