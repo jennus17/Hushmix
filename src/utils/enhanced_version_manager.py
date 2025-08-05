@@ -148,7 +148,7 @@ class EnhancedVersionManager:
         """Show update dialog with enhanced options."""
         VersionWindow(update_info['version'], parent, update_info, self, self.settings_manager)
 
-    def download_update(self, download_url, progress_callback=None):
+    def download_update(self, download_url, progress_callback=None, cancellation_check=None):
         """Download update with progress tracking."""
         try:
             response = requests.get(download_url, stream=True, timeout=30)
@@ -161,6 +161,12 @@ class EnhancedVersionManager:
                 self.download_path = temp_file.name
                 
                 for chunk in response.iter_content(chunk_size=8192):
+                    if cancellation_check and cancellation_check():
+                        print("Download cancelled by user")
+                        if self.download_path and os.path.exists(self.download_path):
+                            os.unlink(self.download_path)
+                        return None
+                    
                     if chunk:
                         temp_file.write(chunk)
                         downloaded_size += len(chunk)

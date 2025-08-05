@@ -109,9 +109,13 @@ class UpdateProgressWindow:
                 if not self.cancelled:
                     self.window.after(0, lambda: self.update_progress(progress))
             
+            def cancellation_check():
+                return self.cancelled
+            
             download_path = self.version_manager.download_update(
                 self.update_info['download_url'], 
-                progress_callback
+                progress_callback,
+                cancellation_check
             )
             
             if self.cancelled:
@@ -121,31 +125,43 @@ class UpdateProgressWindow:
                 self.update_status("Verifying download...")
                 self.update_progress(100)
                 
+                if self.cancelled:
+                    return
+                
                 if self.version_manager.verify_download(download_path, self.update_info.get('checksum')):
+                    if self.cancelled:
+                        return
+                    
                     self.update_status("Installing update...")
                     self.install_update(download_path)
                 else:
                     self.update_status("Download verification failed!")
                     self.show_error("The downloaded file could not be verified. Please try again.")
             else:
-                self.update_status("Download failed!")
-                self.show_error("Failed to download the update. Please check your internet connection.")
+                if not self.cancelled:
+                    self.update_status("Download failed!")
+                    self.show_error("Failed to download the update. Please check your internet connection.")
                 
         except Exception as e:
-            self.update_status("Update failed!")
-            self.show_error(f"An error occurred during the update: {str(e)}")
+            if not self.cancelled: 
+                self.update_status("Update failed!")
+                self.show_error(f"An error occurred during the update: {str(e)}")
     
     def install_update(self, download_path):
         """Install the update."""
         try:
+            if self.cancelled:
+                return
+                
             self.update_status("Opening download page...")
             self.version_manager.install_update(download_path)
         except Exception as e:
-            self.update_status("Update process failed!")
-            self.show_error(f"Failed to complete the update process: {str(e)}\n\nPlease download and install the update manually from the GitHub releases page.")
-            import webbrowser
-            release_page = self.update_info.get('release_page', "https://github.com/jennus17/Hushmix/releases/latest")
-            webbrowser.open(release_page)
+            if not self.cancelled:
+                self.update_status("Update process failed!")
+                self.show_error(f"Failed to complete the update process: {str(e)}\n\nPlease download and install the update manually from the GitHub releases page.")
+                import webbrowser
+                release_page = self.update_info.get('release_page', "https://github.com/jennus17/Hushmix/releases/latest")
+                webbrowser.open(release_page)
     
     def update_status(self, status):
         """Update the status label."""
@@ -166,6 +182,13 @@ class UpdateProgressWindow:
         self.cancelled = True
         self.update_status("Cancelling update...")
         self.cancel_button.configure(state="disabled")
+        
+        self.window.after(1000, self.handle_cancellation_complete)
+    
+    def handle_cancellation_complete(self):
+        """Handle the completion of cancellation."""
+        self.update_status("Update cancelled")
+        self.cancel_button.configure(text="Close", command=self.close, state="normal")
     
     def close(self):
         """Close the progress window."""
