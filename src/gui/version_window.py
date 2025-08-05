@@ -56,6 +56,7 @@ class VersionWindow:
     def setup_window(self):
         self.window.title("Update")
         self.window.resizable(False, False)
+        self.window.attributes('-topmost', True)
 
         ico_path = IconManager.get_ico_file()
         if ico_path:
