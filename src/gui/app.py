@@ -99,6 +99,9 @@ class HushmixApp:
         self.mute_button_modes = []
         self.app_button_modes = []
         self.shortcut_button_modes = []
+        self.media_control_enabled = []
+        self.media_control_actions = []
+        self.media_control_button_modes = []
 
     def setup_gui(self):
         """Setup GUI components."""
@@ -363,6 +366,25 @@ class HushmixApp:
                     
                     if should_trigger_shortcut:
                         self.send_keyboard_shortcut(i)
+                
+                if (i < len(self.media_control_enabled) and 
+                    self.media_control_enabled[i].get() and 
+                    i < len(self.media_control_actions) and 
+                    self.media_control_actions[i].get()):
+                    media_mode = "Click"
+                    if i < len(self.media_control_button_modes):
+                        media_mode = self.media_control_button_modes[i].get()
+                    
+                    should_trigger_media = False
+                    if media_mode == "Click" and current == 1:
+                        should_trigger_media = True
+                    elif media_mode == "Double Click" and current == 3:
+                        should_trigger_media = True
+                    elif media_mode == "Hold" and current == 2:
+                        should_trigger_media = True
+                    
+                    if should_trigger_media:
+                        self.send_media_control(i)
     
         self.last_button_states = button_states
 
@@ -443,6 +465,34 @@ class HushmixApp:
             
         except Exception as e:
             print(f"Error sending keyboard shortcut: {e}")
+
+    def send_media_control(self, index):
+        """Send media control command for the given button index."""
+        try:
+            import pyautogui
+            
+            if index >= len(self.media_control_actions):
+                return
+            
+            action = self.media_control_actions[index].get()
+            if not action:
+                return
+            
+            media_key_mapping = {
+                'Play/Pause': 'playpause',
+                'Next Track': 'nexttrack',
+                'Previous Track': 'prevtrack'
+            }
+            
+            media_key = media_key_mapping.get(action)
+            if media_key:
+                pyautogui.press(media_key)
+                print(f"Sent media control: {action}")
+            else:
+                print(f"Unknown media control action: {action}")
+            
+        except Exception as e:
+            print(f"Error sending media control: {e}")
 
     def handle_volume_update(self, volumes):
         """Handle volume updates from serial controller."""
@@ -661,6 +711,12 @@ class HushmixApp:
             self.app_button_modes.append(ctk.StringVar(value="Click"))
         while len(self.shortcut_button_modes) <= button_index:
             self.shortcut_button_modes.append(ctk.StringVar(value="Click"))
+        while len(self.media_control_enabled) <= button_index:
+            self.media_control_enabled.append(ctk.BooleanVar(value=False))
+        while len(self.media_control_actions) <= button_index:
+            self.media_control_actions.append(ctk.StringVar(value="Play/Pause"))
+        while len(self.media_control_button_modes) <= button_index:
+            self.media_control_button_modes.append(ctk.StringVar(value="Click"))
 
         self.buttonSettings_window = ButtonSettingsWindow(
             self.root,
@@ -673,6 +729,9 @@ class HushmixApp:
             self.mute_button_modes,
             self.app_button_modes,
             self.shortcut_button_modes,
+            self.media_control_enabled,
+            self.media_control_actions,
+            self.media_control_button_modes,
             self.on_buttonSettings_close,
         )
 
@@ -798,6 +857,40 @@ class HushmixApp:
                 var = ctk.StringVar(value="Click")
                 self.shortcut_button_modes.append(var)
 
+        profile_media_control_enabled = settings.get("media_control_enabled", [])
+        profile_media_control_actions = settings.get("media_control_actions", [])
+        profile_media_control_button_modes = settings.get("media_control_button_modes", [])
+
+        self.media_control_enabled = []
+        if profile_media_control_enabled:
+            for enabled_value in profile_media_control_enabled:
+                var = ctk.BooleanVar(value=enabled_value)
+                self.media_control_enabled.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.BooleanVar(value=False)
+                self.media_control_enabled.append(var)
+
+        self.media_control_actions = []
+        if profile_media_control_actions:
+            for action_value in profile_media_control_actions:
+                var = ctk.StringVar(value=action_value)
+                self.media_control_actions.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="Play/Pause")
+                self.media_control_actions.append(var)
+
+        self.media_control_button_modes = []
+        if profile_media_control_button_modes:
+            for mode_value in profile_media_control_button_modes:
+                var = ctk.StringVar(value=mode_value)
+                self.media_control_button_modes.append(var)
+        else:
+            for _ in range(5):
+                var = ctk.StringVar(value="Click")
+                self.media_control_button_modes.append(var)
+
         self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
         self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
@@ -807,6 +900,9 @@ class HushmixApp:
         self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
         self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
         self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
+        self.settings_manager.settings_vars["media_control_enabled"] = [enabled.get() for enabled in self.media_control_enabled]
+        self.settings_manager.settings_vars["media_control_actions"] = [action.get() for action in self.media_control_actions]
+        self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.profile_listbox.set(current_profile)
 
@@ -895,6 +991,33 @@ class HushmixApp:
                 ctk.StringVar(value="Click"),
                 ctk.StringVar(value="Click"),
             ]
+        
+        if self.media_control_enabled == []:
+            self.media_control_enabled = [
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+                ctk.BooleanVar(value=False),
+            ]
+        
+        if self.media_control_actions == []:
+            self.media_control_actions = [
+                ctk.StringVar(value="Play/Pause"),
+                ctk.StringVar(value="Play/Pause"),
+                ctk.StringVar(value="Play/Pause"),
+                ctk.StringVar(value="Play/Pause"),
+                ctk.StringVar(value="Play/Pause"),
+            ]
+        
+        if self.media_control_button_modes == []:
+            self.media_control_button_modes = [
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+                ctk.StringVar(value="Click"),
+            ]
 
         if hasattr(self, 'profile_listbox') and self.profile_listbox:
             self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
@@ -911,6 +1034,9 @@ class HushmixApp:
         self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
         self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
         self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
+        self.settings_manager.settings_vars["media_control_enabled"] = [enabled.get() for enabled in self.media_control_enabled]
+        self.settings_manager.settings_vars["media_control_actions"] = [action.get() for action in self.media_control_actions]
+        self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
 
         current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
         self.save_current_profile_data(current_profile)
@@ -1076,6 +1202,15 @@ class HushmixApp:
             new_profile_shortcut_button_modes = (
                 settings.get("profiles", {}).get(profile, {}).get("shortcut_button_modes", [])
             )
+            new_profile_media_control_enabled = (
+                settings.get("profiles", {}).get(profile, {}).get("media_control_enabled", [])
+            )
+            new_profile_media_control_actions = (
+                settings.get("profiles", {}).get(profile, {}).get("media_control_actions", [])
+            )
+            new_profile_media_control_button_modes = (
+                settings.get("profiles", {}).get(profile, {}).get("media_control_button_modes", [])
+            )
             
             self.current_apps = new_profile_apps
             self.settings_manager.settings_vars["applications"] = new_profile_apps
@@ -1167,6 +1302,36 @@ class HushmixApp:
                     var = ctk.StringVar(value="Click")
                     self.shortcut_button_modes.append(var)
             
+            self.media_control_enabled = []
+            if new_profile_media_control_enabled:
+                for enabled_value in new_profile_media_control_enabled:
+                    var = ctk.BooleanVar(value=enabled_value)
+                    self.media_control_enabled.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.BooleanVar(value=False)
+                    self.media_control_enabled.append(var)
+
+            self.media_control_actions = []
+            if new_profile_media_control_actions:
+                for action_value in new_profile_media_control_actions:
+                    var = ctk.StringVar(value=action_value)
+                    self.media_control_actions.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="Play/Pause")
+                    self.media_control_actions.append(var)
+
+            self.media_control_button_modes = []
+            if new_profile_media_control_button_modes:
+                for mode_value in new_profile_media_control_button_modes:
+                    var = ctk.StringVar(value=mode_value)
+                    self.media_control_button_modes.append(var)
+            else:
+                for _ in range(5):
+                    var = ctk.StringVar(value="Click")
+                    self.media_control_button_modes.append(var)
+            
             self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
             self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
             self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
@@ -1176,6 +1341,9 @@ class HushmixApp:
             self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
             self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
             self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
+            self.settings_manager.settings_vars["media_control_enabled"] = [enabled.get() for enabled in self.media_control_enabled]
+            self.settings_manager.settings_vars["media_control_actions"] = [action.get() for action in self.media_control_actions]
+            self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
 
             self.settings_manager.save_to_config()
 
@@ -1255,6 +1423,33 @@ class HushmixApp:
                     ctk.StringVar(value="Click"),
                     ctk.StringVar(value="Click"),
                 ]
+            
+            if self.media_control_enabled == []:
+                self.media_control_enabled = [
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                    ctk.BooleanVar(value=False),
+                ]
+            
+            if self.media_control_actions == []:
+                self.media_control_actions = [
+                    ctk.StringVar(value="Play/Pause"),
+                    ctk.StringVar(value="Play/Pause"),
+                    ctk.StringVar(value="Play/Pause"),
+                    ctk.StringVar(value="Play/Pause"),
+                    ctk.StringVar(value="Play/Pause"),
+                ]
+            
+            if self.media_control_button_modes == []:
+                self.media_control_button_modes = [
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                    ctk.StringVar(value="Click"),
+                ]
 
             current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
             current_mute_settings = [mute_state.get() for mute_state in self.mute]
@@ -1266,6 +1461,9 @@ class HushmixApp:
             current_mute_button_modes = [mode.get() for mode in self.mute_button_modes]
             current_app_button_modes = [mode.get() for mode in self.app_button_modes]
             current_shortcut_button_modes = [mode.get() for mode in self.shortcut_button_modes]
+            current_media_control_enabled = [enabled.get() for enabled in self.media_control_enabled]
+            current_media_control_actions = [action.get() for action in self.media_control_actions]
+            current_media_control_button_modes = [mode.get() for mode in self.media_control_button_modes]
 
 
 
@@ -1286,6 +1484,9 @@ class HushmixApp:
             settings["profiles"][profile_name]["mute_button_modes"] = current_mute_button_modes
             settings["profiles"][profile_name]["app_button_modes"] = current_app_button_modes
             settings["profiles"][profile_name]["shortcut_button_modes"] = current_shortcut_button_modes
+            settings["profiles"][profile_name]["media_control_enabled"] = current_media_control_enabled
+            settings["profiles"][profile_name]["media_control_actions"] = current_media_control_actions
+            settings["profiles"][profile_name]["media_control_button_modes"] = current_media_control_button_modes
 
             ConfigManager.save_all_settings(settings)
 

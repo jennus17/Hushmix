@@ -19,6 +19,9 @@ class ButtonSettingsWindow:
         mute_button_modes,
         app_button_modes,
         shortcut_button_modes,
+        media_control_enabled,
+        media_control_actions,
+        media_control_button_modes,
         on_close,
         
     ):
@@ -44,6 +47,9 @@ class ButtonSettingsWindow:
         self.mute_button_modes = mute_button_modes
         self.app_button_modes = app_button_modes
         self.shortcut_button_modes = shortcut_button_modes
+        self.media_control_enabled = media_control_enabled
+        self.media_control_actions = media_control_actions
+        self.media_control_button_modes = media_control_button_modes
 
         self.normal_font_size = 14
 
@@ -94,6 +100,15 @@ class ButtonSettingsWindow:
         if self.index >= len(self.shortcut_button_modes):
             while len(self.shortcut_button_modes) <= self.index:
                 self.shortcut_button_modes.append(ctk.StringVar(value="Click"))
+        if self.index >= len(self.media_control_enabled):
+            while len(self.media_control_enabled) <= self.index:
+                self.media_control_enabled.append(ctk.BooleanVar(value=False))
+        if self.index >= len(self.media_control_actions):
+            while len(self.media_control_actions) <= self.index:
+                self.media_control_actions.append(ctk.StringVar(value="Play/Pause"))
+        if self.index >= len(self.media_control_button_modes):
+            while len(self.media_control_button_modes) <= self.index:
+                self.media_control_button_modes.append(ctk.StringVar(value="Click"))
 
         self.frame.grid_columnconfigure(0, weight=1)
         self.frame.grid_columnconfigure(1, weight=0)
@@ -103,6 +118,8 @@ class ButtonSettingsWindow:
         self.create_app_launch_row()
         
         self.create_keyboard_shortcut_row()
+        
+        self.create_media_control_row()
 
     def create_mute_row(self):
         """Create the mute checkbox with button mode dropdown in a row."""
@@ -321,6 +338,90 @@ class ButtonSettingsWindow:
             self.shortcut_input_frame.grid_remove()
             self.shortcut_entry.configure(state="disabled")
             self.clear_shortcut_button.configure(state="disabled")
+        
+        self.window.update_idletasks()
+        
+        current_x = self.window.winfo_x()
+        current_y = self.window.winfo_y()
+        
+        required_width = self.window.winfo_reqwidth()
+        required_height = self.window.winfo_reqheight()
+        
+        self.window.geometry(f"{required_width}x{required_height}+{current_x}+{current_y}")
+
+    def create_media_control_row(self):
+        """Create the media control checkbox with button mode dropdown in a row."""
+        self.media_control_checkbox = ctk.CTkCheckBox(
+            self.frame,
+            text="Media Control",
+            variable=self.media_control_enabled[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            command=self.on_media_control_toggle
+        )
+        self.media_control_checkbox.grid(row=5, column=0, pady=10, padx=15, sticky="w")
+
+        self.media_mode_dropdown = ctk.CTkOptionMenu(
+            self.frame,
+            values=["Click", "Double Click", "Hold"],
+            variable=self.media_control_button_modes[self.index],
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+            width=150,
+            height=30,
+            corner_radius=10,
+        )
+        self.media_mode_dropdown.grid(row=5, column=1, pady=10, padx=15, sticky="e")
+
+        self.media_action_frame = ctk.CTkFrame(self.frame, corner_radius=10, border_width=0)
+        self.media_action_frame.grid(row=6, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
+
+        self.media_action_label = ctk.CTkLabel(
+            self.media_action_frame,
+            text="Media Action:",
+            font=("Segoe UI", 12),
+        )
+        self.media_action_label.pack(pady=(5, 5), padx=15, anchor="w")
+
+        self.media_action_dropdown = ctk.CTkOptionMenu(
+            self.media_action_frame,
+            values=["Play/Pause", "Next Track", "Previous Track"],
+            variable=self.media_control_actions[self.index],
+            font=("Segoe UI", 12),
+            fg_color=self.accent_color,
+            button_color=self.accent_color,
+            button_hover_color=self.accent_hover,
+            dropdown_hover_color=self.accent_hover,
+            width=200,
+            height=30,
+            corner_radius=10,
+        )
+        self.media_action_dropdown.pack(pady=(0, 5), padx=15, anchor="w")
+
+        self.update_media_control_ui()
+
+    def on_media_control_toggle(self):
+        """Handle media control checkbox toggle."""
+        self.update_media_control_ui()
+
+    def update_media_control_ui(self):
+        """Update the UI based on the media control checkbox state."""
+        if self.index >= len(self.media_control_enabled):
+            while len(self.media_control_enabled) <= self.index:
+                self.media_control_enabled.append(ctk.BooleanVar(value=False))
+        
+        is_enabled = self.media_control_enabled[self.index].get()
+        
+        if is_enabled:
+            self.media_action_frame.grid(row=6, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
+            self.media_action_dropdown.configure(state="normal")
+        else:
+            self.media_action_frame.grid_remove()
+            self.media_action_dropdown.configure(state="disabled")
         
         self.window.update_idletasks()
         
