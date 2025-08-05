@@ -5,7 +5,7 @@ import customtkinter as ctk
 
 
 class VersionWindow:
-    def __init__(self, latest_version, parent, update_info=None, version_manager=None):
+    def __init__(self, latest_version, parent, update_info=None, version_manager=None, settings_manager=None):
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call("tk", "scaling", 1.0)
         self.window.withdraw()
@@ -14,6 +14,7 @@ class VersionWindow:
         self.latest_version = latest_version
         self.update_info = update_info or {}
         self.version_manager = version_manager
+        self.settings_manager = settings_manager
 
         self.setup_window()
 
@@ -63,6 +64,28 @@ class VersionWindow:
             except Exception as e:
                 print(f"Error setting icon: {e}")
 
+    def get_theme_colors(self):
+        """Get button colors based on current theme."""
+        if self.settings_manager:
+            dark_mode = self.settings_manager.get_setting("dark_mode", True)
+            if dark_mode:
+                return {
+                    "fg_color": "#2b2b2b",
+                    "hover_color": "#404040",
+                    "text_color": "#ffffff"
+                }
+            else:
+                return {
+                    "fg_color": "#dbdbdb",
+                    "hover_color": "#c7c7c7",
+                    "text_color": "#000000"
+                }
+        else:
+            return {
+                "fg_color": "transparent",
+                "hover_color": "transparent"
+            }
+
     def setup_gui(self, latest_version):
         self.message = f"A new version ({latest_version}) is available!"
 
@@ -74,14 +97,17 @@ class VersionWindow:
         )
         self.label.pack(pady=(20, 10), padx=10)
 
+        theme_colors = self.get_theme_colors()
+        
         self.view_release_button = ctk.CTkButton(
             self.frame,
             text="View Release",
             command=self.view_release,
-            fg_color="transparent",
-            hover_color="#333333",
             font=("Segoe UI", 12),
             corner_radius=10,
+            fg_color=theme_colors["fg_color"],
+            hover_color=theme_colors["hover_color"],
+            text_color=theme_colors["text_color"],
         )
         self.view_release_button.pack(pady=(0, 10), padx=10)
 
@@ -91,14 +117,14 @@ class VersionWindow:
         if self.version_manager:
             self.auto_update_button = ctk.CTkButton(
                 self.button_frame,
-                text="Auto Update",
+                text="Update Now",
                 command=self.auto_update,
                 fg_color=self.accent_color,
                 hover_color=self.accent_hover,
                 font=("Segoe UI", self.normal_font_size),
                 corner_radius=10,
             )
-            self.auto_update_button.pack(side="left", padx=(0, 5))
+            self.auto_update_button.pack(side="left", padx=5)
 
         self.manual_update_button = ctk.CTkButton(
             self.button_frame,
@@ -109,16 +135,17 @@ class VersionWindow:
             font=("Segoe UI", self.normal_font_size),
             corner_radius=10,
         )
-        self.manual_update_button.pack(side="left", padx=(5, 0))
+        self.manual_update_button.pack(side="left", padx=5)
 
         self.remind_button = ctk.CTkButton(
             self.frame,
             text="Remind Later",
             command=self.close,
-            fg_color="transparent",
-            hover_color="#333333",
             font=("Segoe UI", 12),
             corner_radius=10,
+            fg_color=theme_colors["fg_color"],
+            hover_color=theme_colors["hover_color"],
+            text_color=theme_colors["text_color"],
         )
         self.remind_button.pack(pady=(10, 5))
 

@@ -146,7 +146,7 @@ class EnhancedVersionManager:
 
     def show_update_dialog(self, parent, update_info):
         """Show update dialog with enhanced options."""
-        VersionWindow(update_info['version'], parent, update_info, self)
+        VersionWindow(update_info['version'], parent, update_info, self, self.settings_manager)
 
     def download_update(self, download_url, progress_callback=None):
         """Download update with progress tracking."""
