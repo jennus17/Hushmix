@@ -2,22 +2,28 @@ from tkinter import messagebox
 import threading
 import pythoncom
 import ctypes
-from pystray import Icon, MenuItem, Menu
 import sys
 import os
 import time
+import customtkinter as ctk
+
 from controllers.audio_controller import AudioController
 from controllers.serial_controller import SerialController
+from controllers.button_actions import ButtonActions
+from controllers.volume_manager import VolumeManager
+from controllers.profile_manager import ProfileManager
+
 from utils.config_manager import ConfigManager
 from utils.settings_manager import SettingsManager
 from utils.icon_manager import IconManager
+from utils.color_utils import get_windows_accent_color, darken_color
+
 from gui.settings_window import SettingsWindow
-from utils.enhanced_version_manager import EnhancedVersionManager
-from gui.help_window import HelpWindow
 from gui.buttonSettings_window import ButtonSettingsWindow
-import winreg
-from PIL import Image
-import customtkinter as ctk
+from gui.window_manager import WindowManager
+from gui.gui_components import GUIComponents
+
+from utils.enhanced_version_manager import EnhancedVersionManager
 
 
 class HushmixApp:
@@ -31,13 +37,10 @@ class HushmixApp:
 
         self.root.tk.call("tk", "scaling", 1.0)
 
-        self.normal_font_size = 16
-
-        self.setup_window()
         self.setup_variables()
 
         self.audio_controller = AudioController()
-        self.serial_controller = SerialController(self.handle_volume_update, self.handle_button_update, self.handle_connection_status)
+        
         self.settings_window = None
         self.buttonSettings_window = None
 
@@ -46,11 +49,24 @@ class HushmixApp:
 
         self.settings_manager = SettingsManager(self)
 
-        self.setup_gui()
-        self.load_settings()
+        self.window_manager = WindowManager(self.root, self)
+        self.gui_components = GUIComponents(self)
+        self.button_actions = ButtonActions(self)
+        self.volume_manager = VolumeManager(self)
+        
+        self.serial_controller = SerialController(
+            self.volume_manager.handle_volume_update, 
+            self.button_actions.handle_button_update, 
+            self.handle_connection_status
+        )
 
-        self.setup_tray_icon()
-        self.setup_window_position_tracking()
+        self.load_settings()
+        
+        self.profile_manager = ProfileManager(self)
+
+        self.window_manager.setup_window()
+        self.gui_components.setup_gui()
+        self.gui_components.refresh_gui()
 
         if self.settings_manager.get_setting("launch_in_tray"):
             self.root.withdraw()
@@ -59,37 +75,13 @@ class HushmixApp:
 
         self.version_manager = EnhancedVersionManager(root, self.settings_manager)
 
-    def setup_window(self):
-        """Setup main window properties."""
-        self.root.title("Hushmix")
-        self.root.resizable(False, False)
-
-        ico_path = IconManager.get_ico_file()
-        if ico_path:
-            try:
-                myappid = "Hushmix"
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-                self.root.iconbitmap(default=ico_path)
-                self.root.wm_iconbitmap(ico_path)
-            except Exception as e:
-                print(f"Error setting taskbar icon: {e}")
-
     def setup_variables(self):
         """Initialize application variables."""
         self.current_apps = []
         self.volumes = []
-        self.entries = []
-        self.labels = []
-        self.buttons = []
-        self.help_label = ctk.CTkLabel(None)
         self.previous_volumes = []
-        self.volume_labels = []
         self.running = True
-        self.button_frame = None
-        self.help_button = None
-        self.settings_button = None
-        self.profile_listbox = None
-        self.connection_status_label = None
+        
         self.mute = []
         self.muted_state = []
         self.current_mute_state = []
@@ -104,79 +96,6 @@ class HushmixApp:
         self.media_control_actions = []
         self.media_control_button_modes = []
 
-    def setup_gui(self):
-        """Setup GUI components."""
-        self.main_frame = ctk.CTkFrame(
-            self.root,
-            corner_radius=0,
-            border_width=0,
-        )
-        self.main_frame.grid(row=0, column=0, sticky="nsew")
-        self.main_frame.bind("<Button-1>", lambda event: event.widget.focus_force())
-
-        self.profile_listbox = ctk.CTkOptionMenu(
-            self.main_frame,
-            values=["Profile 1", "Profile 2", "Profile 3", "Profile 4", "Profile 5"],
-            command=self.on_profile_change,
-            font=("Segoe UI", self.normal_font_size, "bold"),
-            fg_color=self.accent_color,
-            button_color=self.accent_color,
-            button_hover_color=self.accent_hover,
-            dropdown_hover_color=self.accent_hover,
-            width=190,
-            height=40,
-            corner_radius=10,
-        )
-
-        self.help_button = ctk.CTkButton(
-            self.main_frame,
-            text=" ⓘ ",
-            command=lambda: HelpWindow(self.root),
-            font=("Segoe UI", self.normal_font_size, "bold"),
-            hover_color=self.accent_hover,
-            fg_color=self.accent_color,
-            cursor="hand2",
-            width=30,
-            height=40,
-            corner_radius=10,
-        )
-
-        self.settings_button = ctk.CTkButton(
-            self.main_frame,
-            text="⚙️",
-            command=self.show_settings,
-            font=("Segoe UI", self.normal_font_size + 1),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
-            cursor="hand2",
-            width=40,
-            height=40,
-            corner_radius=10,
-        )
-
-        for entry in self.entries:
-            entry.configure(width=170, height=30)
-            entry.bind("<KeyRelease>", self.save_applications)
-
-        self.connection_status_label = ctk.CTkLabel(
-            self.main_frame,
-            text="Mixer Disconnected",
-            font=("Segoe UI", 12, "bold"),
-            text_color="red3"
-        )
-        self.connection_status_label.grid(
-            row=0, 
-            column=0, 
-            columnspan=4, 
-            pady=(10, 5), 
-            padx=10, 
-            sticky="ew"
-        )
-        
-        self.update_connection_status()
-        
-        self.refresh_gui()
-
     def handle_connection_status(self, is_connected):
         """Handle connection status changes from serial controller."""
         def update_ui():
@@ -185,374 +104,26 @@ class HushmixApp:
     
     def update_connection_status(self):
         """Update the connection status label."""
-        if self.connection_status_label:
+        if self.gui_components.connection_status_label:
             is_connected = self.serial_controller.get_connection_status()
             if is_connected:
-                self.connection_status_label.grid_remove()
+                self.gui_components.connection_status_label.grid_remove()
             else:
-                self.connection_status_label.grid()
-                self.connection_status_label.configure(
+                self.gui_components.connection_status_label.grid()
+                self.gui_components.connection_status_label.configure(
                     text="Mixer Disconnected",
                     text_color="red3"
                 )
 
-    def setup_tray_icon(self):
-        """Setup system tray icon."""
-        menu = Menu(
-            MenuItem("Restore", self.restore_window, default=True, visible=False),
-            MenuItem("Exit", self.on_exit),
-        )
-
-        ico_path = IconManager.get_ico_file()
-
-        try:
-            icon_image = Image.open(ico_path)
-            self.icon = Icon("Hushmix", icon=icon_image, menu=menu, title="Hushmix")
-        except Exception as e:
-            print(f"Error setting up tray icon: {e}")
-
-        threading.Thread(target=self.icon.run_detached, daemon=True).start()
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-
-    def setup_window_position_tracking(self):
-        """Setup window position tracking to save position when moved."""
-        self.last_position = None
-        self.root.bind("<Configure>", self.on_window_configure)
-        
-    def on_window_configure(self, event):
-        """Handle window configuration changes (move, resize)."""
-        if event.widget == self.root:
-            current_position = (self.root.winfo_x(), self.root.winfo_y())
-            
-            if self.last_position != current_position:
-                self.last_position = current_position
-                self.save_window_position()
-                
-    def save_window_position(self):
-        """Save current window position to settings."""
-        try:
-            x = self.root.winfo_x()
-            y = self.root.winfo_y()
-            
-            monitors = self.get_monitor_info()
-            window_width = self.root.winfo_width()
-            window_height = self.root.winfo_height()
-            
-            target_monitor = self.find_monitor_for_position(x, y, monitors)
-            
-            if target_monitor is not None:
-                self.settings_manager.set_setting("window_x", x)
-                self.settings_manager.set_setting("window_y", y)
-                
-                self.settings_manager.save_to_config()
-            else:
-                print("Window position is not on any monitor, not saving position")
-                
-        except Exception as e:
-            print(f"Error saving window position: {e}")
-    
-    def get_monitor_info(self):
-        """Get information about all monitors."""
-        import ctypes
-        from ctypes.wintypes import RECT
-        
-        monitors = []
-        
-        def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
-            rect = lprcMonitor.contents
-            monitors.append({
-                'left': rect.left,
-                'top': rect.top,
-                'right': rect.right,
-                'bottom': rect.bottom,
-                'width': rect.right - rect.left,
-                'height': rect.bottom - rect.top
-            })
-            return True
-        
-        enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
-        enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
-        
-        try:
-            ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
-        except Exception as e:
-            print(f"Error enumerating monitors: {e}")
-            monitors = [{
-                'left': 0,
-                'top': 0,
-                'right': ctypes.windll.user32.GetSystemMetrics(0),
-                'bottom': ctypes.windll.user32.GetSystemMetrics(1),
-                'width': ctypes.windll.user32.GetSystemMetrics(0),
-                'height': ctypes.windll.user32.GetSystemMetrics(1)
-            }]
-        
-        return monitors
-    
-    def is_position_on_monitor(self, x, y, monitor):
-        """Check if a position is within a specific monitor bounds."""
-        return (monitor['left'] <= x <= monitor['right'] and 
-                monitor['top'] <= y <= monitor['bottom'])
-    
-    def find_monitor_for_position(self, x, y, monitors):
-        """Find which monitor contains the given position."""
-        for monitor in monitors:
-            if self.is_position_on_monitor(x, y, monitor):
-                return monitor
-        return None
-
     def toggle_mute(self, index):
         """Toggle mute/unmute and apply volume."""
-        if index >= len(self.muted_state):
-            print(f"Index {index} out of bounds for mute list.")
-            return
-    
-        self.muted_state[index] = not self.muted_state[index]
-
-        if index < len(self.current_mute_state):
-            self.current_mute_state[index] = self.muted_state[index]
-    
-        if self.muted_state[index]:
-            self.update_volume(index, 0)
-        else:
-            app_name = self.entries[index].get() if index < len(self.entries) else ""
-            if app_name and app_name.lower() == "mic":
-                mic_volume = self.audio_controller.get_microphone_volume()
-                if mic_volume > 0:
-                    self.update_volume(index, mic_volume)
-                else:
-                    self.update_volume(index, 50)
-            elif index < len(self.previous_volumes) and self.previous_volumes[index] is not None:
-                self.update_volume(index, self.previous_volumes[index])
-            else:
-                self.update_volume(index, 50)
-        self.save_settings()
-
-    def handle_button_update(self, button_states):
-        """Handle button states from serial controller."""
-        button_states = [int(state) for state in button_states]
-        num_buttons = len(button_states)
-        num_apps = len(self.current_apps)
-        BUTTON_VOLUME_OFFSET = 1
-    
-        if not hasattr(self, "last_button_states") or len(self.last_button_states) != num_buttons:
-            self.last_button_states = [0] * num_buttons
-    
-        if not hasattr(self, "mute") or len(self.mute) != num_buttons:
-            self.mute = [ctk.BooleanVar(value=True) for _ in range(num_buttons)]
-    
-        if not hasattr(self, "muted_state") or len(self.muted_state) != num_apps:
-            if hasattr(self, "current_mute_state") and len(self.current_mute_state) == num_apps:
-                self.muted_state = self.current_mute_state.copy()
-            else:
-                self.muted_state = [False] * num_apps
-    
-        for i, (current, previous) in enumerate(zip(button_states, self.last_button_states)):
-            if current > 0 and previous == 0:
-                volume_index = i + BUTTON_VOLUME_OFFSET
-                
-                if i < len(self.mute) and self.mute[i].get() and volume_index < len(self.muted_state):
-                    mute_mode = "Click" 
-                    if i < len(self.mute_button_modes):
-                        mute_mode = self.mute_button_modes[i].get()
-                    
-                    should_trigger_mute = False
-                    if mute_mode == "Click" and current == 1:
-                        should_trigger_mute = True
-                    elif mute_mode == "Double Click" and current == 3:
-                        should_trigger_mute = True
-                    elif mute_mode == "Hold" and current == 2:
-                        should_trigger_mute = True
-                    
-                    if should_trigger_mute:
-                        self.toggle_mute(volume_index)
-                
-                if (i < len(self.app_launch_enabled) and 
-                    self.app_launch_enabled[i].get() and 
-                    i < len(self.app_launch_paths) and 
-                    self.app_launch_paths[i].get()):
-                    app_mode = "Click"
-                    if i < len(self.app_button_modes):
-                        app_mode = self.app_button_modes[i].get()
-                    
-                    should_trigger_app = False
-                    if app_mode == "Click" and current == 1:
-                        should_trigger_app = True
-                    elif app_mode == "Double Click" and current == 3:
-                        should_trigger_app = True
-                    elif app_mode == "Hold" and current == 2:
-                        should_trigger_app = True
-                    
-                    if should_trigger_app:
-                        self.launch_application(i)
-                
-                if (i < len(self.keyboard_shortcut_enabled) and 
-                    self.keyboard_shortcut_enabled[i].get() and 
-                    i < len(self.keyboard_shortcuts) and 
-                    self.keyboard_shortcuts[i].get()):
-                    shortcut_mode = "Click"
-                    if i < len(self.shortcut_button_modes):
-                        shortcut_mode = self.shortcut_button_modes[i].get()
-                    
-                    should_trigger_shortcut = False
-                    if shortcut_mode == "Click" and current == 1:
-                        should_trigger_shortcut = True
-                    elif shortcut_mode == "Double Click" and current == 3:
-                        should_trigger_shortcut = True
-                    elif shortcut_mode == "Hold" and current == 2:
-                        should_trigger_shortcut = True
-                    
-                    if should_trigger_shortcut:
-                        self.send_keyboard_shortcut(i)
-                
-                if (i < len(self.media_control_enabled) and 
-                    self.media_control_enabled[i].get() and 
-                    i < len(self.media_control_actions) and 
-                    self.media_control_actions[i].get()):
-                    media_mode = "Click"
-                    if i < len(self.media_control_button_modes):
-                        media_mode = self.media_control_button_modes[i].get()
-                    
-                    should_trigger_media = False
-                    if media_mode == "Click" and current == 1:
-                        should_trigger_media = True
-                    elif media_mode == "Double Click" and current == 3:
-                        should_trigger_media = True
-                    elif media_mode == "Hold" and current == 2:
-                        should_trigger_media = True
-                    
-                    if should_trigger_media:
-                        self.send_media_control(i)
-    
-        self.last_button_states = button_states
-
-    def launch_application(self, index):
-        """Launch the application specified for the given button index."""
-        try:
-            import subprocess
-            import os
-            
-            app_path = self.app_launch_paths[index].get()
-            if app_path and os.path.exists(app_path):
-                subprocess.Popen([app_path], shell=True)
-                print(f"Launched application: {app_path}")
-            else:
-                print(f"Application path not found: {app_path}")
-        except Exception as e:
-            print(f"Error launching application: {e}")
-
-    def send_keyboard_shortcut(self, index):
-        """Send keyboard shortcut for the given button index."""
-        try:
-            import pyautogui
-            import time
-            
-            if index >= len(self.keyboard_shortcuts):
-                return
-            
-            shortcut = self.keyboard_shortcuts[index].get()
-            if not shortcut:
-                return
-            
-            keys = shortcut.split('+')
-            key_mapping = {
-                'Ctrl': 'ctrl',
-                'Control': 'ctrl',
-                'Shift': 'shift',
-                'Alt': 'alt',
-                'Win': 'win',
-                'Windows': 'win',
-                'Enter': 'enter',
-                'Return': 'enter',
-                'Tab': 'tab',
-                'Space': 'space',
-                'Escape': 'esc',
-                'Esc': 'esc',
-                'Backspace': 'backspace',
-                'Delete': 'delete',
-                'Del': 'delete',
-                'Insert': 'insert',
-                'Home': 'home',
-                'End': 'end',
-                'PageUp': 'pageup',
-                'PageDown': 'pagedown',
-                'Up': 'up',
-                'Down': 'down',
-                'Left': 'left',
-                'Right': 'right',
-                'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
-                'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
-                'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12',
-                'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f', 'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j',
-                'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r', 's': 's', 't': 't',
-                'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': 'z',
-                '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9'
-            }
-            
-            pyautogui_keys = []
-            for key in keys:
-                mapped_key = key_mapping.get(key, key.lower())
-                pyautogui_keys.append(mapped_key)
-            
-            if len(pyautogui_keys) > 1:
-                pyautogui.hotkey(*pyautogui_keys)
-            else:
-                pyautogui.press(pyautogui_keys[0])
-            
-            print(f"Sent keyboard shortcut: {shortcut}")
-            
-        except Exception as e:
-            print(f"Error sending keyboard shortcut: {e}")
-
-    def send_media_control(self, index):
-        """Send media control command for the given button index."""
-        try:
-            import pyautogui
-            
-            if index >= len(self.media_control_actions):
-                return
-            
-            action = self.media_control_actions[index].get()
-            if not action:
-                return
-            
-            media_key_mapping = {
-                'Play/Pause': 'playpause',
-                'Next Track': 'nexttrack',
-                'Previous Track': 'prevtrack'
-            }
-            
-            media_key = media_key_mapping.get(action)
-            if media_key:
-                pyautogui.press(media_key)
-                print(f"Sent media control: {action}")
-            else:
-                print(f"Unknown media control action: {action}")
-            
-        except Exception as e:
-            print(f"Error sending media control: {e}")
-
-    def handle_volume_update(self, volumes):
-        """Handle volume updates from serial controller."""
-        if self.current_apps == []:
-            self.current_apps = ["" for i in range(len(volumes))]
-            self.root.after(20, self.refresh_gui)
-            return
-
-        if not hasattr(self, "muted_state") or len(self.muted_state) != len(volumes):
-            if hasattr(self, "current_mute_state") and len(self.current_mute_state) == len(volumes):
-                self.muted_state = self.current_mute_state.copy()
-            else:
-                self.muted_state = [False] * len(volumes)
-
-        for i, volume in enumerate(volumes):
-            self.update_volume(i, int(volume))
+        self.volume_manager.toggle_mute(index)
 
     def on_exit(self, icon=None, item=None):
         """Handle application exit."""
-        self.save_window_position()
+        self.window_manager.save_window_position()
         
-        self.icon.visible = False
-        self.icon.stop()
+        self.window_manager.cleanup()
 
         self.running = False
 
@@ -582,151 +153,15 @@ class HushmixApp:
 
         try:
             import os
-
             os._exit(0)
         except Exception as e:
             print(f"Error during force exit: {e}")
             sys.exit(0)
 
-    def restore_window(self, icon=None, item=None):
-        """Restore window from tray."""
-        if not self.root.winfo_viewable():
-            self.root.deiconify()
-            self.root.lift()
-            self.root.focus_force()
-
     def on_close(self):
         """Handle window close button."""
-        self.save_window_position()
+        self.window_manager.save_window_position()
         self.root.withdraw()
-
-    def refresh_gui(self):
-        """Refresh the GUI to match the current applications."""
-
-        for entry in self.entries:
-            entry.destroy()
-        for buttons in self.buttons:
-            buttons.destroy()
-        for label in self.volume_labels:
-            label.destroy()
-
-        self.buttons.clear()
-        self.entries.clear()
-        self.volume_labels.clear()
-
-        for i, app_name in enumerate(self.current_apps):
-
-            sliders = len(self.current_apps)
-
-            if i > 0 and i < sliders - 1:
-                button = ctk.CTkButton(
-                    self.main_frame,
-                    text="⋮",
-                    command=lambda idx=i: self.show_buttonSettings(idx),
-                    hover_color=self.accent_hover,
-                    fg_color=self.accent_color,
-                    cursor="hand2",
-                    width=5,
-                    height=25,
-                    corner_radius=8,
-                )
-                button.grid(
-                    row=i + 1, column=2, columnspan=1, pady=7, padx=3, sticky="nsew"
-                )
-                self.buttons.append(button)
-
-            entry = ctk.CTkEntry(
-                self.main_frame,
-                font=("Segoe UI", self.normal_font_size),
-                height=30,
-                placeholder_text=f"App {i + 1}",
-                border_width=2,
-                corner_radius=10,
-            )
-            if app_name != "":
-                entry.insert(0, app_name)
-            if i == 0:
-                entry.grid(
-                    row=i + 1,
-                    column=0,
-                    columnspan=3,
-                    pady=(10, 4),
-                    padx=(10, 1),
-                    sticky="nsew",
-                )
-            elif i == sliders - 1:
-                entry.grid(
-                    row=i + 1,
-                    column=0,
-                    columnspan=3,
-                    pady=4,
-                    padx=(10, 1),
-                    sticky="nsew",
-                )
-            else:
-                entry.grid(
-                    row=i + 1, column=0, columnspan=2, pady=4, padx=(10, 1), sticky="nsew"
-                )
-
-            entry.bind("<KeyRelease>", lambda e: self.save_applications())
-
-            volume_label = ctk.CTkLabel(
-                self.main_frame,
-                text="100%",
-                width=45,
-                font=("Segoe UI", self.normal_font_size, "bold"),
-            )
-            volume_label.grid(row=i + 1, column=3, pady=6, padx=5, sticky="w")
-            volume_label.bind("<Button-1>", lambda event: event.widget.focus_force())
-            volume_label.default_text_color = volume_label.cget("text_color")
-
-
-            self.entries.append(entry)
-            self.volume_labels.append(volume_label)
-
-        self.profile_listbox.grid(
-            row=len(self.current_apps) + 1, column=0, columnspan=1, padx=(10, 0), pady=10
-        )
-        self.help_button.grid(
-            row=len(self.current_apps) + 1,
-            column=1,
-            columnspan=2,
-            pady=10,
-            padx=5,
-            sticky="ew",
-        )
-        self.settings_button.grid(
-            row=len(self.current_apps) + 1,
-            column=2,
-            columnspan=2,
-            pady=10,
-            padx=(0, 10),
-            sticky="e",
-        )
-
-        if self.connection_status_label:
-            self.connection_status_label.grid(
-                row=0, 
-                column=0, 
-                columnspan=4, 
-                pady=(10, 0), 
-                padx=10, 
-                sticky="ew"
-            )
-
-        self.main_frame.columnconfigure(0, weight=1)
-        self.main_frame.columnconfigure(1, weight=2)
-        self.main_frame.columnconfigure(2, weight=0)
-
-        self.previous_volumes = [None] * len(self.current_apps)
-
-        if self.entries:
-            entry_names = [entry.get() for entry in self.entries]
-            if entry_names != self.current_apps:
-                self.load_settings()
-                return
-        
-        self.update_connection_status()
 
     def show_buttonSettings(self, index):
         """Show settings window."""
@@ -795,8 +230,6 @@ class HushmixApp:
         self.save_settings()
         
         self.apply_theme_changes()
-
-
 
     def load_settings(self):
         """Load settings from config file."""
@@ -952,12 +385,9 @@ class HushmixApp:
         self.settings_manager.settings_vars["media_control_enabled"] = [enabled.get() for enabled in self.media_control_enabled]
         self.settings_manager.settings_vars["media_control_actions"] = [action.get() for action in self.media_control_actions]
         self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
-        if hasattr(self, 'profile_listbox') and self.profile_listbox:
-            self.profile_listbox.set(current_profile)
-
-        self.refresh_gui()
-        self.save_settings()
-
+        
+        if hasattr(self, 'gui_components') and hasattr(self.gui_components, 'profile_listbox') and self.gui_components.profile_listbox:
+            self.gui_components.profile_listbox.set(current_profile)
 
     def save_settings(self):
         """Save current settings to config file."""
@@ -1068,11 +498,11 @@ class HushmixApp:
                 ctk.StringVar(value="Click"),
             ]
 
-        if hasattr(self, 'profile_listbox') and self.profile_listbox:
-            self.settings_manager.settings_vars["current_profile"] = self.profile_listbox.get()
+        if hasattr(self, 'gui_components') and hasattr(self.gui_components, 'profile_listbox') and self.gui_components.profile_listbox:
+            self.settings_manager.settings_vars["current_profile"] = self.gui_components.profile_listbox.get()
         
-        if hasattr(self, 'entries'):
-            self.settings_manager.settings_vars["applications"] = [entry.get() for entry in self.entries]
+        if hasattr(self, 'gui_components') and hasattr(self.gui_components, 'entries'):
+            self.settings_manager.settings_vars["applications"] = [entry.get() for entry in self.gui_components.entries]
         
         self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
         self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
@@ -1088,7 +518,7 @@ class HushmixApp:
         self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
 
         current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
-        self.save_current_profile_data(current_profile)
+        self.profile_manager.save_current_profile_data(current_profile)
         
         self.settings_manager.save_to_config()
 
@@ -1138,450 +568,17 @@ class HushmixApp:
             
             self.root.update_idletasks()
             
-            self.accent_color = get_windows_accent_color()
-            self.accent_hover = darken_color(self.accent_color, 0.2)
-            
-            if hasattr(self, 'profile_listbox') and self.profile_listbox:
-                self.profile_listbox.configure(
-                    fg_color=self.accent_color,
-                    button_color=self.accent_color,
-                    button_hover_color=self.accent_hover,
-                    dropdown_hover_color=self.accent_hover
-                )
-            
-            if hasattr(self, 'help_button') and self.help_button:
-                self.help_button.configure(
-                    fg_color=self.accent_color,
-                    hover_color=self.accent_hover
-                )
-            
-            if hasattr(self, 'settings_button') and self.settings_button:
-                self.settings_button.configure(
-                    fg_color=self.accent_color,
-                    hover_color=self.accent_hover
-                )
-            
-            for button in self.buttons:
-                if button.winfo_exists():
-                    button.configure(
-                        fg_color=self.accent_color,
-                        hover_color=self.accent_hover
-                    )
+            self.gui_components.update_theme_colors()
             
             print(f"Theme changed to {'dark' if dark_mode else 'light'} mode")
             
         except Exception as e:
             print(f"Error applying theme changes: {e}")
 
-    def update_volume(self, index, volume_level):
-        """Update volume for a specific application."""
-        volume_level = min(max(volume_level, 0), 100)
-        volume_level = round(volume_level / 2) * 2
-
-        if self.settings_manager.get_setting("invert_volumes"):
-            volume_level = 100 - volume_level
-
-        if index < len(self.muted_state) and self.muted_state[index]:
-            volume_level = 0
-
-        if index < len(self.volume_labels):
-            is_muted = (
-                index < len(self.muted_state) and self.muted_state[index]
-            )
-            displayed_volume = 0 if is_muted else volume_level
-            color = "red3" if is_muted else self.volume_labels[index].default_text_color
-
-            self.root.after(
-                10,
-                lambda l=self.volume_labels[index]: l.configure(
-                    text=f"{displayed_volume}%", text_color=color
-                ),
-            )
-
-        if (
-            index < len(self.current_apps)
-            and volume_level != self.previous_volumes[index]
-        ):
-            app_name = self.entries[index].get()
-            if app_name:
-                if app_name.lower() == "mic" and not self.muted_state[index] and self.previous_volumes[index] == 0:
-                    mic_volume = self.audio_controller.get_microphone_volume()
-                    if mic_volume > 0:
-                        volume_level = mic_volume
-                
-                self.audio_controller.set_application_volume(app_name, volume_level)
-                self.previous_volumes[index] = volume_level
-
     def on_profile_change(self, profile):
         """Handle profile selection changes."""
-        try:
-            current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
-            
-            self.save_current_profile_data(current_profile)
-
-            settings = ConfigManager.load_settings()
-            
-            new_profile_apps = (
-                settings.get("profiles", {}).get(profile, {}).get("applications", [])
-            )
-            new_profile_mute = (
-                settings.get("profiles", {}).get(profile, {}).get("mute_settings", [])
-            )
-            new_profile_mute_state = (
-                settings.get("profiles", {}).get(profile, {}).get("mute_state", [])
-            )
-            new_profile_app_launch_enabled = (
-                settings.get("profiles", {}).get(profile, {}).get("app_launch_enabled", [])
-            )
-            new_profile_app_launch_paths = (
-                settings.get("profiles", {}).get(profile, {}).get("app_launch_paths", [])
-            )
-            new_profile_keyboard_shortcut_enabled = (
-                settings.get("profiles", {}).get(profile, {}).get("keyboard_shortcut_enabled", [])
-            )
-            new_profile_keyboard_shortcuts = (
-                settings.get("profiles", {}).get(profile, {}).get("keyboard_shortcuts", [])
-            )
-            new_profile_mute_button_modes = (
-                settings.get("profiles", {}).get(profile, {}).get("mute_button_modes", [])
-            )
-            new_profile_app_button_modes = (
-                settings.get("profiles", {}).get(profile, {}).get("app_button_modes", [])
-            )
-            new_profile_shortcut_button_modes = (
-                settings.get("profiles", {}).get(profile, {}).get("shortcut_button_modes", [])
-            )
-            new_profile_media_control_enabled = (
-                settings.get("profiles", {}).get(profile, {}).get("media_control_enabled", [])
-            )
-            new_profile_media_control_actions = (
-                settings.get("profiles", {}).get(profile, {}).get("media_control_actions", [])
-            )
-            new_profile_media_control_button_modes = (
-                settings.get("profiles", {}).get(profile, {}).get("media_control_button_modes", [])
-            )
-            
-            self.current_apps = new_profile_apps
-            self.settings_manager.settings_vars["applications"] = new_profile_apps
-            self.settings_manager.settings_vars["current_profile"] = profile
-
-            self.mute = []
-            if new_profile_mute:
-                for mute_value in new_profile_mute:
-                    var = ctk.BooleanVar(value=mute_value)
-                    self.mute.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.BooleanVar(value=True)
-                    self.mute.append(var)
-
-            if new_profile_mute_state:
-                self.current_mute_state = new_profile_mute_state.copy()
-            else:
-                self.current_mute_state = [False] * 7
-            self.muted_state = self.current_mute_state.copy()
-            
-            self.app_launch_enabled = []
-            if new_profile_app_launch_enabled:
-                for enabled_value in new_profile_app_launch_enabled:
-                    var = ctk.BooleanVar(value=enabled_value)
-                    self.app_launch_enabled.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.BooleanVar(value=False)
-                    self.app_launch_enabled.append(var)
-
-            self.app_launch_paths = []
-            if new_profile_app_launch_paths:
-                for path_value in new_profile_app_launch_paths:
-                    var = ctk.StringVar(value=path_value)
-                    self.app_launch_paths.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="")
-                    self.app_launch_paths.append(var)
-            
-            self.keyboard_shortcut_enabled = []
-            if new_profile_keyboard_shortcut_enabled:
-                for enabled_value in new_profile_keyboard_shortcut_enabled:
-                    var = ctk.BooleanVar(value=enabled_value)
-                    self.keyboard_shortcut_enabled.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.BooleanVar(value=False)
-                    self.keyboard_shortcut_enabled.append(var)
-
-            self.keyboard_shortcuts = []
-            if new_profile_keyboard_shortcuts:
-                for shortcut_value in new_profile_keyboard_shortcuts:
-                    var = ctk.StringVar(value=shortcut_value)
-                    self.keyboard_shortcuts.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="")
-                    self.keyboard_shortcuts.append(var)
-            
-            self.mute_button_modes = []
-            if new_profile_mute_button_modes:
-                for mode_value in new_profile_mute_button_modes:
-                    var = ctk.StringVar(value=mode_value)
-                    self.mute_button_modes.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="Click")
-                    self.mute_button_modes.append(var)
-
-            self.app_button_modes = []
-            if new_profile_app_button_modes:
-                for mode_value in new_profile_app_button_modes:
-                    var = ctk.StringVar(value=mode_value)
-                    self.app_button_modes.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="Click")
-                    self.app_button_modes.append(var)
-
-            self.shortcut_button_modes = []
-            if new_profile_shortcut_button_modes:
-                for mode_value in new_profile_shortcut_button_modes:
-                    var = ctk.StringVar(value=mode_value)
-                    self.shortcut_button_modes.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="Click")
-                    self.shortcut_button_modes.append(var)
-            
-            self.media_control_enabled = []
-            if new_profile_media_control_enabled:
-                for enabled_value in new_profile_media_control_enabled:
-                    var = ctk.BooleanVar(value=enabled_value)
-                    self.media_control_enabled.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.BooleanVar(value=False)
-                    self.media_control_enabled.append(var)
-
-            self.media_control_actions = []
-            if new_profile_media_control_actions:
-                for action_value in new_profile_media_control_actions:
-                    var = ctk.StringVar(value=action_value)
-                    self.media_control_actions.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="Play/Pause")
-                    self.media_control_actions.append(var)
-
-            self.media_control_button_modes = []
-            if new_profile_media_control_button_modes:
-                for mode_value in new_profile_media_control_button_modes:
-                    var = ctk.StringVar(value=mode_value)
-                    self.media_control_button_modes.append(var)
-            else:
-                for _ in range(5):
-                    var = ctk.StringVar(value="Click")
-                    self.media_control_button_modes.append(var)
-            
-            self.settings_manager.settings_vars["mute_settings"] = [mute_state.get() for mute_state in self.mute]
-            self.settings_manager.settings_vars["mute_state"] = self.current_mute_state
-            self.settings_manager.settings_vars["app_launch_enabled"] = [enabled.get() for enabled in self.app_launch_enabled]
-            self.settings_manager.settings_vars["app_launch_paths"] = [path.get() for path in self.app_launch_paths]
-            self.settings_manager.settings_vars["keyboard_shortcut_enabled"] = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
-            self.settings_manager.settings_vars["keyboard_shortcuts"] = [shortcut.get() for shortcut in self.keyboard_shortcuts]
-            self.settings_manager.settings_vars["mute_button_modes"] = [mode.get() for mode in self.mute_button_modes]
-            self.settings_manager.settings_vars["app_button_modes"] = [mode.get() for mode in self.app_button_modes]
-            self.settings_manager.settings_vars["shortcut_button_modes"] = [mode.get() for mode in self.shortcut_button_modes]
-            self.settings_manager.settings_vars["media_control_enabled"] = [enabled.get() for enabled in self.media_control_enabled]
-            self.settings_manager.settings_vars["media_control_actions"] = [action.get() for action in self.media_control_actions]
-            self.settings_manager.settings_vars["media_control_button_modes"] = [mode.get() for mode in self.media_control_button_modes]
-
-            self.settings_manager.save_to_config()
-
-            self.refresh_gui()
-
-        except Exception as e:
-            print(f"Error in profile change: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def save_current_profile_data(self, profile_name):
-        """Save current profile-specific data to the specified profile."""
-        try:
-            if self.mute == []:
-                self.mute = [
-                    ctk.BooleanVar(value=True),
-                    ctk.BooleanVar(value=True),
-                    ctk.BooleanVar(value=True),
-                    ctk.BooleanVar(value=True),
-                    ctk.BooleanVar(value=True),
-                ]
-            if self.current_mute_state == []:
-                self.current_mute_state = [
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                ]
-            if self.app_launch_paths == []:
-                self.app_launch_paths = [
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                ]
-            if self.keyboard_shortcut_enabled == []:
-                self.keyboard_shortcut_enabled = [
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                ]
-            if self.keyboard_shortcuts == []:
-                self.keyboard_shortcuts = [
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                    ctk.StringVar(value=""),
-                ]
-            if self.mute_button_modes == []:
-                self.mute_button_modes = [
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                ]
-            if self.app_button_modes == []:
-                self.app_button_modes = [
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                ]
-            if self.shortcut_button_modes == []:
-                self.shortcut_button_modes = [
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                ]
-            
-            if self.media_control_enabled == []:
-                self.media_control_enabled = [
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                    ctk.BooleanVar(value=False),
-                ]
-            
-            if self.media_control_actions == []:
-                self.media_control_actions = [
-                    ctk.StringVar(value="Play/Pause"),
-                    ctk.StringVar(value="Play/Pause"),
-                    ctk.StringVar(value="Play/Pause"),
-                    ctk.StringVar(value="Play/Pause"),
-                    ctk.StringVar(value="Play/Pause"),
-                ]
-            
-            if self.media_control_button_modes == []:
-                self.media_control_button_modes = [
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                    ctk.StringVar(value="Click"),
-                ]
-
-            current_apps = [entry.get() for entry in self.entries] if hasattr(self, 'entries') else []
-            current_mute_settings = [mute_state.get() for mute_state in self.mute]
-            current_mute_state = self.current_mute_state
-            current_app_launch_enabled = [enabled.get() for enabled in self.app_launch_enabled]
-            current_app_launch_paths = [path.get() for path in self.app_launch_paths]
-            current_keyboard_shortcut_enabled = [enabled.get() for enabled in self.keyboard_shortcut_enabled]
-            current_keyboard_shortcuts = [shortcut.get() for shortcut in self.keyboard_shortcuts]
-            current_mute_button_modes = [mode.get() for mode in self.mute_button_modes]
-            current_app_button_modes = [mode.get() for mode in self.app_button_modes]
-            current_shortcut_button_modes = [mode.get() for mode in self.shortcut_button_modes]
-            current_media_control_enabled = [enabled.get() for enabled in self.media_control_enabled]
-            current_media_control_actions = [action.get() for action in self.media_control_actions]
-            current_media_control_button_modes = [mode.get() for mode in self.media_control_button_modes]
-
-
-
-            settings = ConfigManager.load_settings()
-            
-            if "profiles" not in settings:
-                settings["profiles"] = {}
-            if profile_name not in settings["profiles"]:
-                settings["profiles"][profile_name] = {}
-            
-            settings["profiles"][profile_name]["applications"] = current_apps
-            settings["profiles"][profile_name]["mute_settings"] = current_mute_settings
-            settings["profiles"][profile_name]["mute_state"] = current_mute_state
-            settings["profiles"][profile_name]["app_launch_enabled"] = current_app_launch_enabled
-            settings["profiles"][profile_name]["app_launch_paths"] = current_app_launch_paths
-            settings["profiles"][profile_name]["keyboard_shortcut_enabled"] = current_keyboard_shortcut_enabled
-            settings["profiles"][profile_name]["keyboard_shortcuts"] = current_keyboard_shortcuts
-            settings["profiles"][profile_name]["mute_button_modes"] = current_mute_button_modes
-            settings["profiles"][profile_name]["app_button_modes"] = current_app_button_modes
-            settings["profiles"][profile_name]["shortcut_button_modes"] = current_shortcut_button_modes
-            settings["profiles"][profile_name]["media_control_enabled"] = current_media_control_enabled
-            settings["profiles"][profile_name]["media_control_actions"] = current_media_control_actions
-            settings["profiles"][profile_name]["media_control_button_modes"] = current_media_control_button_modes
-
-            ConfigManager.save_all_settings(settings)
-
-        except Exception as e:
-            print(f"Error in save_current_profile_data: {e}")
-            import traceback
-            traceback.print_exc()
+        self.profile_manager.on_profile_change(profile)
 
     def save_applications(self, event=None):
         """Save applications when a key is released in the entry fields."""
-        try:
-            if hasattr(self, 'entries'):
-                self.settings_manager.settings_vars["applications"] = [entry.get() for entry in self.entries]
-            
-            current_profile = self.settings_manager.settings_vars.get("current_profile", "Profile 1")
-            self.save_current_profile_data(current_profile)
-
-        except Exception as e:
-            print(f"Error in save_applications: {e}")
-            import traceback
-            traceback.print_exc()
-
-
-def get_windows_accent_color():
-    """Retrieve the Windows accent color from the registry."""
-    try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM"
-        ) as key:
-            accent_color = winreg.QueryValueEx(key, "ColorizationColor")[0]
-            blue = accent_color & 0xFF
-            green = (accent_color >> 8) & 0xFF
-            red = (accent_color >> 16) & 0xFF
-            return "#{:02x}{:02x}{:02x}".format(red, green, blue)
-    except OSError as e:
-        print(f"Error accessing registry: {e}")
-    return "#2196F3"
-
-
-def darken_color(hex_color, percentage):
-    """Darken a hex color by a given percentage."""
-    hex_color = hex_color.lstrip("#")
-    r, g, b = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-
-    r = int(r * (1 - percentage))
-    g = int(g * (1 - percentage))
-    b = int(b * (1 - percentage))
-
-    return "#{:02x}{:02x}{:02x}".format(r, g, b)
+        self.profile_manager.save_applications(event) 

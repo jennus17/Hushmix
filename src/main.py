@@ -274,13 +274,13 @@ def main():
         position_y = primary_monitor['top'] + (primary_monitor['height'] - window_height) // 2
 
     root.geometry(f"+{position_x}+{position_y}")
-    
+
+    app = HushmixApp(root)
+
     root.lift()
     root.attributes('-topmost', True)
     root.after_idle(lambda: root.attributes('-topmost', False))
     root.focus_force()
-
-    app = HushmixApp(root)
     
     import atexit
     atexit.register(cleanup_mutex)
