@@ -120,8 +120,17 @@ class SettingsWindow:
         current_interval = self.settings_manager.get_setting('update_check_interval', 1800)
         interval_minutes = current_interval // 60
         
-        interval_options = ["15", "30", "60", "120", "240", "480"]
-        interval_var = ctk.StringVar(value=str(interval_minutes))
+        interval_options = ["15 minutes", "30 minutes", "1 hour", "2 hours", "4 hours", "8 hours"]
+        
+        interval_var = ctk.StringVar()
+        if interval_minutes >= 60:
+            hours = interval_minutes // 60
+            if hours == 1:
+                interval_var.set("1 hour")
+            else:
+                interval_var.set(f"{hours} hours")
+        else:
+            interval_var.set(f"{interval_minutes} minutes")
         
         interval_menu = ctk.CTkOptionMenu(
             interval_frame,
@@ -136,17 +145,20 @@ class SettingsWindow:
         )
         interval_menu.pack(side="left")
         
-        minutes_label = ctk.CTkLabel(
-            interval_frame,
-            text="minutes",
-            font=("Segoe UI", self.normal_font_size)
-        )
-        minutes_label.pack(side="left", padx=(10, 0))
+        self.interval_var = interval_var
 
     def change_update_interval(self, value):
         """Change the update check interval."""
         try:
-            minutes = int(value)
+            if "hour" in value.lower():
+                if value.startswith("1"):
+                    minutes = 60
+                else:
+                    hours = int(value.split()[0])
+                    minutes = hours * 60
+            else:
+                minutes = int(value.split()[0])
+            
             seconds = minutes * 60
             self.settings_manager.set_setting('update_check_interval', seconds)
         except ValueError:

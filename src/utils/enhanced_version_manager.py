@@ -127,7 +127,7 @@ class EnhancedVersionManager:
             try:
                 skip_version = self.settings_manager.get_setting('skip_version')
                 if skip_version and skip_version == current_version:
-                    time.sleep(self.check_interval)
+                    time.sleep(self.settings_manager.get_setting('update_check_interval', 1800))
                     continue
                 
                 update_info = self.get_update_info(self.current_source)
@@ -142,7 +142,7 @@ class EnhancedVersionManager:
             except Exception as e:
                 print(f"Error during update check: {e}")
 
-            time.sleep(self.check_interval)
+            time.sleep(self.settings_manager.get_setting('update_check_interval', 1800))
 
     def show_update_dialog(self, parent, update_info):
         """Show update dialog with enhanced options."""
