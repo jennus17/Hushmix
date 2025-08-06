@@ -21,6 +21,8 @@ class WindowManager:
         """Setup main window properties."""
         self.root.title("Hushmix")
         self.root.resizable(False, False)
+        
+        self.root.configure(bg=self.get_theme_bg_color())
 
         ico_path = IconManager.get_ico_file()
         if ico_path:
@@ -31,6 +33,16 @@ class WindowManager:
                 self.root.wm_iconbitmap(ico_path)
             except Exception as e:
                 print(f"Error setting taskbar icon: {e}")
+    
+    def get_theme_bg_color(self):
+        """Get the appropriate background color based on theme."""
+        try:
+            if self.app.settings_manager.get_setting("dark_mode", True):
+                return "#2b2b2b"  # Dark theme background
+            else:
+                return "#f0f0f0"  # Light theme background
+        except:
+            return "#2b2b2b"  # Default to dark theme
 
     def setup_tray_icon(self):
         """Setup system tray icon."""

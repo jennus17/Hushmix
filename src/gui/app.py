@@ -70,10 +70,7 @@ class HushmixApp:
         self.gui_components.setup_gui()
         self.gui_components.refresh_gui()
 
-        if self.settings_manager.get_setting("launch_in_tray"):
-            self.root.withdraw()
-        else:
-            self.root.deiconify()
+        # Window visibility is handled in main.py to prevent white flash
 
         self.version_manager = EnhancedVersionManager(root, self.settings_manager)
 

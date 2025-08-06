@@ -255,12 +255,14 @@ def main():
     else:
         ctk.set_appearance_mode("light")
     
-    root = ctk.CTk()  
-    root.update_idletasks()
-
+    root = ctk.CTk()
+    
+    root.withdraw()
+    
     saved_x = settings.get("window_x")
     saved_y = settings.get("window_y")
     
+    root.update_idletasks()
     window_width = root.winfo_width()
     window_height = root.winfo_height()
     
@@ -276,11 +278,16 @@ def main():
     root.geometry(f"+{position_x}+{position_y}")
 
     app = HushmixApp(root)
-
-    root.lift()
-    root.attributes('-topmost', True)
-    root.after_idle(lambda: root.attributes('-topmost', False))
-    root.focus_force()
+    
+    def show_window():
+        if not app.settings_manager.get_setting("launch_in_tray"):
+            root.deiconify()
+            root.lift()
+            root.attributes('-topmost', True)
+            root.after_idle(lambda: root.attributes('-topmost', False))
+            root.focus_force()
+    
+    root.after_idle(lambda: root.after(10, show_window))
     
     import atexit
     atexit.register(cleanup_mutex)
