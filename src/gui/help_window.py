@@ -5,12 +5,12 @@ import gui.app as app
 
 class HelpWindow:
     def __init__(self, parent):
+        self.parent = parent
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call("tk", "scaling", 1.0)
         
         self.setup_window()
         self.window.transient(parent)
-        self.window.grab_set()
 
         self.accent_color = app.get_windows_accent_color()
         self.normal_font_size = 14
@@ -24,6 +24,8 @@ class HelpWindow:
         self.window.title("Hushmix Help")
         self.window.resizable(False, False)
         self.window.geometry("600x400")
+        self.window.transient(self.parent)
+        self.window.grab_release()
 
         ico_path = IconManager.get_ico_file()
         if ico_path:

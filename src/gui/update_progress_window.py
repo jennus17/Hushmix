@@ -15,7 +15,6 @@ class UpdateProgressWindow:
         
         self.setup_window()
         self.window.transient(parent)
-        self.window.grab_set()
         
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
@@ -30,6 +29,8 @@ class UpdateProgressWindow:
         self.window.title("Updating Hushmix")
         self.window.resizable(False, False)
         self.window.geometry("400x200")
+        self.window.transient(self.parent)
+        self.window.grab_release()
         
         from utils.icon_manager import IconManager
         ico_path = IconManager.get_ico_file()

@@ -25,6 +25,7 @@ class ButtonSettingsWindow:
         on_close,
         
     ):
+        self.parent = parent
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call("tk", "scaling", 1.0)
         self.window.withdraw()
@@ -32,7 +33,6 @@ class ButtonSettingsWindow:
         self.setup_window()
 
         self.window.transient(parent)
-        self.window.grab_set()
 
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
@@ -64,6 +64,8 @@ class ButtonSettingsWindow:
         """Setup main window properties."""
         self.window.title("Button Settings")
         self.window.resizable(False, False)
+        self.window.transient(self.parent)
+        self.window.grab_release()
 
         ico_path = IconManager.get_ico_file()
         if ico_path:

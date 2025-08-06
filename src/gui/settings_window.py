@@ -12,6 +12,7 @@ class SettingsWindow:
         settings_manager,
         on_close,
     ):
+        self.parent = parent
         self.window = ctk.CTkToplevel(parent)
         self.window.tk.call("tk", "scaling", 1.0)
         self.window.withdraw()
@@ -19,7 +20,6 @@ class SettingsWindow:
         self.setup_window()
 
         self.window.transient(parent)
-        self.window.grab_set()
 
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
@@ -41,6 +41,8 @@ class SettingsWindow:
         """Setup main window properties."""
         self.window.title("Settings")
         self.window.resizable(False, False)
+        self.window.transient(self.parent)
+        self.window.grab_release()
 
         ico_path = IconManager.get_ico_file()
         if ico_path:
