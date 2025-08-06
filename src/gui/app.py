@@ -22,6 +22,7 @@ from gui.settings_window import SettingsWindow
 from gui.buttonSettings_window import ButtonSettingsWindow
 from gui.window_manager import WindowManager
 from gui.gui_components import GUIComponents
+from gui.help_window import HelpWindow
 
 from utils.enhanced_version_manager import EnhancedVersionManager
 
@@ -43,6 +44,7 @@ class HushmixApp:
         
         self.settings_window = None
         self.buttonSettings_window = None
+        self.help_window = None
 
         self.accent_color = get_windows_accent_color()
         self.accent_hover = darken_color(self.accent_color, 0.2)
@@ -171,7 +173,8 @@ class HushmixApp:
                     hasattr(self.buttonSettings_window, "window")
                     and self.buttonSettings_window.window.winfo_exists()
                 ):
-                    self.buttonSettings_window.window.lift()
+                    self.on_buttonSettings_close()
+                    self.root.after(100, lambda: self.show_buttonSettings(index))
                     return
                 else:
                     self.buttonSettings_window = None
@@ -230,6 +233,33 @@ class HushmixApp:
         self.save_settings()
         
         self.apply_theme_changes()
+
+    def show_help(self):
+        """Show help window."""
+        if self.help_window is not None:
+            try:
+                if (
+                    hasattr(self.help_window, "window")
+                    and self.help_window.window.winfo_exists()
+                ):
+                    self.on_help_close()
+                    self.root.after(100, self.show_help)
+                    return
+                else:
+                    self.help_window = None
+            except Exception:
+                self.help_window = None
+
+        self.help_window = HelpWindow(self.root)
+
+    def on_help_close(self):
+        """Handle help window close."""
+        if self.help_window and hasattr(self.help_window, "window"):
+            try:
+                self.help_window.window.destroy()
+            except Exception:
+                pass
+        self.help_window = None
 
     def load_settings(self):
         """Load settings from config file."""
@@ -530,7 +560,8 @@ class HushmixApp:
                     hasattr(self.settings_window, "window")
                     and self.settings_window.window.winfo_exists()
                 ):
-                    self.settings_window.window.lift()
+                    self.on_settings_close()
+                    self.root.after(100, self.show_settings)
                     return
                 else:
                     self.settings_window = None

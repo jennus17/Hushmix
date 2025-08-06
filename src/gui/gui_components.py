@@ -1,5 +1,4 @@
 import customtkinter as ctk
-from gui.help_window import HelpWindow
 from utils.color_utils import get_windows_accent_color, darken_color
 
 
@@ -47,7 +46,7 @@ class GUIComponents:
         self.help_button = ctk.CTkButton(
             self.main_frame,
             text=" ⓘ ",
-            command=lambda: HelpWindow(self.root),
+            command=self.app.show_help,
             font=("Segoe UI", self.normal_font_size, "bold"),
             hover_color=self.accent_hover,
             fg_color=self.accent_color,
