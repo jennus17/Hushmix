@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import gui.app as app
-import ctypes
 from utils.icon_manager import IconManager
+from utils.dpi_manager import DPIManager
 
 
 class SettingsWindow:
@@ -27,6 +27,7 @@ class SettingsWindow:
         self.config_manager = config_manager
         self.settings_manager = settings_manager
         self.on_close = on_close
+        self.dpi_manager = DPIManager()
 
         self.normal_font_size = 14
 
@@ -54,6 +55,8 @@ class SettingsWindow:
     def setup_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
+
+        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "settings window")
 
         general_label = ctk.CTkLabel(
             self.frame,

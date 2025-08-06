@@ -4,6 +4,7 @@ from pystray import Icon, MenuItem, Menu
 from PIL import Image
 import customtkinter as ctk
 from utils.icon_manager import IconManager
+from utils.dpi_manager import DPIManager
 
 
 class WindowManager:
@@ -12,6 +13,7 @@ class WindowManager:
         self.app = app_instance
         self.icon = None
         self.last_position = None
+        self.dpi_manager = DPIManager()
         
         self.setup_window()
         self.setup_tray_icon()
@@ -74,6 +76,13 @@ class WindowManager:
             
             if self.last_position != current_position:
                 self.last_position = current_position
+                
+                x, y = current_position
+                self.dpi_manager.adjust_dpi_scaling(
+                    self.root, x, y, "main window",
+                    lambda: self.app.gui_components.refresh_gui() if hasattr(self.app, 'gui_components') else None
+                )
+                
                 self.save_window_position()
                 
     def save_window_position(self):
@@ -156,6 +165,13 @@ class WindowManager:
             self.root.attributes('-topmost', True)
             self.root.after_idle(lambda: self.root.attributes('-topmost', False))
             self.root.focus_force()
+            
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            self.dpi_manager.adjust_dpi_scaling(
+                self.root, x, y, "main window",
+                lambda: self.app.gui_components.refresh_gui() if hasattr(self.app, 'gui_components') else None
+            )
 
     def cleanup(self):
         """Cleanup tray icon."""

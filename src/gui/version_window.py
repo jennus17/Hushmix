@@ -2,6 +2,7 @@ import gui.app as app
 from utils.icon_manager import IconManager
 import webbrowser
 import customtkinter as ctk
+from utils.dpi_manager import DPIManager
 
 
 class VersionWindow:
@@ -22,6 +23,7 @@ class VersionWindow:
 
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
+        self.dpi_manager = DPIManager()
 
         self.normal_font_size = 14
 
@@ -93,6 +95,8 @@ class VersionWindow:
 
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
+
+        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "version window")
 
         self.label = ctk.CTkLabel(
             self.frame, text=self.message, font=("Segoe UI", self.normal_font_size)
@@ -173,3 +177,5 @@ class VersionWindow:
 
     def close(self):
         self.window.destroy()
+
+

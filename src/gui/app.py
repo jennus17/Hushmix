@@ -25,6 +25,7 @@ from gui.gui_components import GUIComponents
 from gui.help_window import HelpWindow
 
 from utils.enhanced_version_manager import EnhancedVersionManager
+from utils.dpi_manager import DPIManager
 
 
 class HushmixApp:
@@ -66,11 +67,18 @@ class HushmixApp:
         
         self.profile_manager = ProfileManager(self)
 
+        self.dpi_manager = DPIManager()
+        
         self.window_manager.setup_window()
         self.gui_components.setup_gui()
         self.gui_components.refresh_gui()
 
-        # Window visibility is handled in main.py to prevent white flash
+        self.dpi_manager.initialize_dpi_scaling(
+            self.root, 
+            "main window", 
+            lambda: self.gui_components.refresh_gui() if hasattr(self, 'gui_components') else None
+        )
+
 
         self.version_manager = EnhancedVersionManager(root, self.settings_manager)
 

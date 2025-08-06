@@ -1,9 +1,9 @@
 import customtkinter as ctk
 import gui.app as app
-import ctypes
 import tkinter as tk
 from tkinter import filedialog
 from utils.icon_manager import IconManager
+from utils.dpi_manager import DPIManager
 
 
 class ButtonSettingsWindow:
@@ -50,6 +50,7 @@ class ButtonSettingsWindow:
         self.media_control_enabled = media_control_enabled
         self.media_control_actions = media_control_actions
         self.media_control_button_modes = media_control_button_modes
+        self.dpi_manager = DPIManager()
 
         self.normal_font_size = 14
 
@@ -77,6 +78,8 @@ class ButtonSettingsWindow:
     def setup_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
+
+        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "button settings window")
 
         if self.index >= len(self.mute):
             while len(self.mute) <= self.index:
@@ -122,6 +125,8 @@ class ButtonSettingsWindow:
         self.create_keyboard_shortcut_row()
         
         self.create_media_control_row()
+
+
 
     def create_mute_row(self):
         """Create the mute checkbox with button mode dropdown in a row."""

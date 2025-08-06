@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import threading
 import gui.app as app
+from utils.dpi_manager import DPIManager
 
 
 class UpdateProgressWindow:
@@ -18,6 +19,7 @@ class UpdateProgressWindow:
         
         self.accent_color = app.get_windows_accent_color()
         self.accent_hover = app.darken_color(self.accent_color, 0.2)
+        self.dpi_manager = DPIManager()
         self.normal_font_size = 14
         
         self.setup_gui()
@@ -64,6 +66,8 @@ class UpdateProgressWindow:
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
         
+        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "update progress window")
+        
         self.status_label = ctk.CTkLabel(
             self.frame, 
             text="Preparing to download update...", 
@@ -95,9 +99,10 @@ class UpdateProgressWindow:
         
         self.cancelled = False
         self.start_download()
+
+
     
     def start_download(self):
-        """Start the download process in a separate thread."""
         self.download_thread = threading.Thread(target=self.download_update, daemon=True)
         self.download_thread.start()
     

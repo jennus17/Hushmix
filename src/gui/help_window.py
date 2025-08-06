@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from utils.icon_manager import IconManager
 import gui.app as app
+from utils.dpi_manager import DPIManager
 
 
 class HelpWindow:
@@ -13,6 +14,7 @@ class HelpWindow:
         self.window.transient(parent)
 
         self.accent_color = app.get_windows_accent_color()
+        self.dpi_manager = DPIManager()
         self.normal_font_size = 14
 
         self.setup_gui()
@@ -37,6 +39,8 @@ class HelpWindow:
     def setup_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
+
+        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "help window")
 
         self.scrollable_frame = ctk.CTkScrollableFrame(
             self.frame,
@@ -308,25 +312,20 @@ class HelpWindow:
         self.window.update_idletasks()
         parent.update_idletasks()
 
-        # Get parent window position and size
         parent_x = parent.winfo_rootx()
         parent_y = parent.winfo_rooty()
         parent_width = parent.winfo_width()
         parent_height = parent.winfo_height()
 
-        # Calculate center of parent window
         center_x = parent_x + parent_width // 2
         center_y = parent_y + parent_height // 2
 
         window_width = 600
         window_height = 700
 
-        # Position window relative to parent center
         x = center_x - window_width // 2
         y = center_y - window_height // 2
 
-        # Get screen dimensions for the monitor where the parent window is located
-        # We need to find which monitor contains the parent window
         import ctypes
         from ctypes.wintypes import RECT, POINT
         
@@ -373,14 +372,11 @@ class HelpWindow:
                     return monitor
             return None
 
-        # Get monitor information
         monitors = get_monitor_info()
         
-        # Find which monitor contains the parent window center
         target_monitor = find_monitor_for_position(center_x, center_y, monitors)
         
         if target_monitor is not None:
-            # Ensure window stays within the target monitor bounds
             if x < target_monitor['left']:
                 x = target_monitor['left']
             if y < target_monitor['top']:
@@ -390,7 +386,6 @@ class HelpWindow:
             if y + window_height > target_monitor['bottom']:
                 y = target_monitor['bottom'] - window_height
         else:
-            # Fallback: ensure window is on screen
             screen_width = self.window.winfo_screenwidth()
             screen_height = self.window.winfo_screenheight()
 
@@ -404,3 +399,5 @@ class HelpWindow:
                 y = screen_height - window_height
 
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+
