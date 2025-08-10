@@ -7,6 +7,32 @@ from tkinter.messagebox import showerror
 import sys
 
 
+class ExponentialMovingAverage:
+    def __init__(self, alpha=0.7):
+        self.alpha = alpha
+        self.value = None
+
+    def filter(self, new_value):
+        if self.value is None:
+            self.value = new_value
+        else:
+            self.value = self.alpha * new_value + (1 - self.alpha) * self.value
+        return self.value
+
+
+class FastDeadbandFilter:
+    def __init__(self, threshold=1):
+        self.threshold = threshold
+        self.last_output = None
+
+    def filter(self, new_value):
+        if self.last_output is None:
+            self.last_output = new_value
+        elif abs(new_value - self.last_output) > self.threshold:
+            self.last_output = new_value
+        return self.last_output
+
+
 class SerialController:
     def __init__(self, volume_callback, button_callback, connection_status_callback=None):
         """Initialize serial controller."""
@@ -19,6 +45,8 @@ class SerialController:
         self.data_split = None
         self.device_name = "USB-SERIAL CH340", "Dispositivo de Série USB"
         self.is_connected = False
+        self.ema_filters = [ExponentialMovingAverage(alpha=0.7) for _ in range(7)]
+        self.deadband_filters = [FastDeadbandFilter(threshold=1) for _ in range(7)]
         self.initialize_serial()
         self.start_serial_thread()
 
@@ -120,7 +148,20 @@ class SerialController:
     def process_volume_data(self, data):
         """Process volume data received from serial."""
         volumes = data.split("|")
-        self.volume_callback(volumes)
+
+        smoothed_volumes = []
+        for i, v in enumerate(volumes):
+            try:
+                value = float(v)
+            except ValueError:
+                value = 0
+            if i < len(self.ema_filters):
+                ema_smoothed = self.ema_filters[i].filter(value)
+                final_smoothed = self.deadband_filters[i].filter(ema_smoothed)
+            else:
+                final_smoothed = value
+            smoothed_volumes.append(int(round(final_smoothed)))
+        self.volume_callback(smoothed_volumes)
 
     def process_button_data(self, data):
         buttons = data.split("|")
