@@ -448,7 +448,7 @@ class ButtonSettingsWindow:
         
         self.shortcut_entry.configure(state="normal")
         self.shortcut_entry.delete(0, "end")
-        self.shortcut_entry.insert(0, "Press keys...")
+        self.shortcut_entry.insert(0, "Press keys... (Escape to cancel)")
         self.shortcut_entry.configure(state="readonly")
         
         self.window.focus_force()
@@ -458,9 +458,110 @@ class ButtonSettingsWindow:
         
         self.recording_shortcut = True
         self.current_shortcut = []
+        self.recorded_keys = []
+        self.pressed_keys = set()
+        self.modifier_keys = set()
+        self.final_shortcut = ""
 
     def on_key_press(self, event):
         """Handle key press during shortcut recording."""
+        if not hasattr(self, 'recording_shortcut') or not self.recording_shortcut:
+            return
+        
+        if event.keysym == "Escape":
+            self.recorded_keys = []
+            self.shortcut_entry.configure(state="normal")
+            self.shortcut_entry.delete(0, "end")
+            self.shortcut_entry.insert(0, "")
+            self.shortcut_entry.configure(state="readonly")
+            self.stop_shortcut_recording()
+            return
+        
+        key_mapping = {
+            'period': '.',
+            'comma': ',',
+            'semicolon': ';',
+            'colon': ':',
+            'exclam': '!',
+            'question': '?',
+            'minus': '-',
+            'underscore': '_',
+            'equal': '=',
+            'plus': '+',
+            'bracketleft': '[',
+            'bracketright': ']',
+            'braceleft': '{',
+            'braceright': '}',
+            'backslash': '\\',
+            'bar': '|',
+            'slash': '/',
+            'less': '<',
+            'greater': '>',
+            'quotedbl': '"',
+            'apostrophe': "'",
+            'grave': '`',
+            'asciitilde': '~',
+            'at': '@',
+            'numbersign': '#',
+            'dollar': '$',
+            'percent': '%',
+            'asciicircum': '^',
+            'ampersand': '&',
+            'asterisk': '*',
+            'parenleft': '(',
+            'parenright': ')'
+        }
+        
+        key = event.keysym
+        if key in key_mapping:
+            key = key_mapping[key]
+        
+        if key in ["Control_L", "Control_R", "Ctrl"]:
+            return
+        if key in ["Shift_L", "Shift_R", "Shift"]:
+            return
+        if key in ["Alt_L", "Alt_R", "Alt"]:
+            return
+        if key in ["Meta_L", "Meta_R", "Win", "Windows"]:
+            return
+        
+        self.pressed_keys.add(key)
+        
+        if key in ["Control_L", "Control_R", "Ctrl"]:
+            self.modifier_keys.add("Ctrl")
+        elif key in ["Shift_L", "Shift_R", "Shift"]:
+            self.modifier_keys.add("Shift")
+        elif key in ["Alt_L", "Alt_R", "Alt"]:
+            self.modifier_keys.add("Alt")
+        elif key in ["Meta_L", "Meta_R", "Win", "Windows"]:
+            self.modifier_keys.add("Win")
+        
+        if event.state & 0x4:  # Control
+            self.modifier_keys.add("Ctrl")
+        if event.state & 0x1:  # Shift
+            self.modifier_keys.add("Shift")
+        if event.state & 0x8:  # Alt
+            self.modifier_keys.add("Alt")
+        if event.state & 0x20000:  # Windows key
+            self.modifier_keys.add("Win")
+        
+        modifiers = list(self.modifier_keys)
+        if modifiers:
+            current_key_combo = "+".join(modifiers) + "+" + key
+        else:
+            current_key_combo = key
+        
+        if current_key_combo not in self.recorded_keys:
+            self.recorded_keys.append(current_key_combo)
+        
+        display_text = " + ".join(self.recorded_keys) + " (Escape to cancel)"
+        self.shortcut_entry.configure(state="normal")
+        self.shortcut_entry.delete(0, "end")
+        self.shortcut_entry.insert(0, display_text)
+        self.shortcut_entry.configure(state="readonly")
+
+    def on_key_release(self, event):
+        """Handle key release during shortcut recording."""
         if not hasattr(self, 'recording_shortcut') or not self.recording_shortcut:
             return
         
@@ -503,42 +604,54 @@ class ButtonSettingsWindow:
         if key in key_mapping:
             key = key_mapping[key]
         
-        modifiers = []
+        if key in self.pressed_keys:
+            self.pressed_keys.remove(key)
         
-        if event.state & 0x4:  # Control
-            modifiers.append("Ctrl")
-        if event.state & 0x1:  # Shift
-            modifiers.append("Shift")
-        if event.state & 0x8:  # Alt
-            modifiers.append("Alt")
-        if event.state & 0x20000:  # Windows key
-            modifiers.append("Win")
+        if key == "Control_L" or key == "Control_R" or key == "Ctrl":
+            self.modifier_keys.discard("Ctrl")
+        elif key == "Shift_L" or key == "Shift_R" or key == "Shift":
+            self.modifier_keys.discard("Shift")
+        elif key == "Alt_L" or key == "Alt_R" or key == "Alt":
+            self.modifier_keys.discard("Alt")
+        elif key == "Meta_L" or key == "Meta_R" or key == "Win" or key == "Windows":
+            self.modifier_keys.discard("Win")
         
-        if key in ["Control_L", "Control_R", "Shift_L", "Shift_R", "Alt_L", "Alt_R", "Meta_L", "Meta_R"]:
-            return
-        
-        if modifiers:
-            shortcut = "+".join(modifiers) + "+" + key
-        else:
-            shortcut = key
-        
-        self.keyboard_shortcuts[self.index].set(shortcut)
-        self.shortcut_entry.configure(state="normal")
-        self.shortcut_entry.delete(0, "end")
-        self.shortcut_entry.insert(0, shortcut)
-        self.shortcut_entry.configure(state="readonly")
-        
-        self.stop_shortcut_recording()
-
-    def on_key_release(self, event):
-        """Handle key release during shortcut recording."""
-        pass
+        if not self.pressed_keys and self.recorded_keys:
+            modifiers = list(self.modifier_keys)
+            non_modifier_keys = []
+            
+            for combo in self.recorded_keys:
+                if '+' in combo:
+                    parts = combo.split('+')
+                    if parts:
+                        non_modifier_keys.append(parts[-1])
+                else:
+                    non_modifier_keys.append(combo)
+            
+            if modifiers and non_modifier_keys:
+                self.final_shortcut = "+".join(modifiers + non_modifier_keys)
+            elif non_modifier_keys:
+                self.final_shortcut = "+".join(non_modifier_keys)
+            else:
+                self.final_shortcut = ""
+            
+            if self.final_shortcut:
+                self.keyboard_shortcuts[self.index].set(self.final_shortcut)
+                self.shortcut_entry.configure(state="normal")
+                self.shortcut_entry.delete(0, "end")
+                self.shortcut_entry.insert(0, self.final_shortcut)
+                self.shortcut_entry.configure(state="readonly")
+            
+            self.stop_shortcut_recording()
 
     def stop_shortcut_recording(self):
         """Stop recording keyboard shortcut."""
         self.recording_shortcut = False
         self.window.unbind("<Key>")
         self.window.unbind("<KeyRelease>")
+        self.pressed_keys = set()
+        self.modifier_keys = set()
+        self.final_shortcut = ""
 
     def clear_shortcut(self):
         """Clear the current keyboard shortcut."""
@@ -550,6 +663,12 @@ class ButtonSettingsWindow:
         self.shortcut_entry.configure(state="normal")
         self.shortcut_entry.delete(0, "end")
         self.shortcut_entry.configure(state="readonly")
+        if hasattr(self, 'pressed_keys'):
+            self.pressed_keys = set()
+        if hasattr(self, 'modifier_keys'):
+            self.modifier_keys = set()
+        if hasattr(self, 'final_shortcut'):
+            self.final_shortcut = ""
 
     def browse_file(self):
         """Open file dialog to select an application."""

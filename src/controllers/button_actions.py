@@ -32,69 +32,96 @@ class ButtonActions:
                 return
             
             time.sleep(0.05)
-            
-            keys = shortcut.split('+')
-            key_mapping = {
-                'Ctrl': 'ctrl',
-                'Control': 'ctrl',
-                'Shift': 'shift',
-                'Alt': 'alt',
-                'Win': 'win',
-                'Windows': 'win',
-                'Enter': 'enter',
-                'Return': 'enter',
-                'Tab': 'tab',
-                'Space': 'space',
-                'Escape': 'esc',
-                'Esc': 'esc',
-                'Backspace': 'backspace',
-                'Delete': 'delete',
-                'Del': 'delete',
-                'Insert': 'insert',
-                'Home': 'home',
-                'End': 'end',
-                'PageUp': 'pageup',
-                'PageDown': 'pagedown',
-                'Up': 'up',
-                'Down': 'down',
-                'Left': 'left',
-                'Right': 'right',
-                'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
-                'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
-                'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12',
-                'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f', 'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j',
-                'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r', 's': 's', 't': 't',
-                'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': 'z',
-                '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
-                '.': '.', ',': ',', ';': ';', ':': ':', '!': '!', '?': '?', '-': '-', '_': '_', '=': '=', '+': '+',
-                '[': '[', ']': ']', '{': '{', '}': '}', '\\': '\\', '|': '|', '/': '/', '<': '<', '>': '>'
-            }
-            
-            pyautogui_keys = []
-            for key in keys:
-                mapped_key = key_mapping.get(key, key.lower())
-                pyautogui_keys.append(mapped_key)
-            
-            if len(pyautogui_keys) > 1:
-                modifier_keys = [k for k in pyautogui_keys if k in ['ctrl', 'shift', 'alt', 'win']]
-                regular_keys = [k for k in pyautogui_keys if k not in ['ctrl', 'shift', 'alt', 'win']]
+
+            if shortcut.count('+') >= 2:
+                key_combinations = shortcut.split('+')
+                
+                modifier_keys = []
+                regular_keys = []
+                
+                for key in key_combinations:
+                    if key in ['Ctrl', 'Control', 'Shift', 'Alt', 'Win', 'Windows']:
+                        modifier_keys.append(key)
+                    else:
+                        regular_keys.append(key)
                 
                 if modifier_keys and regular_keys:
                     for mod_key in modifier_keys:
-                        pyautogui.keyDown(mod_key)
+                        pyautogui.keyDown(mod_key.lower())
                         time.sleep(0.01)
                     
                     for reg_key in regular_keys:
-                        pyautogui.press(reg_key)
+                        pyautogui.press(reg_key.lower())
                         time.sleep(0.01)
                     
                     for mod_key in reversed(modifier_keys):
-                        pyautogui.keyUp(mod_key)
+                        pyautogui.keyUp(mod_key.lower())
                         time.sleep(0.01)
                 else:
-                    pyautogui.hotkey(*pyautogui_keys)
+                    pyautogui.hotkey(*[key.lower() for key in key_combinations])
             else:
-                pyautogui.press(pyautogui_keys[0])
+                keys = shortcut.split('+')
+                key_mapping = {
+                    'Ctrl': 'ctrl',
+                    'Control': 'ctrl',
+                    'Shift': 'shift',
+                    'Alt': 'alt',
+                    'Win': 'win',
+                    'Windows': 'win',
+                    'Enter': 'enter',
+                    'Return': 'enter',
+                    'Tab': 'tab',
+                    'Space': 'space',
+                    'Escape': 'esc',
+                    'Esc': 'esc',
+                    'Backspace': 'backspace',
+                    'Delete': 'delete',
+                    'Del': 'delete',
+                    'Insert': 'insert',
+                    'Home': 'home',
+                    'End': 'end',
+                    'PageUp': 'pageup',
+                    'PageDown': 'pagedown',
+                    'Up': 'up',
+                    'Down': 'down',
+                    'Left': 'left',
+                    'Right': 'right',
+                    'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
+                    'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
+                    'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12',
+                    'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f', 'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j',
+                    'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r', 's': 's', 't': 't',
+                    'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': 'z',
+                    '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
+                    '.': '.', ',': ',', ';': ';', ':': ':', '!': '!', '?': '?', '-': '-', '_': '_', '=': '=', '+': '+',
+                    '[': '[', ']': ']', '{': '{', '}': '}', '\\': '\\', '|': '|', '/': '/', '<': '<', '>': '>'
+                }
+                
+                pyautogui_keys = []
+                for key in keys:
+                    mapped_key = key_mapping.get(key, key.lower())
+                    pyautogui_keys.append(mapped_key)
+                
+                if len(pyautogui_keys) > 1:
+                    modifier_keys = [k for k in pyautogui_keys if k in ['ctrl', 'shift', 'alt', 'win']]
+                    regular_keys = [k for k in pyautogui_keys if k not in ['ctrl', 'shift', 'alt', 'win']]
+                    
+                    if modifier_keys and regular_keys:
+                        for mod_key in modifier_keys:
+                            pyautogui.keyDown(mod_key)
+                            time.sleep(0.01)
+                        
+                        for reg_key in regular_keys:
+                            pyautogui.press(reg_key)
+                            time.sleep(0.01)
+                        
+                        for mod_key in reversed(modifier_keys):
+                            pyautogui.keyUp(mod_key)
+                            time.sleep(0.01)
+                    else:
+                        pyautogui.hotkey(*pyautogui_keys)
+                else:
+                    pyautogui.press(pyautogui_keys[0])
             
             print(f"Sent keyboard shortcut: {shortcut}")
             
