@@ -31,6 +31,8 @@ class ButtonActions:
             if not shortcut:
                 return
             
+            time.sleep(0.05)
+            
             keys = shortcut.split('+')
             key_mapping = {
                 'Ctrl': 'ctrl',
@@ -63,7 +65,9 @@ class ButtonActions:
                 'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f', 'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j',
                 'k': 'k', 'l': 'l', 'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r', 's': 's', 't': 't',
                 'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': 'z',
-                '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9'
+                '0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
+                '.': '.', ',': ',', ';': ';', ':': ':', '!': '!', '?': '?', '-': '-', '_': '_', '=': '=', '+': '+',
+                '[': '[', ']': ']', '{': '{', '}': '}', '\\': '\\', '|': '|', '/': '/', '<': '<', '>': '>'
             }
             
             pyautogui_keys = []
@@ -72,7 +76,23 @@ class ButtonActions:
                 pyautogui_keys.append(mapped_key)
             
             if len(pyautogui_keys) > 1:
-                pyautogui.hotkey(*pyautogui_keys)
+                modifier_keys = [k for k in pyautogui_keys if k in ['ctrl', 'shift', 'alt', 'win']]
+                regular_keys = [k for k in pyautogui_keys if k not in ['ctrl', 'shift', 'alt', 'win']]
+                
+                if modifier_keys and regular_keys:
+                    for mod_key in modifier_keys:
+                        pyautogui.keyDown(mod_key)
+                        time.sleep(0.01)
+                    
+                    for reg_key in regular_keys:
+                        pyautogui.press(reg_key)
+                        time.sleep(0.01)
+                    
+                    for mod_key in reversed(modifier_keys):
+                        pyautogui.keyUp(mod_key)
+                        time.sleep(0.01)
+                else:
+                    pyautogui.hotkey(*pyautogui_keys)
             else:
                 pyautogui.press(pyautogui_keys[0])
             

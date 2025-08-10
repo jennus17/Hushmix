@@ -464,7 +464,45 @@ class ButtonSettingsWindow:
         if not hasattr(self, 'recording_shortcut') or not self.recording_shortcut:
             return
         
+        key_mapping = {
+            'period': '.',
+            'comma': ',',
+            'semicolon': ';',
+            'colon': ':',
+            'exclam': '!',
+            'question': '?',
+            'minus': '-',
+            'underscore': '_',
+            'equal': '=',
+            'plus': '+',
+            'bracketleft': '[',
+            'bracketright': ']',
+            'braceleft': '{',
+            'braceright': '}',
+            'backslash': '\\',
+            'bar': '|',
+            'slash': '/',
+            'less': '<',
+            'greater': '>',
+            'quotedbl': '"',
+            'apostrophe': "'",
+            'grave': '`',
+            'asciitilde': '~',
+            'at': '@',
+            'numbersign': '#',
+            'dollar': '$',
+            'percent': '%',
+            'asciicircum': '^',
+            'ampersand': '&',
+            'asterisk': '*',
+            'parenleft': '(',
+            'parenright': ')'
+        }
+        
         key = event.keysym
+        if key in key_mapping:
+            key = key_mapping[key]
+        
         modifiers = []
         
         if event.state & 0x4:  # Control
