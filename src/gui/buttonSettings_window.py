@@ -517,33 +517,19 @@ class ButtonSettingsWindow:
             key = key_mapping[key]
         
         if key in ["Control_L", "Control_R", "Ctrl"]:
+            self.modifier_keys.add("Ctrl")
+            return  
+        elif key in ["Shift_L", "Shift_R", "Shift"]:
+            self.modifier_keys.add("Shift")
             return
-        if key in ["Shift_L", "Shift_R", "Shift"]:
+        elif key in ["Alt_L", "Alt_R", "Alt"]:
+            self.modifier_keys.add("Alt")
             return
-        if key in ["Alt_L", "Alt_R", "Alt"]:
-            return
-        if key in ["Meta_L", "Meta_R", "Win", "Windows"]:
+        elif key in ["Meta_L", "Meta_R", "Win", "Windows"]:
+            self.modifier_keys.add("Win")
             return
         
         self.pressed_keys.add(key)
-        
-        if key in ["Control_L", "Control_R", "Ctrl"]:
-            self.modifier_keys.add("Ctrl")
-        elif key in ["Shift_L", "Shift_R", "Shift"]:
-            self.modifier_keys.add("Shift")
-        elif key in ["Alt_L", "Alt_R", "Alt"]:
-            self.modifier_keys.add("Alt")
-        elif key in ["Meta_L", "Meta_R", "Win", "Windows"]:
-            self.modifier_keys.add("Win")
-        
-        if event.state & 0x4:  # Control
-            self.modifier_keys.add("Ctrl")
-        if event.state & 0x1:  # Shift
-            self.modifier_keys.add("Shift")
-        if event.state & 0x8:  # Alt
-            self.modifier_keys.add("Alt")
-        if event.state & 0x20000:  # Windows key
-            self.modifier_keys.add("Win")
         
         modifiers = list(self.modifier_keys)
         if modifiers:
