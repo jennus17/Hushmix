@@ -5,32 +5,59 @@ import time
 import pythoncom
 from tkinter.messagebox import showerror
 import sys
+from collections import deque
 
 
-class ExponentialMovingAverage:
-    def __init__(self, alpha=0.7):
-        self.alpha = alpha
+class FastCascadedFilter:
+    """Optimized cascaded filter for speed-critical applications."""
+    def __init__(self):
+        self.filter1 = AdaptiveEMA()
+        self.filter2 = MedianFilter(window_size=5)
+
+    def filter(self, new_value):
+        filtered1 = self.filter1.filter(new_value)
+        return self.filter2.filter(filtered1)
+
+
+class AdaptiveEMA:
+    def __init__(self, min_alpha=0.05, max_alpha=0.3, threshold=2.0):
+        self.min_alpha = min_alpha
+        self.max_alpha = max_alpha
+        self.threshold = threshold
         self.value = None
+        self.last_change = 0
 
     def filter(self, new_value):
         if self.value is None:
             self.value = new_value
+            return self.value
+
+        change = abs(new_value - self.value)
+        self.last_change = change
+
+        if change > self.threshold:
+            alpha = self.max_alpha
         else:
-            self.value = self.alpha * new_value + (1 - self.alpha) * self.value
+            alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * (change / self.threshold)
+
+        self.value = alpha * new_value + (1 - alpha) * self.value
         return self.value
 
 
-class FastDeadbandFilter:
-    def __init__(self, threshold=1):
-        self.threshold = threshold
-        self.last_output = None
+class MedianFilter:
+    def __init__(self, window_size=3):
+        self.window_size = window_size
+        self.buffer = deque(maxlen=window_size)
 
     def filter(self, new_value):
-        if self.last_output is None:
-            self.last_output = new_value
-        elif abs(new_value - self.last_output) > self.threshold:
-            self.last_output = new_value
-        return self.last_output
+        self.buffer.append(new_value)
+        if len(self.buffer) < self.window_size:
+            return new_value
+
+        if self.window_size == 3:
+            values = list(self.buffer)
+            return sorted(values)[1]
+        return new_value
 
 
 class SerialController:
@@ -45,8 +72,9 @@ class SerialController:
         self.data_split = None
         self.device_name = "USB-SERIAL CH340", "Dispositivo de Série USB"
         self.is_connected = False
-        self.ema_filters = [ExponentialMovingAverage(alpha=0.7) for _ in range(7)]
-        self.deadband_filters = [FastDeadbandFilter(threshold=1) for _ in range(7)]
+
+        self.volume_filters = [FastCascadedFilter() for _ in range(7)]
+
         self.initialize_serial()
         self.start_serial_thread()
 
@@ -155,12 +183,11 @@ class SerialController:
                 value = float(v)
             except ValueError:
                 value = 0
-            if i < len(self.ema_filters):
-                ema_smoothed = self.ema_filters[i].filter(value)
-                final_smoothed = self.deadband_filters[i].filter(ema_smoothed)
+            if i < len(self.volume_filters):
+                ema_smoothed = self.volume_filters[i].filter(value)
             else:
-                final_smoothed = value
-            smoothed_volumes.append(int(round(final_smoothed)))
+                ema_smoothed = value
+            smoothed_volumes.append(int(round(ema_smoothed)))
         self.volume_callback(smoothed_volumes)
 
     def process_button_data(self, data):
@@ -170,9 +197,3 @@ class SerialController:
     def get_connection_status(self):
         """Get current connection status."""
         return self.is_connected
-
-    def cleanup(self):
-        """Clean up resources"""
-        self.running = False
-        if self.arduino:
-            self.arduino.close()

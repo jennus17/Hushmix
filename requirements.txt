@@ -24,3 +24,7 @@ pefile>=2023.2.7  # PE file parser for reading executable version information
 
 # Keyboard automation
 pyautogui>=0.9.54  # Cross-platform GUI automation for sending keyboard shortcuts
+
+# Advanced filtering and signal processing
+numpy>=1.24.0    # Numerical computing library for advanced filtering algorithms
+matplotlib>=3.7.0 # Plotting library for filter testing and visualization
