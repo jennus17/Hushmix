@@ -130,6 +130,22 @@ class HushmixApp:
         """Handle application exit."""
         self.window_manager.save_window_position()
         
+        try:
+            import os
+            import tempfile
+            lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
+            if os.path.exists(lock_file):
+                try:
+                    with open(lock_file, 'r') as f:
+                        pid_str = f.read().strip()
+                        if pid_str.isdigit() and int(pid_str) == os.getpid():
+                            os.remove(lock_file)
+                            print("Lock file cleaned up on exit")
+                except Exception as e:
+                    print(f"Error cleaning up lock file on exit: {e}")
+        except Exception as e:
+            print(f"Error during lock file cleanup: {e}")
+        
         self.window_manager.cleanup()
 
         self.running = False

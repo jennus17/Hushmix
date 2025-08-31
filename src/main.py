@@ -163,12 +163,21 @@ def check_single_instance_simple():
                             os.remove(lock_file)
                             print(f"Removed stale lock file from dead process {pid}")
                         else:
-                            if pid == os.getpid():
-                                print("Lock file belongs to this process - continuing")
-                                return True
-                            else:
-                                print(f"Process {pid} is still running - another instance detected!")
-                                return False
+                            try:
+                                process = psutil.Process(pid)
+                                if process.name().lower() in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
+                                    if pid == os.getpid():
+                                        print("Lock file belongs to this process - continuing")
+                                        return True
+                                    else:
+                                        print(f"Process {pid} ({process.name()}) is still running - another instance detected!")
+                                        return False
+                                else:
+                                    os.remove(lock_file)
+                                    print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                os.remove(lock_file)
+                                print(f"Removed stale lock file from inaccessible process {pid}")
                     else:
                         os.remove(lock_file)
                         print("Removed lock file with invalid PID")
@@ -227,6 +236,19 @@ def cleanup_mutex():
                         if pid == os.getpid():
                             os.remove(lock_file)
                             print("Lock file cleaned up")
+                        else:
+                            try:
+                                import psutil
+                                process = psutil.Process(pid)
+                                if process.name().lower() not in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
+                                    os.remove(lock_file)
+                                    print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                os.remove(lock_file)
+                                print(f"Removed stale lock file from inaccessible process {pid}")
+                            except Exception:
+                                os.remove(lock_file)
+                                print(f"Removed lock file from uncheckable process {pid}")
             except Exception as e:
                 print(f"Error reading lock file during cleanup: {e}")
                 try:
@@ -246,6 +268,18 @@ def main():
         sys.exit(1)
     
     time.sleep(0.1)
+    
+    import signal
+    def signal_handler(signum, frame):
+        print(f"Received signal {signum}, cleaning up...")
+        cleanup_mutex()
+        sys.exit(0)
+    
+    try:
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+    except (AttributeError, OSError):
+        pass
     
     settings = ConfigManager.load_settings()
     dark_mode = settings.get("dark_mode", True)
@@ -291,7 +325,7 @@ def main():
     
     import atexit
     atexit.register(cleanup_mutex)
-    
+
     root.mainloop()
 
 
