@@ -148,66 +148,130 @@ def check_single_instance_simple():
     try:
         import os
         import tempfile
+        import time
         
         lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
         
-        if os.path.exists(lock_file):
-            try:
-                with open(lock_file, 'r') as f:
-                    pid_str = f.read().strip()
-                    if pid_str.isdigit():
-                        pid = int(pid_str)
-                        
-                        import psutil
-                        if not psutil.pid_exists(pid):
-                            os.remove(lock_file)
-                            print(f"Removed stale lock file from dead process {pid}")
-                        else:
-                            try:
-                                process = psutil.Process(pid)
-                                if process.name().lower() in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
-                                    if pid == os.getpid():
-                                        print("Lock file belongs to this process - continuing")
-                                        return True
-                                    else:
-                                        print(f"Process {pid} ({process.name()}) is still running - another instance detected!")
-                                        return False
-                                else:
-                                    os.remove(lock_file)
-                                    print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
-                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                                os.remove(lock_file)
-                                print(f"Removed stale lock file from inaccessible process {pid}")
-                    else:
-                        os.remove(lock_file)
-                        print("Removed lock file with invalid PID")
-            except Exception as e:
-                os.remove(lock_file)
-                print(f"Removed corrupted lock file: {e}")
-        
+        # First, try to create the lock file atomically
         try:
             fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             with os.fdopen(fd, 'w') as f:
                 f.write(str(os.getpid()))
+            print("Created new lock file successfully")
             return True
         except OSError as e:
             if e.errno == 17:  # File exists
+                print("Lock file already exists - checking if another instance is running")
+                
+                # File exists, let's check if it's a valid running process
                 try:
                     with open(lock_file, 'r') as f:
                         pid_str = f.read().strip()
-                        if pid_str.isdigit() and int(pid_str) == os.getpid():
+                        
+                    if pid_str.isdigit():
+                        pid = int(pid_str)
+                        
+                        # Check if this is our own process
+                        if pid == os.getpid():
                             print("Lock file belongs to this process - continuing")
                             return True
-                except:
-                    pass
-                print("Lock file already exists - another instance is running!")
-                return False
+                        
+                        # Check if the process is still running
+                        try:
+                            import psutil
+                            if psutil.pid_exists(pid):
+                                try:
+                                    process = psutil.Process(pid)
+                                    process_name = process.name().lower()
+                                    
+                                    # Check if it's a Hushmix process
+                                    if process_name in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
+                                        print(f"Another Hushmix instance (PID: {pid}) is running!")
+                                        return False
+                                    else:
+                                        print(f"Lock file belongs to non-Hushmix process {pid} ({process_name}) - will overwrite")
+                                        # Try to remove and recreate
+                                        try:
+                                            os.remove(lock_file)
+                                            fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                                            with os.fdopen(fd, 'w') as f:
+                                                f.write(str(os.getpid()))
+                                            print("Successfully created new lock file")
+                                            return True
+                                        except OSError as remove_error:
+                                            if remove_error.winerror == 32:
+                                                print("Cannot remove lock file - another instance may be running")
+                                                return False
+                                            else:
+                                                print(f"Error removing lock file: {remove_error}")
+                                                return True  # Continue anyway
+                                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                    print(f"Process {pid} is no longer accessible - will overwrite lock file")
+                                    # Try to remove and recreate
+                                    try:
+                                        os.remove(lock_file)
+                                        fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                                        with os.fdopen(fd, 'w') as f:
+                                            f.write(str(os.getpid()))
+                                        print("Successfully created new lock file")
+                                        return True
+                                    except OSError as remove_error:
+                                        if remove_error.winerror == 32:
+                                            print("Cannot remove lock file - will continue anyway")
+                                            return True
+                                        else:
+                                            print(f"Error removing lock file: {remove_error}")
+                                            return True
+                            else:
+                                print(f"Process {pid} is no longer running - will overwrite lock file")
+                                # Try to remove and recreate
+                                try:
+                                    os.remove(lock_file)
+                                    fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                                    with os.fdopen(fd, 'w') as f:
+                                        f.write(str(os.getpid()))
+                                    print("Successfully created new lock file")
+                                    return True
+                                except OSError as remove_error:
+                                    if remove_error.winerror == 32:
+                                        print("Cannot remove lock file - will continue anyway")
+                                        return True
+                                    else:
+                                        print(f"Error removing lock file: {remove_error}")
+                                        return True
+                        except ImportError:
+                            print("psutil not available - assuming another instance is running")
+                            return False
+                    else:
+                        print("Lock file contains invalid PID - will overwrite")
+                        try:
+                            os.remove(lock_file)
+                            fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                            with os.fdopen(fd, 'w') as f:
+                                f.write(str(os.getpid()))
+                            print("Successfully created new lock file")
+                            return True
+                        except OSError as remove_error:
+                            if remove_error.winerror == 32:
+                                print("Cannot remove invalid lock file - will continue anyway")
+                                return True
+                            else:
+                                print(f"Error removing invalid lock file: {remove_error}")
+                                return True
+                except Exception as e:
+                    print(f"Error reading lock file: {e}")
+                    # If we can't read the lock file, assume another instance is running
+                    return False
             else:
-                print(f"Unexpected error: {e}")
+                print(f"Unexpected error creating lock file: {e}")
+                # If we can't create the lock file, we'll continue anyway to avoid blocking the user
+                print("Continuing despite lock file creation error")
                 return True
         
     except Exception as e:
-        print(f"Error in simple approach: {e}")
+        print(f"Error in single instance check: {e}")
+        # If there's any error, we'll continue anyway to avoid blocking the user
+        print("Continuing despite single instance check error")
         return True
 
 
@@ -225,6 +289,7 @@ def cleanup_mutex():
     try:
         import os
         import tempfile
+        import time
         
         lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
         if os.path.exists(lock_file):
@@ -234,32 +299,74 @@ def cleanup_mutex():
                     if pid_str.isdigit():
                         pid = int(pid_str)
                         if pid == os.getpid():
-                            os.remove(lock_file)
-                            print("Lock file cleaned up")
+                            try:
+                                os.remove(lock_file)
+                                print("Lock file cleaned up")
+                            except OSError as e:
+                                if e.winerror == 32:  # File is being used by another process
+                                    print("Lock file is being used by another process - will be cleaned up automatically")
+                                else:
+                                    print(f"Could not remove lock file during cleanup: {e}")
+                                    # Try again after a short delay
+                                    time.sleep(0.1)
+                                    try:
+                                        os.remove(lock_file)
+                                        print("Successfully removed lock file after retry")
+                                    except:
+                                        print("Failed to remove lock file during cleanup")
                         else:
                             try:
                                 import psutil
                                 process = psutil.Process(pid)
                                 if process.name().lower() not in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
-                                    os.remove(lock_file)
-                                    print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
+                                    try:
+                                        os.remove(lock_file)
+                                        print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
+                                    except OSError as e:
+                                        if e.winerror == 32:
+                                            print(f"Lock file from non-Hushmix process {pid} is being used - will be cleaned up automatically")
+                                        else:
+                                            print(f"Could not remove stale lock file: {e}")
                             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                                os.remove(lock_file)
-                                print(f"Removed stale lock file from inaccessible process {pid}")
+                                try:
+                                    os.remove(lock_file)
+                                    print(f"Removed stale lock file from inaccessible process {pid}")
+                                except OSError as e:
+                                    if e.winerror == 32:
+                                        print(f"Lock file from inaccessible process {pid} is being used - will be cleaned up automatically")
+                                    else:
+                                        print(f"Could not remove stale lock file: {e}")
                             except Exception:
-                                os.remove(lock_file)
-                                print(f"Removed lock file from uncheckable process {pid}")
+                                try:
+                                    os.remove(lock_file)
+                                    print(f"Removed lock file from uncheckable process {pid}")
+                                except OSError as e:
+                                    if e.winerror == 32:
+                                        print(f"Lock file from uncheckable process {pid} is being used - will be cleaned up automatically")
+                                    else:
+                                        print(f"Could not remove lock file: {e}")
             except Exception as e:
                 print(f"Error reading lock file during cleanup: {e}")
                 try:
                     os.remove(lock_file)
                     print("Removed corrupted lock file during cleanup")
-                except:
-                    pass
+                except OSError as remove_error:
+                    if remove_error.winerror == 32:
+                        print("Corrupted lock file is being used by another process - will be cleaned up automatically")
+                    else:
+                        print(f"Could not remove corrupted lock file during cleanup: {remove_error}")
     except Exception as e:
         print(f"Error cleaning up lock file: {e}")
 
 def main():
+    # Check for corrupted files before starting (but don't aggressively clean them)
+    try:
+        from utils.config_manager import ConfigManager
+        # Only clean up if there are obvious issues
+        ConfigManager.check_corrupted_files()
+    except Exception as e:
+        print(f"Error during file check: {e}")
+    
     if not check_single_instance_simple():
         try:
             messagebox.showerror("Hushmix", "Hushmix is already running!\n\nPlease close the existing instance before opening a new one.")

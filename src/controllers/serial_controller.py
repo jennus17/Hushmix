@@ -197,3 +197,34 @@ class SerialController:
     def get_connection_status(self):
         """Get current connection status."""
         return self.is_connected
+
+    def cleanup(self):
+        """Clean up serial controller resources."""
+        try:
+            print("Cleaning up serial controller...")
+            
+            # Stop the serial reading thread
+            self.running = False
+            
+            # Close the serial connection
+            if self.arduino:
+                try:
+                    self.arduino.close()
+                    print("Serial connection closed")
+                except Exception as e:
+                    print(f"Error closing serial connection: {e}")
+                finally:
+                    self.arduino = None
+            
+            # Reset connection status
+            self.is_connected = False
+            if self.connection_status_callback:
+                try:
+                    self.connection_status_callback(False)
+                except Exception as e:
+                    print(f"Error updating connection status: {e}")
+            
+            print("Serial controller cleanup completed")
+            
+        except Exception as e:
+            print(f"Error during serial controller cleanup: {e}")

@@ -87,42 +87,117 @@ class ConfigManager:
                 print("No settings file found, using defaults")
                 return ConfigManager.get_default_settings()
 
-            with open(ConfigManager.CONFIG_FILE, "r") as file:
-                settings = json.load(file)
+            # Check if file is empty or corrupted
+            file_size = os.path.getsize(ConfigManager.CONFIG_FILE)
+            if file_size == 0:
+                print("Settings file is empty, using defaults")
+                # Don't delete the file - just use defaults and let user decide what to do
+                return ConfigManager.get_default_settings()
 
-            if "profiles" not in settings:
-                settings["profiles"] = {}
-            
-            for profile_name in ConfigManager.DEFAULT_PROFILES:
-                if profile_name not in settings["profiles"]:
-                    settings["profiles"][profile_name] = ConfigManager.PROFILE_SETTINGS.copy()
+            with open(ConfigManager.CONFIG_FILE, "r", encoding='utf-8') as file:
+                content = file.read().strip()
+                
+                # Check if file contains only whitespace
+                if not content:
+                    print("Settings file contains only whitespace, using defaults")
+                    # Don't delete the file - just use defaults
+                    return ConfigManager.get_default_settings()
+                
+                # Try to parse JSON
+                try:
+                    settings = json.loads(content)
+                except json.JSONDecodeError as e:
+                    print(f"Settings file contains invalid JSON: {e}")
+                    # Try to recover partial data instead of deleting
+                    return ConfigManager._attempt_settings_recovery(content)
 
-            current_profile = settings.get("current_profile", "Profile 1")
-            if current_profile not in settings["profiles"]:
-                settings["profiles"][current_profile] = ConfigManager.PROFILE_SETTINGS.copy()
-            
-            for profile_name in settings["profiles"]:
-                for key, default_value in ConfigManager.PROFILE_SETTINGS.items():
-                    if key not in settings["profiles"][profile_name]:
-                        settings["profiles"][profile_name][key] = default_value
-
-            for key, default_value in ConfigManager.GLOBAL_SETTINGS.items():
-                if key not in settings:
-                    settings[key] = default_value
-
-            profile_settings = settings["profiles"][current_profile]
-
-            return {
-                "current_profile": current_profile,
-                "profiles": settings["profiles"],
-                **profile_settings,
-                **{k: settings[k] for k in ConfigManager.GLOBAL_SETTINGS}
-            }
+            # Validate and fix settings structure
+            settings = ConfigManager._validate_and_fix_settings(settings)
+            return settings
 
         except Exception as e:
-            time.sleep(1)
             print(f"Error loading settings: {e}")
-            return ConfigManager.load_settings()
+            # Use defaults but don't delete the original file
+            return ConfigManager.get_default_settings()
+
+    @staticmethod
+    def _attempt_settings_recovery(content):
+        """Attempt to recover partial settings from corrupted JSON."""
+        print("Attempting to recover settings from corrupted file...")
+        
+        try:
+            # Try to find valid JSON objects in the content
+            import re
+            
+            # Look for any valid JSON objects
+            json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+            matches = re.findall(json_pattern, content)
+            
+            recovered_settings = {}
+            
+            for match in matches:
+                try:
+                    partial_settings = json.loads(match)
+                    if isinstance(partial_settings, dict):
+                        recovered_settings.update(partial_settings)
+                except:
+                    continue
+            
+            if recovered_settings:
+                print(f"Recovered {len(recovered_settings)} settings from corrupted file")
+                # Merge with defaults to ensure all required keys exist
+                default_settings = ConfigManager.get_default_settings()
+                default_settings.update(recovered_settings)
+                return ConfigManager._validate_and_fix_settings(default_settings)
+            else:
+                print("Could not recover any settings from corrupted file")
+                return ConfigManager.get_default_settings()
+                
+        except Exception as recovery_error:
+            print(f"Settings recovery failed: {recovery_error}")
+            return ConfigManager.get_default_settings()
+
+    @staticmethod
+    def _validate_and_fix_settings(settings):
+        """Validate and fix settings structure without losing user data."""
+        if not isinstance(settings, dict):
+            print("Settings is not a dictionary, using defaults")
+            return ConfigManager.get_default_settings()
+
+        # Ensure profiles structure exists
+        if "profiles" not in settings:
+            settings["profiles"] = {}
+        
+        # Add missing default profiles
+        for profile_name in ConfigManager.DEFAULT_PROFILES:
+            if profile_name not in settings["profiles"]:
+                settings["profiles"][profile_name] = ConfigManager.PROFILE_SETTINGS.copy()
+
+        # Validate current profile
+        current_profile = settings.get("current_profile", "Profile 1")
+        if current_profile not in settings["profiles"]:
+            settings["profiles"][current_profile] = ConfigManager.PROFILE_SETTINGS.copy()
+        
+        # Fill in missing profile settings (but don't overwrite existing ones)
+        for profile_name in settings["profiles"]:
+            for key, default_value in ConfigManager.PROFILE_SETTINGS.items():
+                if key not in settings["profiles"][profile_name]:
+                    settings["profiles"][profile_name][key] = default_value
+
+        # Fill in missing global settings (but don't overwrite existing ones)
+        for key, default_value in ConfigManager.GLOBAL_SETTINGS.items():
+            if key not in settings:
+                settings[key] = default_value
+
+        # Get current profile settings
+        profile_settings = settings["profiles"][current_profile]
+
+        return {
+            "current_profile": current_profile,
+            "profiles": settings["profiles"],
+            **profile_settings,
+            **{k: settings[k] for k in ConfigManager.GLOBAL_SETTINGS}
+        }
 
     @staticmethod
     def get_all_settings():
@@ -184,3 +259,115 @@ class ConfigManager:
         except Exception as e:
             print(f"Error checking auto-startup status: {e}")
             return False
+
+    @staticmethod
+    def check_corrupted_files():
+        """Check for corrupted files but don't aggressively clean them."""
+        # Only check settings file - don't touch lock files during startup
+        if os.path.exists(ConfigManager.CONFIG_FILE):
+            try:
+                file_size = os.path.getsize(ConfigManager.CONFIG_FILE)
+                if file_size == 0:
+                    print("WARNING: Settings file is empty - using defaults")
+                else:
+                    with open(ConfigManager.CONFIG_FILE, "r", encoding='utf-8') as file:
+                        content = file.read().strip()
+                        if not content:
+                            print("WARNING: Settings file contains only whitespace - using defaults")
+                        else:
+                            try:
+                                json.loads(content)
+                                # Settings file is valid - no action needed
+                            except json.JSONDecodeError as e:
+                                print(f"WARNING: Settings file contains invalid JSON: {e}")
+                                print("Will attempt to recover data instead of deleting file")
+            except Exception as e:
+                print(f"WARNING: Error checking settings file: {e}")
+
+    @staticmethod
+    def cleanup_corrupted_files():
+        """Clean up any corrupted lock files and settings files."""
+        import tempfile
+        
+        # Clean up lock file (this is safe to do)
+        lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
+        if os.path.exists(lock_file):
+            try:
+                # Check if the lock file is corrupted or belongs to a dead process
+                with open(lock_file, 'r') as f:
+                    pid_str = f.read().strip()
+                    if pid_str.isdigit():
+                        pid = int(pid_str)
+                        import psutil
+                        if not psutil.pid_exists(pid):
+                            try:
+                                os.remove(lock_file)
+                                print(f"Cleaned up stale lock file from dead process {pid}")
+                            except OSError as e:
+                                if e.winerror == 32:
+                                    print(f"Stale lock file from dead process {pid} is being used - skipping cleanup")
+                                else:
+                                    print(f"Could not clean up stale lock file from dead process {pid}: {e}")
+                        else:
+                            try:
+                                process = psutil.Process(pid)
+                                if process.name().lower() not in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
+                                    try:
+                                        os.remove(lock_file)
+                                        print(f"Cleaned up lock file from non-Hushmix process {pid}")
+                                    except OSError as e:
+                                        if e.winerror == 32:
+                                            print(f"Lock file from non-Hushmix process {pid} is being used - skipping cleanup")
+                                        else:
+                                            print(f"Could not clean up lock file from non-Hushmix process {pid}: {e}")
+                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                try:
+                                    os.remove(lock_file)
+                                    print(f"Cleaned up lock file from inaccessible process {pid}")
+                                except OSError as e:
+                                    if e.winerror == 32:
+                                        print(f"Lock file from inaccessible process {pid} is being used - skipping cleanup")
+                                    else:
+                                        print(f"Could not clean up lock file from inaccessible process {pid}: {e}")
+                    else:
+                        try:
+                            os.remove(lock_file)
+                            print("Cleaned up lock file with invalid PID")
+                        except OSError as e:
+                            if e.winerror == 32:
+                                print("Lock file with invalid PID is being used - skipping cleanup")
+                            else:
+                                print(f"Could not clean up lock file with invalid PID: {e}")
+            except Exception as e:
+                try:
+                    os.remove(lock_file)
+                    print(f"Cleaned up corrupted lock file")
+                except OSError as remove_error:
+                    if remove_error.winerror == 32:
+                        print(f"Lock file is being used by another process - skipping cleanup")
+                    else:
+                        print(f"Could not clean up corrupted lock file: {remove_error}")
+                except Exception as remove_error:
+                    print(f"Could not clean up corrupted lock file: {remove_error}")
+        
+        # For settings file, we only check and warn - we don't delete it
+        if os.path.exists(ConfigManager.CONFIG_FILE):
+            try:
+                file_size = os.path.getsize(ConfigManager.CONFIG_FILE)
+                if file_size == 0:
+                    print("WARNING: Settings file is empty - using defaults but preserving original file")
+                else:
+                    with open(ConfigManager.CONFIG_FILE, "r", encoding='utf-8') as file:
+                        content = file.read().strip()
+                        if not content:
+                            print("WARNING: Settings file contains only whitespace - using defaults but preserving original file")
+                        else:
+                            # Try to parse JSON to check if it's valid
+                            try:
+                                json.loads(content)
+                                print("Settings file appears to be valid")
+                            except json.JSONDecodeError as e:
+                                print(f"WARNING: Settings file contains invalid JSON: {e}")
+                                print("Will attempt to recover data instead of deleting file")
+            except Exception as e:
+                print(f"Error checking settings file: {e}")

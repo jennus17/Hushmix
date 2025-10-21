@@ -130,44 +130,66 @@ class HushmixApp:
         """Handle application exit."""
         self.window_manager.save_window_position()
         
-        try:
-            import os
-            import tempfile
-            lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
-            if os.path.exists(lock_file):
-                try:
-                    with open(lock_file, 'r') as f:
-                        pid_str = f.read().strip()
-                        if pid_str.isdigit() and int(pid_str) == os.getpid():
-                            os.remove(lock_file)
-                            print("Lock file cleaned up on exit")
-                except Exception as e:
-                    print(f"Error cleaning up lock file on exit: {e}")
-        except Exception as e:
-            print(f"Error during lock file cleanup: {e}")
-        
-        self.window_manager.cleanup()
-
-        self.running = False
-
+        # Clean up serial controller first to avoid conflicts
         if hasattr(self, "serial_controller"):
             try:
                 self.serial_controller.cleanup()
             except Exception as e:
                 print(f"Error cleaning up serial controller: {e}")
 
+        # Clean up audio controller
         if hasattr(self, "audio_controller"):
             try:
                 self.audio_controller.cleanup()
             except Exception as e:
                 print(f"Error cleaning up audio controller: {e}")
 
+        # Clean up windows
         if hasattr(self, "settings_window") and self.settings_window:
             try:
                 self.settings_window.window.destroy()
             except Exception as e:
                 print(f"Error destroying settings window: {e}")
 
+        # Clean up window manager
+        self.window_manager.cleanup()
+
+        # Set running flag to False
+        self.running = False
+
+        # Clean up lock file with better error handling
+        try:
+            import os
+            import tempfile
+            import time
+            
+            lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
+            if os.path.exists(lock_file):
+                try:
+                    with open(lock_file, 'r') as f:
+                        pid_str = f.read().strip()
+                        if pid_str.isdigit() and int(pid_str) == os.getpid():
+                            try:
+                                os.remove(lock_file)
+                                print("Lock file cleaned up on exit")
+                            except OSError as e:
+                                if e.winerror == 32:  # File is being used by another process
+                                    print("Lock file is being used by another process - will be cleaned up automatically")
+                                else:
+                                    print(f"Could not remove lock file: {e}")
+                                    # Try again after a short delay
+                                    time.sleep(0.1)
+                                    try:
+                                        os.remove(lock_file)
+                                        print("Successfully removed lock file after retry")
+                                    except:
+                                        print("Failed to remove lock file - it will be cleaned up automatically")
+                except Exception as e:
+                    print(f"Error reading lock file during cleanup: {e}")
+        except Exception as e:
+            print(f"Error during lock file cleanup: {e}")
+
+        # Exit the application
         if hasattr(self, "root") and self.root:
             try:
                 self.root.quit()
