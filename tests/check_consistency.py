@@ -40,6 +40,7 @@ APP_EXTRA_ATTRIBUTES = {
     "buttonSettings_window",
     "help_window",
     "root",
+    "palette",
     "accent_color",
     "accent_hover",
     "running",

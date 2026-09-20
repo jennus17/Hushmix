@@ -238,12 +238,31 @@ class ButtonActions:
             logger.debug("Sent keyboard shortcut %r", shortcut)
         except Exception as error:
             logger.warning("Error sending keyboard shortcut: %s", error)
-            # Never leave a modifier stuck down.
+            self._release_modifiers()
+
+    @staticmethod
+    def _release_modifiers():
+        """Release every modifier that might still be held down.
+
+        Each key is released in its own ``try``: a single failure used to abort
+        the loop, leaving the remaining modifiers held, which is how a botched
+        shortcut could leave the keyboard in a state where every subsequent
+        keystroke was sent with Ctrl or Alt still down.
+        """
+        stuck = []
+        for modifier in ("ctrl", "shift", "alt", "winleft"):
             try:
-                for modifier in ("ctrl", "shift", "alt", "winleft"):
-                    pyautogui.keyUp(modifier)
+                pyautogui.keyUp(modifier)
             except Exception:
-                pass
+                stuck.append(modifier)
+
+        if stuck:
+            logger.warning(
+                "Could not release %s - Windows may still consider it held",
+                ", ".join(stuck),
+            )
+        else:
+            logger.debug("Released all modifiers after a failed shortcut")
 
     # ----------------------------------------------------------- media control
 

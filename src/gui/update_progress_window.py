@@ -11,7 +11,6 @@ import threading
 import customtkinter as ctk
 
 from gui.base_window import BaseWindow
-from utils.color_utils import darken_color, get_windows_accent_color
 from utils.logging_setup import get_logger
 
 logger = get_logger("update_progress_window")
@@ -28,8 +27,7 @@ class UpdateProgressWindow(BaseWindow):
         self.cancelled = False
         self._worker = None
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        self.palette = self.build_palette()
         self.normal_font_size = 14
 
         self.build("Updating Hushmix", geometry="420x230", topmost=True)
@@ -40,7 +38,12 @@ class UpdateProgressWindow(BaseWindow):
     # ------------------------------------------------------------------ layout
 
     def build_gui(self):
-        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
+        self.frame = ctk.CTkFrame(
+            self.window,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.frame.pack(expand=True, fill="both")
 
         self.status_label = ctk.CTkLabel(
@@ -49,22 +52,35 @@ class UpdateProgressWindow(BaseWindow):
             font=("Segoe UI", self.normal_font_size),
             wraplength=380,
             justify="left",
+            text_color=self.palette.text,
         )
         self.status_label.pack(pady=(20, 10), padx=15)
 
-        self.progress_bar = ctk.CTkProgressBar(self.frame)
+        self.progress_bar = ctk.CTkProgressBar(
+            self.frame,
+            progress_color=self.palette.accent,
+            fg_color=self.palette.surface_high,
+        )
         self.progress_bar.pack(pady=(10, 6), padx=20, fill="x")
         self.progress_bar.set(0)
 
-        self.progress_label = ctk.CTkLabel(self.frame, text="0%", font=("Segoe UI", 12))
+        self.progress_label = ctk.CTkLabel(
+            self.frame,
+            text="0%",
+            font=("Consolas", 12),
+            text_color=self.palette.text_muted,
+        )
         self.progress_label.pack(pady=(0, 10))
 
         self.cancel_button = ctk.CTkButton(
             self.frame,
             text="Cancel",
             command=self.cancel_update,
-            fg_color="red",
-            hover_color="#8B0000",
+            fg_color="transparent",
+            hover_color=self.palette.danger_surface,
+            text_color=self.palette.danger,
+            border_width=1,
+            border_color=self.palette.danger,
             font=("Segoe UI", self.normal_font_size),
             corner_radius=10,
         )

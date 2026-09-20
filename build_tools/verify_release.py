@@ -15,7 +15,7 @@ It confirms:
 Usage::
 
     python build_tools/verify_release.py                  # verifies version.py's tag
-    python build_tools/verify_release.py v0.5.0
+    python build_tools/verify_release.py v0.5.1
     python build_tools/verify_release.py --from v0.4.6    # also check it is newer
     python build_tools/verify_release.py --keep           # keep the download
 
@@ -25,12 +25,79 @@ Exit codes: 0 verified, 1 verification failed, 2 usage or network problem.
 import argparse
 import hashlib
 import os
+import subprocess
 import sys
 import tempfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
+
+_VENV_PYTHON = os.path.join(ROOT, "build", ".venv", "Scripts", "python.exe")
+
+
+def _missing_dependency(*names):
+    """Names from *names* that cannot be imported."""
+    import importlib.util
+
+    return [name for name in names if importlib.util.find_spec(name) is None]
+
+
+def _reexec_in_build_environment(missing):
+    """Re-run this script with the build virtualenv, if there is one.
+
+    This tool stands alone from the application, so it should not require the
+    caller to remember which interpreter has the dependencies installed.  Only
+    done once: ``_HUSH_VERIFY_REEXEC`` stops it looping if the venv is also
+    incomplete.
+    """
+    if os.environ.get("_HUSH_VERIFY_REEXEC"):
+        return False
+    if not os.path.exists(_VENV_PYTHON):
+        return False
+    if os.path.normcase(sys.executable) == os.path.normcase(_VENV_PYTHON):
+        return False
+
+    print(
+        f"note: {', '.join(missing)} missing here; re-running with "
+        f"{os.path.relpath(_VENV_PYTHON, ROOT)}",
+        file=sys.stderr,
+    )
+    environment = dict(os.environ, _HUSH_VERIFY_REEXEC="1")
+    try:
+        completed = subprocess.run([_VENV_PYTHON, os.path.abspath(__file__), *sys.argv[1:]],
+                                   env=environment)
+    except OSError as error:
+        print(f"note: could not use the build environment: {error}", file=sys.stderr)
+        return False
+    raise SystemExit(completed.returncode)
+
+
+# Checked before importing anything from the project: the application modules
+# import their dependencies at import time, so a missing package used to surface
+# as a traceback from deep inside `enhanced_version_manager` instead of a message
+# telling you how to run this.
+_missing = _missing_dependency("requests")
+if _missing:
+    if _reexec_in_build_environment(_missing):
+        pass
+    print(
+        "error: this tool needs the project's dependencies (requests, and the "
+        "application's own imports).\n"
+        "       Install them with:  pip install -r requirements.txt\n"
+        + (
+            f"       or run it with the build environment:  {os.path.relpath(_VENV_PYTHON, ROOT)} "
+            "build_tools/verify_release.py\n"
+            if os.path.exists(_VENV_PYTHON)
+            else ""
+        ),
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+# Bound at module level: the helper functions below use it, and importing it
+# inside a function earlier meant it was never available here.
+import requests  # noqa: E402
 
 from utils.enhanced_version_manager import (  # noqa: E402
     CHECKSUM_SUFFIXES,
@@ -48,8 +115,6 @@ class Failed(Exception):
 
 
 def _github(url, timeout=30):
-    import requests
-
     return requests.get(
         url,
         timeout=timeout,
@@ -94,23 +159,37 @@ def describe_assets(release):
 
 
 def download(url, target, label="download"):
-    """Stream a URL to *target*, reporting progress, and return (bytes, seconds)."""
-    import requests
+    """Stream a URL to *target*, reporting progress, and return (bytes, seconds).
 
+    Progress is drawn in place only on a terminal.  Redirected or captured
+    output gets occasional whole lines instead, because the carriage returns pile
+    up into one unreadable line otherwise.
+    """
     started = time.monotonic()
     written = 0
+    interactive = sys.stdout.isatty()
+    last_reported = -10.0
+
     with requests.get(url, stream=True, timeout=60) as response:
         response.raise_for_status()
         total = int(response.headers.get("content-length", 0) or 0)
         with open(target, "wb") as stream:
             for chunk in response.iter_content(chunk_size=CHUNK):
-                if chunk:
-                    stream.write(chunk)
-                    written += len(chunk)
-                    if total:
-                        percent = written / total * 100
-                        print(f"\r    {label}: {percent:5.1f}%", end="", flush=True)
-    if total:
+                if not chunk:
+                    continue
+                stream.write(chunk)
+                written += len(chunk)
+
+                if not total:
+                    continue
+                percent = written / total * 100
+                if interactive:
+                    print(f"\r    {label}: {percent:5.1f}%", end="", flush=True)
+                elif percent - last_reported >= 25:
+                    last_reported = percent
+                    print(f"    {label}: {percent:5.1f}%")
+
+    if total and interactive:
         print()
     return written, time.monotonic() - started
 
@@ -272,12 +351,6 @@ def main():
     args = parser.parse_args()
 
     tag = args.tag or version_tag()
-
-    try:
-        import requests  # noqa: F401
-    except ImportError:
-        print("error: the 'requests' package is required")
-        return 2
 
     try:
         verify(tag, from_version=args.from_version, keep=args.keep)

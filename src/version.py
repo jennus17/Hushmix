@@ -9,7 +9,7 @@ which previously disabled update checking entirely in development).
 and never suppresses a real update prompt.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 #: Owner/repository used by the built-in GitHub update source.
 GITHUB_REPOSITORY = "jennus17/Hushmix"

@@ -214,14 +214,19 @@ class VolumeManager:
             return
 
         label = app.gui_components.volume_labels[index]
-        color = "red3" if is_muted else getattr(label, "default_text_color", None)
+        # Muted channels are called out in the theme's danger colour rather than
+        # a fixed "red3": on the dark theme that name is far too dark to read,
+        # and the label has to stay legible in both themes.
+        palette = getattr(app.gui_components, "palette", None)
+        muted_color = getattr(palette, "danger", "red3")
+        color = muted_color if is_muted else getattr(label, "default_text_color", None)
 
         def _apply():
             try:
                 if label.winfo_exists():
                     label.configure(text=f"{volume_level}%", text_color=color)
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug("Could not update a volume label: %s", error)
 
         deferred = getattr(app, "deferred_actions", None)
         if deferred is not None:

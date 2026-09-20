@@ -9,8 +9,10 @@ import customtkinter as ctk
 
 from gui.base_window import BaseWindow
 from utils.app_paths import log_file
-from utils.color_utils import get_windows_accent_color, darken_color
 from utils.config_manager import ConfigManager
+from utils.logging_setup import get_logger
+
+logger = get_logger("help_window")
 
 RELEASES_URL = "https://github.com/jennus17/Hushmix/releases/latest"
 ISSUES_URL = "https://github.com/jennus17/Hushmix/issues"
@@ -110,8 +112,8 @@ class HelpWindow(BaseWindow):
         super().__init__(parent, on_close=None)
         self.app = app
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        settings_manager = getattr(app, "settings_manager", None)
+        self.palette = self.build_palette(settings_manager)
         self.normal_font_size = 14
 
         self.build("Hushmix Help", geometry="620x700")
@@ -122,11 +124,21 @@ class HelpWindow(BaseWindow):
     # ------------------------------------------------------------------ layout
 
     def build_gui(self):
-        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
+        self.frame = ctk.CTkFrame(
+            self.window,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.frame.pack(expand=True, fill="both")
 
         self.scrollable_frame = ctk.CTkScrollableFrame(
-            self.frame, corner_radius=0, border_width=0, fg_color="transparent"
+            self.frame,
+            corner_radius=0,
+            border_width=0,
+            fg_color="transparent",
+            scrollbar_button_color=self.palette.border_strong,
+            scrollbar_button_hover_color=self.palette.accent,
         )
         self.scrollable_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
@@ -167,7 +179,7 @@ class HelpWindow(BaseWindow):
             self.scrollable_frame,
             text=text,
             font=("Segoe UI", self.normal_font_size + 6, "bold"),
-            text_color=self.accent_color,
+            text_color=self.palette.accent_on_label,
         )
         label.pack(anchor="w", padx=10, pady=padding)
 
@@ -177,6 +189,7 @@ class HelpWindow(BaseWindow):
             text=text,
             font=("Segoe UI", self.normal_font_size),
             justify="left",
+            text_color=self.palette.text_muted,
         )
         label.pack(anchor="w", padx=10, pady=(0, 15))
 
@@ -187,12 +200,15 @@ class HelpWindow(BaseWindow):
         ctk.CTkLabel(
             frame,
             text=f"• {command}:",
-            text_color=self.accent_color,
+            text_color=self.palette.accent_on_label,
             font=("Segoe UI", self.normal_font_size, "bold"),
         ).pack(side="left")
 
         ctk.CTkLabel(
-            frame, text=description, font=("Segoe UI", self.normal_font_size)
+            frame,
+            text=description,
+            font=("Segoe UI", self.normal_font_size),
+            text_color=self.palette.text_muted,
         ).pack(side="left", padx=(10, 0))
 
     def _divider(self):
@@ -200,7 +216,7 @@ class HelpWindow(BaseWindow):
             self.scrollable_frame,
             text="─" * 60,
             font=("Segoe UI", self.normal_font_size),
-            text_color=self.accent_color,
+            text_color=self.palette.border_strong,
         ).pack(anchor="center", padx=5, pady=10)
 
     # ------------------------------------------------------------- diagnostics
@@ -217,8 +233,9 @@ class HelpWindow(BaseWindow):
             button_row,
             text="Open log file",
             command=self._open_log,
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
             font=("Segoe UI", 12),
             corner_radius=10,
             width=120,
@@ -228,8 +245,9 @@ class HelpWindow(BaseWindow):
             button_row,
             text="Report an issue",
             command=lambda: webbrowser.open(ISSUES_URL),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
             font=("Segoe UI", 12),
             corner_radius=10,
             width=130,
@@ -321,5 +339,5 @@ class HelpWindow(BaseWindow):
                 os.startfile(log_file())
             else:
                 os.startfile(os.path.dirname(log_file()))
-        except Exception:
-            pass
+        except Exception as error:
+            logger.warning("Could not open the log location: %s", error)

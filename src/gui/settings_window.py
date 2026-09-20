@@ -3,7 +3,9 @@
 import customtkinter as ctk
 
 from gui.base_window import BaseWindow
-from utils.color_utils import darken_color, get_windows_accent_color
+from utils.logging_setup import get_logger
+
+logger = get_logger("settings_window")
 
 GENERAL_SETTINGS = [
     ("Invert Volume Range (100 - 0)", "invert_volumes"),
@@ -48,8 +50,7 @@ class SettingsWindow(BaseWindow):
         # find the update manager.
         self.version_manager = version_manager
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        self.palette = self.build_palette(settings_manager)
         self.normal_font_size = 14
 
         self.build("Settings")
@@ -60,7 +61,12 @@ class SettingsWindow(BaseWindow):
     # ------------------------------------------------------------------ layout
 
     def build_gui(self):
-        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
+        self.frame = ctk.CTkFrame(
+            self.window,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.frame.pack(expand=True, fill="both")
 
         self._add_section_label("General Settings", first=True)
@@ -74,7 +80,12 @@ class SettingsWindow(BaseWindow):
         self._add_update_interval()
 
     def _add_section_label(self, text, first=False):
-        label = ctk.CTkLabel(self.frame, text=text, font=("Segoe UI", 16, "bold"))
+        label = ctk.CTkLabel(
+            self.frame,
+            text=text,
+            font=("Segoe UI", 16, "bold"),
+            text_color=self.palette.text,
+        )
         label.pack(pady=(8 if first else 20, 10), padx=15, anchor="w")
 
     def _add_checkbox(self, text, setting_key):
@@ -89,8 +100,11 @@ class SettingsWindow(BaseWindow):
             text=text,
             variable=variable,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
+            text_color=self.palette.text,
+            border_color=self.palette.border_strong,
+            checkmark_color=self.palette.accent_text,
         )
         checkbox.pack(pady=8, padx=15, anchor="w")
 
@@ -99,7 +113,10 @@ class SettingsWindow(BaseWindow):
         frame.pack(pady=(5, 15), padx=15, fill="x")
 
         label = ctk.CTkLabel(
-            frame, text="Check for updates every:", font=("Segoe UI", self.normal_font_size)
+            frame,
+            text="Check for updates every:",
+            font=("Segoe UI", self.normal_font_size),
+            text_color=self.palette.text,
         )
         label.pack(side="left", padx=(0, 10))
 
@@ -112,10 +129,13 @@ class SettingsWindow(BaseWindow):
             variable=self.interval_var,
             command=self.change_update_interval,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            button_color=self.accent_color,
-            button_hover_color=self.accent_hover,
-            dropdown_hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            button_color=self.palette.accent,
+            button_hover_color=self.palette.accent_hover,
+            dropdown_hover_color=self.palette.accent_soft,
+            dropdown_fg_color=self.palette.surface_high,
+            dropdown_text_color=self.palette.text,
         )
         menu.pack(side="left")
 
@@ -124,8 +144,9 @@ class SettingsWindow(BaseWindow):
             text="Check now",
             command=self.check_for_updates_now,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
             cursor="hand2",
             height=30,
         )
@@ -137,6 +158,7 @@ class SettingsWindow(BaseWindow):
             font=("Segoe UI", 11),
             justify="left",
             wraplength=330,
+            text_color=self.palette.text_muted,
         )
         self.update_status_label.pack(pady=(0, 10), padx=15, anchor="w")
 
@@ -165,8 +187,8 @@ class SettingsWindow(BaseWindow):
     def _set_update_status(self, text):
         try:
             self.update_status_label.configure(text=text)
-        except Exception:
-            pass
+        except Exception as error:
+            logger.debug("Could not update the status label: %s", error)
 
     def change_update_interval(self, value):
         """Store the chosen interval and let the running checker pick it up."""

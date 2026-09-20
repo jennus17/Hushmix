@@ -78,9 +78,27 @@ MODIFIER_ORDER = ("Ctrl", "Shift", "Alt", "Win")
 
 
 class ShortcutRecorder(ctk.CTkFrame):
-    """Read-only entry that captures a key combination when clicked."""
+    """Read-only entry that captures a key combination when clicked.
+
+    Colours come from the owner through :data:`COLOR_KEYS` rather than being
+    derived here, so the recorder cannot drift away from the window it sits in.
+    Every one of them is optional; the CustomTkinter defaults apply otherwise.
+    """
+
+    #: Keyword arguments this widget understands, and where each is applied.
+    COLOR_KEYS = (
+        "fg_color",
+        "label_color",
+        "entry_fg_color",
+        "entry_border_color",
+        "entry_text_color",
+        "button_fg_color",
+        "button_hover_color",
+        "button_text_color",
+    )
 
     def __init__(self, master, on_change=None, **kwargs):
+        colors = {key: kwargs.pop(key) for key in self.COLOR_KEYS if key in kwargs}
         super().__init__(master, corner_radius=10, border_width=0, **kwargs)
 
         self.on_change = on_change
@@ -92,7 +110,10 @@ class ShortcutRecorder(ctk.CTkFrame):
         self._keys = []
 
         label = ctk.CTkLabel(
-            self, text="Click to record shortcut:", font=("Segoe UI", 12)
+            self,
+            text="Click to record shortcut:",
+            font=("Segoe UI", 12),
+            text_color=colors.get("label_color"),
         )
         label.pack(pady=(5, 5), padx=15, anchor="w")
 
@@ -102,6 +123,9 @@ class ShortcutRecorder(ctk.CTkFrame):
             height=30,
             placeholder_text="Press keys here...",
             state="readonly",
+            fg_color=colors.get("entry_fg_color"),
+            border_color=colors.get("entry_border_color"),
+            text_color=colors.get("entry_text_color"),
         )
         self.entry.pack(pady=(0, 5), padx=15, fill="x")
         self.entry.bind("<Button-1>", self.start_recording)
@@ -113,6 +137,9 @@ class ShortcutRecorder(ctk.CTkFrame):
             command=self.clear,
             width=80,
             height=30,
+            fg_color=colors.get("button_fg_color"),
+            hover_color=colors.get("button_hover_color"),
+            text_color=colors.get("button_text_color"),
         )
         self.clear_button.pack(pady=(0, 8), padx=15, anchor="w")
 
@@ -176,8 +203,8 @@ class ShortcutRecorder(ctk.CTkFrame):
                 if bind_id:
                     try:
                         window.unbind(sequence, bind_id)
-                    except Exception:
-                        pass
+                    except Exception as error:
+                        logger.debug("Could not unbind %s: %s", sequence, error)
         self._bind_id = None
         self._bind_release_id = None
         self._modifiers.clear()

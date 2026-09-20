@@ -5,7 +5,9 @@ import webbrowser
 import customtkinter as ctk
 
 from gui.base_window import BaseWindow
-from utils.color_utils import darken_color, get_windows_accent_color
+from utils.logging_setup import get_logger
+
+logger = get_logger("version_window")
 
 RELEASES_PAGE = "https://github.com/jennus17/Hushmix/releases/latest"
 
@@ -29,8 +31,7 @@ class VersionWindow(BaseWindow):
         self.version_manager = version_manager
         self.settings_manager = settings_manager
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        self.palette = self.build_palette(settings_manager)
         self.normal_font_size = 14
 
         self.build("Update available", topmost=True)
@@ -41,7 +42,12 @@ class VersionWindow(BaseWindow):
     # ------------------------------------------------------------------ layout
 
     def build_gui(self):
-        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
+        self.frame = ctk.CTkFrame(
+            self.window,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.frame.pack(expand=True, fill="both")
 
         body = self.update_info.get("release_notes") or ""
@@ -53,6 +59,7 @@ class VersionWindow(BaseWindow):
             font=("Segoe UI", self.normal_font_size + 1, "bold"),
             wraplength=380,
             justify="left",
+            text_color=self.palette.text,
         ).pack(pady=(20, 6), padx=15)
 
         if published:
@@ -60,6 +67,7 @@ class VersionWindow(BaseWindow):
                 self.frame,
                 text=f"Published: {published[:10]}",
                 font=("Segoe UI", 11),
+                text_color=self.palette.text_muted,
             ).pack(pady=(0, 6), padx=15)
 
         if body:
@@ -67,7 +75,14 @@ class VersionWindow(BaseWindow):
             if len(notes) > 600:
                 notes = notes[:600] + "…"
             box = ctk.CTkTextbox(
-                self.frame, height=110, font=("Segoe UI", 11), wrap="word"
+                self.frame,
+                height=110,
+                font=("Segoe UI", 11),
+                wrap="word",
+                fg_color=self.palette.surface,
+                border_color=self.palette.border,
+                border_width=1,
+                text_color=self.palette.text_muted,
             )
             box.pack(pady=(0, 10), padx=15, fill="both", expand=True)
             box.insert("1.0", notes)
@@ -94,8 +109,9 @@ class VersionWindow(BaseWindow):
                 buttons,
                 text="Update Now",
                 command=self.auto_update,
-                fg_color=self.accent_color,
-                hover_color=self.accent_hover,
+                fg_color=self.palette.accent,
+                hover_color=self.palette.accent_hover,
+                text_color=self.palette.accent_text,
                 font=("Segoe UI", self.normal_font_size),
                 corner_radius=10,
             ).pack(side="left", padx=5)
@@ -104,8 +120,11 @@ class VersionWindow(BaseWindow):
             buttons,
             text="Manual Download",
             command=self.manual_download,
-            fg_color="gray",
-            hover_color="#555555",
+            fg_color="transparent",
+            hover_color=theme["hover_color"],
+            text_color=theme["text_color"],
+            border_width=1,
+            border_color=self.palette.border_strong,
             font=("Segoe UI", self.normal_font_size),
             corner_radius=10,
         ).pack(side="left", padx=5)
@@ -135,13 +154,12 @@ class VersionWindow(BaseWindow):
             ).pack(pady=(0, 12))
 
     def get_theme_colors(self):
-        dark_mode = True
-        if self.settings_manager:
-            dark_mode = self.settings_manager.get_setting("dark_mode", True)
-
-        if dark_mode:
-            return {"fg_color": "#2b2b2b", "hover_color": "#404040", "text_color": "#ffffff"}
-        return {"fg_color": "#dbdbdb", "hover_color": "#c7c7c7", "text_color": "#000000"}
+        """Colours for the window's secondary (non-accent) controls."""
+        return {
+            "fg_color": self.palette.surface_high,
+            "hover_color": self.palette.surface_low,
+            "text_color": self.palette.text,
+        }
 
     # --------------------------------------------------------------- behaviour
 
@@ -167,6 +185,6 @@ class VersionWindow(BaseWindow):
         if self.version_manager is not None:
             try:
                 self.version_manager.skip_version(self.latest_version)
-            except Exception:
-                pass
+            except Exception as error:
+                logger.warning("Could not remember the skipped version: %s", error)
         self.close()

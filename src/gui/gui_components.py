@@ -17,11 +17,17 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from utils.color_utils import darken_color, get_windows_accent_color
+from utils.color_utils import palette_for
 from utils.config_manager import ConfigManager
 from utils.logging_setup import get_logger
 
 logger = get_logger("gui_components")
+
+#: Volume read-outs sit in a fixed-width column, so they use a tabular figure
+#: font.  With a proportional font the row jitters sideways every time the
+#: reading crosses 99% -> 100%, which is very visible on a window that is sized
+#: to its content and therefore moves with it.
+VOLUME_FONT = ("Consolas", 15, "bold")
 
 
 class GUIComponents:
@@ -42,8 +48,7 @@ class GUIComponents:
         self.buttons = []
         self.volume_labels = []
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        self.palette = palette_for(getattr(app_instance, "settings_manager", None))
         self.normal_font_size = 16
 
         self._refreshing = False
@@ -52,7 +57,12 @@ class GUIComponents:
 
     def setup_gui(self):
         """Build the main window contents (called once)."""
-        self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, border_width=0)
+        self.main_frame = ctk.CTkFrame(
+            self.root,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         self.main_frame.bind("<Button-1>", lambda event: event.widget.focus_force())
 
@@ -60,7 +70,9 @@ class GUIComponents:
             self.main_frame,
             text="Mixer Disconnected",
             font=("Segoe UI", 12, "bold"),
-            text_color="red3",
+            text_color=self.palette.danger,
+            fg_color=self.palette.danger_surface,
+            corner_radius=6,
             width=1,
             height=1,
         )
@@ -73,8 +85,9 @@ class GUIComponents:
             text=text,
             command=command,
             font=font,
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
             cursor="hand2",
             width=width,
             height=height,
@@ -129,8 +142,10 @@ class GUIComponents:
                 continue
             try:
                 widget.destroy()
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug(
+                    "Could not destroy %s: %s", type(widget).__name__, error
+                )
 
         self.buttons.clear()
         self.entries.clear()
@@ -146,14 +161,20 @@ class GUIComponents:
         # Channel 0 is master and the last one is the microphone, so only the
         # channels in between get a per-button settings entry point.
         if 0 < index < total - 1:
+            # A full accent fill on every row made the six lane buttons the
+            # loudest thing on the window and competed with the footer, which is
+            # where the actual actions live.  The row button is now quiet until
+            # the pointer is over it.
             button = ctk.CTkButton(
                 self.main_frame,
                 text="⋮",
                 command=lambda button_index=index: self.app.show_buttonSettings(
                     button_index
                 ),
-                hover_color=self.accent_hover,
-                fg_color=self.accent_color,
+                font=("Segoe UI", 15, "bold"),
+                text_color=self.palette.text_muted,
+                hover_color=self.palette.accent_soft,
+                fg_color="transparent",
                 cursor="hand2",
                 width=24,
                 height=26,
@@ -167,8 +188,11 @@ class GUIComponents:
             font=("Segoe UI", self.normal_font_size),
             height=30,
             placeholder_text=f"App {index + 1}",
-            border_width=2,
+            border_width=1,
             corner_radius=10,
+            fg_color=self.palette.surface,
+            border_color=self.palette.border,
+            text_color=self.palette.text,
         )
         if app_name:
             entry.insert(0, app_name)
@@ -195,7 +219,8 @@ class GUIComponents:
             self.main_frame,
             text="100%",
             width=45,
-            font=("Segoe UI", self.normal_font_size, "bold"),
+            font=VOLUME_FONT,
+            text_color=self.palette.text_muted,
         )
         volume_label.grid(row=index + 1, column=3, pady=6, padx=5, sticky="w")
         volume_label.bind("<Button-1>", lambda event: event.widget.focus_force())
@@ -238,10 +263,13 @@ class GUIComponents:
             values=ConfigManager.get_profile_names(),
             command=self.app.on_profile_change,
             font=("Segoe UI", self.normal_font_size, "bold"),
-            fg_color=self.accent_color,
-            button_color=self.accent_color,
-            button_hover_color=self.accent_hover,
-            dropdown_hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            button_color=self.palette.accent,
+            button_hover_color=self.palette.accent_hover,
+            dropdown_hover_color=self.palette.accent_soft,
+            dropdown_fg_color=self.palette.surface_high,
+            dropdown_text_color=self.palette.text,
             width=170,
             height=34,
             corner_radius=10,
@@ -360,8 +388,8 @@ class GUIComponents:
                 setattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None)
             try:
                 popup.destroy()
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug("Could not close the suggestion popup: %s", error)
 
         def choose(_event=None):
             selection = listbox.curselection()
@@ -414,15 +442,33 @@ class GUIComponents:
         setattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None)
         try:
             popup.destroy()
-        except Exception:
-            pass
+        except Exception as error:
+            logger.debug("Could not close the suggestion popup: %s", error)
 
     # ------------------------------------------------------------------- theme
 
     def update_theme_colors(self):
-        """Re-read the Windows accent colour and restyle the widgets."""
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        """Re-derive the palette and restyle every widget this class owns.
+
+        Both inputs are re-read: the theme may have been switched in the settings
+        window, and the Windows accent may have changed since the app started.
+        """
+        self.palette = palette_for(getattr(self.app, "settings_manager", None))
+
+        if self.main_frame is not None:
+            try:
+                self.main_frame.configure(fg_color=self.palette.background)
+            except Exception as error:
+                logger.debug("Could not restyle the main frame: %s", error)
+
+        if self.connection_status_label is not None:
+            try:
+                self.connection_status_label.configure(
+                    text_color=self.palette.danger,
+                    fg_color=self.palette.danger_surface,
+                )
+            except Exception as error:
+                logger.debug("Could not restyle the connection banner: %s", error)
 
         for widget in (
             self.profile_listbox,
@@ -434,22 +480,59 @@ class GUIComponents:
             if widget is None:
                 continue
             try:
-                widget.configure(fg_color=self.accent_color, hover_color=self.accent_hover)
-            except Exception:
-                pass
+                widget.configure(
+                    fg_color=self.palette.accent,
+                    hover_color=self.palette.accent_hover,
+                    text_color=self.palette.accent_text,
+                )
+            except Exception as error:
+                logger.debug(
+                    "Could not restyle %s: %s", type(widget).__name__, error
+                )
 
         try:
             self.profile_listbox.configure(
-                button_color=self.accent_color,
-                button_hover_color=self.accent_hover,
-                dropdown_hover_color=self.accent_hover,
+                button_color=self.palette.accent,
+                button_hover_color=self.palette.accent_hover,
+                dropdown_hover_color=self.palette.accent_soft,
+                dropdown_fg_color=self.palette.surface_high,
+                dropdown_text_color=self.palette.text,
             )
-        except Exception:
-            pass
+        except Exception as error:
+            logger.debug("Could not restyle the profile dropdown: %s", error)
 
         for button in self.buttons:
             if button.winfo_exists():
-                button.configure(fg_color=self.accent_color, hover_color=self.accent_hover)
+                try:
+                    button.configure(
+                        text_color=self.palette.text_muted,
+                        hover_color=self.palette.accent_soft,
+                    )
+                except Exception as error:
+                    logger.debug("Could not restyle a channel button: %s", error)
+
+        for entry in self.entries:
+            if entry.winfo_exists():
+                try:
+                    entry.configure(
+                        fg_color=self.palette.surface,
+                        border_color=self.palette.border,
+                        text_color=self.palette.text,
+                    )
+                except Exception as error:
+                    logger.debug("Could not restyle a channel field: %s", error)
+
+        for label in self.volume_labels:
+            if not label.winfo_exists():
+                continue
+            try:
+                # ``default_text_color`` is captured on creation and is what the
+                # volume pipeline restores when a channel is not muted, so it has
+                # to move with the theme as well.
+                label.default_text_color = self.palette.text_muted
+                label.configure(text_color=self.palette.text_muted)
+            except Exception as error:
+                logger.debug("Could not restyle a volume label: %s", error)
 
     def set_profile_names(self, names, current=None):
         """Refresh the profile dropdown after profiles are added or removed."""

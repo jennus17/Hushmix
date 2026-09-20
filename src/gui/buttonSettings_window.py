@@ -18,7 +18,6 @@ import customtkinter as ctk
 
 from gui.base_window import BaseWindow
 from gui.shortcut_recorder import ShortcutRecorder
-from utils.color_utils import darken_color, get_windows_accent_color
 from utils.logging_setup import get_logger
 
 logger = get_logger("button_settings")
@@ -63,8 +62,7 @@ class ButtonSettingsWindow(BaseWindow):
         self.media_control_actions = media_control_actions
         self.media_control_button_modes = media_control_button_modes
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
+        self.palette = self.build_palette()
         self.normal_font_size = 14
 
         self._ensure_state()
@@ -99,7 +97,12 @@ class ButtonSettingsWindow(BaseWindow):
     # ------------------------------------------------------------------ layout
 
     def build_gui(self):
-        self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
+        self.frame = ctk.CTkFrame(
+            self.window,
+            corner_radius=0,
+            border_width=0,
+            fg_color=self.palette.background,
+        )
         self.frame.pack(expand=True, fill="both")
         self.frame.columnconfigure(0, weight=1)
         self.frame.columnconfigure(1, weight=0)
@@ -117,8 +120,11 @@ class ButtonSettingsWindow(BaseWindow):
             text=text,
             variable=variable,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
+            text_color=self.palette.text,
+            border_color=self.palette.border_strong,
+            checkmark_color=self.palette.accent_text,
             command=command,
         )
         checkbox.grid(row=row, column=0, pady=10, padx=15, sticky="w")
@@ -130,10 +136,13 @@ class ButtonSettingsWindow(BaseWindow):
             values=BUTTON_MODES,
             variable=variable,
             font=("Segoe UI", self.normal_font_size),
-            fg_color=self.accent_color,
-            button_color=self.accent_color,
-            button_hover_color=self.accent_hover,
-            dropdown_hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            button_color=self.palette.accent,
+            button_hover_color=self.palette.accent_hover,
+            dropdown_hover_color=self.palette.accent_soft,
+            dropdown_fg_color=self.palette.surface_high,
+            dropdown_text_color=self.palette.text,
             width=150,
             height=30,
             corner_radius=10,
@@ -142,7 +151,12 @@ class ButtonSettingsWindow(BaseWindow):
         return dropdown
 
     def _add_panel(self, row):
-        panel = ctk.CTkFrame(self.frame, corner_radius=10, border_width=0)
+        panel = ctk.CTkFrame(
+            self.frame,
+            corner_radius=10,
+            border_width=0,
+            fg_color=self.palette.surface,
+        )
         panel.grid(row=row, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew")
         return panel
 
@@ -165,7 +179,11 @@ class ButtonSettingsWindow(BaseWindow):
         self.file_panel = self._add_panel(row + 1)
 
         self.path_label = ctk.CTkLabel(
-            self.file_panel, text="No application selected", font=("Segoe UI", 12), anchor="w"
+            self.file_panel,
+            text="No application selected",
+            font=("Segoe UI", 12),
+            anchor="w",
+            text_color=self.palette.text_muted,
         )
         self.path_label.pack(pady=(6, 4), padx=15, fill="x")
 
@@ -173,8 +191,9 @@ class ButtonSettingsWindow(BaseWindow):
             self.file_panel,
             text="Browse",
             font=("Segoe UI", 12),
-            fg_color=self.accent_color,
-            hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            hover_color=self.palette.accent_hover,
             command=self.browse_file,
             width=80,
             height=30,
@@ -191,7 +210,16 @@ class ButtonSettingsWindow(BaseWindow):
         )
 
         self.shortcut_recorder = ShortcutRecorder(
-            self.frame, on_change=self._on_shortcut_recorded
+            self.frame,
+            on_change=self._on_shortcut_recorded,
+            fg_color=self.palette.surface,
+            label_color=self.palette.text_muted,
+            entry_fg_color=self.palette.surface_high,
+            entry_border_color=self.palette.border,
+            entry_text_color=self.palette.text,
+            button_fg_color=self.palette.surface_high,
+            button_hover_color=self.palette.accent_soft,
+            button_text_color=self.palette.text,
         )
         self.shortcut_recorder.grid(
             row=row + 1, column=0, columnspan=2, pady=(0, 10), padx=15, sticky="ew"
@@ -210,7 +238,11 @@ class ButtonSettingsWindow(BaseWindow):
         self.media_panel = self._add_panel(row + 1)
 
         ctk.CTkLabel(
-            self.media_panel, text="Media Action:", font=("Segoe UI", 12), anchor="w"
+            self.media_panel,
+            text="Media Action:",
+            font=("Segoe UI", 12),
+            anchor="w",
+            text_color=self.palette.text_muted,
         ).pack(pady=(6, 4), padx=15, fill="x")
 
         self.media_action_dropdown = ctk.CTkOptionMenu(
@@ -218,10 +250,13 @@ class ButtonSettingsWindow(BaseWindow):
             values=MEDIA_ACTIONS,
             variable=self.media_control_actions[self.index],
             font=("Segoe UI", 12),
-            fg_color=self.accent_color,
-            button_color=self.accent_color,
-            button_hover_color=self.accent_hover,
-            dropdown_hover_color=self.accent_hover,
+            text_color=self.palette.accent_text,
+            fg_color=self.palette.accent,
+            button_color=self.palette.accent,
+            button_hover_color=self.palette.accent_hover,
+            dropdown_hover_color=self.palette.accent_soft,
+            dropdown_fg_color=self.palette.surface_high,
+            dropdown_text_color=self.palette.text,
             width=200,
             height=30,
             corner_radius=10,

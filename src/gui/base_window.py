@@ -15,6 +15,7 @@ share this base class, which fixes three defects in one place:
 
 import customtkinter as ctk
 
+from utils.color_utils import palette_for
 from utils.icon_manager import IconManager
 from utils.logging_setup import get_logger
 from utils.win_utils import center_on_monitor, clamp_to_monitor, enum_monitors
@@ -43,6 +44,12 @@ class BaseWindow:
         self.window.withdraw()
 
         self._ready = False
+
+    def build_palette(self, settings_manager=None):
+        """Design tokens for this window, matching the main window's theme."""
+        if settings_manager is None:
+            settings_manager = getattr(self.parent, "settings_manager", None)
+        return palette_for(settings_manager)
 
     # ---------------------------------------------------------------- bootstrapping
 

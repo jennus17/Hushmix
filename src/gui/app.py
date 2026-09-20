@@ -31,7 +31,7 @@ from gui.buttonSettings_window import ButtonSettingsWindow
 from gui.settings_window import SettingsWindow
 from gui.window_manager import WindowManager
 
-from utils.color_utils import darken_color, get_windows_accent_color
+from utils.color_utils import palette_for
 from utils.config_manager import ConfigManager
 from utils.deferred_actions import DeferredActions
 from utils.enhanced_version_manager import EnhancedVersionManager
@@ -95,13 +95,15 @@ class HushmixApp:
         self.buttonSettings_window = None
         self.help_window = None
 
-        self.accent_color = get_windows_accent_color()
-        self.accent_hover = darken_color(self.accent_color, 0.2)
-
         #: Runs queued work from the serial/tray threads on the Tk thread.
         self.deferred_actions = DeferredActions(self.root)
 
         self.settings_manager = SettingsManager(self)
+
+        #: Design tokens for the whole interface.  Built from the Windows accent
+        #: plus the dark/light setting, and rebuilt whenever either changes.
+        self.palette = None
+        self.refresh_palette()
 
         self.window_manager = WindowManager(self.root, self)
         self.gui_components = GUIComponents(self)
@@ -189,8 +191,26 @@ class HushmixApp:
         if listbox is not None:
             try:
                 listbox.set(current_profile)
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug("Could not select the current profile: %s", error)
+
+        # The palette is created in __init__ so widgets can be built before the
+        # settings are read; re-derive it now that dark_mode is known, and hand
+        # the result to the components that already captured one.  Without this
+        # the interface stayed dark whatever the setting said, because the first
+        # palette was always built from the default.
+        self.refresh_palette()
+
+    def refresh_palette(self):
+        """Re-derive the design tokens from the current settings."""
+        self.palette = palette_for(getattr(self, "settings_manager", None))
+        self.accent_color = self.palette.accent
+        self.accent_hover = self.palette.accent_hover
+
+        components = getattr(self, "gui_components", None)
+        if components is not None:
+            components.palette = self.palette
+        return self.palette
 
     @staticmethod
     def _fit_mute_state(values):
@@ -290,7 +310,11 @@ class HushmixApp:
                         )
                     else:
                         label.grid()
-                label.configure(text="Mixer Disconnected", text_color="red3")
+                label.configure(
+                    text="Mixer Disconnected",
+                    text_color=self.palette.danger,
+                    fg_color=self.palette.danger_surface,
+                )
         except Exception as error:
             logger.debug("Could not update the connection banner: %s", error)
 
@@ -392,8 +416,8 @@ class HushmixApp:
         if existing is not None:
             try:
                 existing.close()
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug("Error closing the previous window: %s", error)
             setattr(self, attribute, None)
             self.root.after(100, lambda: opener(*args))
             return
@@ -462,11 +486,29 @@ class HushmixApp:
         try:
             dark_mode = self.settings_manager.get_setting("dark_mode", True)
             ctk.set_appearance_mode("dark" if dark_mode else "light")
+            self.refresh_palette()
             self.root.update_idletasks()
             self.gui_components.update_theme_colors()
+            self.window_manager.apply_palette()
             logger.info("Theme switched to %s", "dark" if dark_mode else "light")
         except Exception as error:
             logger.warning("Error applying theme changes: %s", error)
+
+    def refresh_palette(self):
+        """Re-derive the design tokens from the current settings.
+
+        The accent is re-read from Windows as well, so a change made in the
+        Windows settings app is picked up next time a window closes rather than
+        needing a restart.
+        """
+        self.palette = palette_for(getattr(self, "settings_manager", None))
+        self.accent_color = self.palette.accent
+        self.accent_hover = self.palette.accent_hover
+
+        components = getattr(self, "gui_components", None)
+        if components is not None:
+            components.palette = self.palette
+        return self.palette
 
     # ------------------------------------------------------------------ shutdown
 

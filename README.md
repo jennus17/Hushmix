@@ -10,7 +10,7 @@ A modern Windows application for controlling individual application volumes usin
 - **Hardware Integration** - Use physical controllers (knobs, slider and buttons) for volume adjustment
 - **Profile System** - Save and switch between different audio configurations, add or remove profiles from the main window
 - **Button Actions** - Mute, launch an application, send a keyboard shortcut or a media key from each hardware button
-- **Modern UI** - Clean, responsive interface with dark/light theme support and live Windows accent colour
+- **Modern UI** - Interface built from a single design-token palette derived from your Windows accent colour, with dark and light themes
 - **System Tray Integration** - Run in background with easy access from system tray
 - **Auto-startup Option** - Configure to start automatically with Windows
 - **Automatic Updates** - Checks GitHub releases, verifies and installs new versions
@@ -72,7 +72,7 @@ resource, the update checker and the built binary all read it from there.
 3. Verify what you published:
 
    ```bash
-   python build_tools/verify_release.py v0.5.0 --from v0.4.6
+   build/.venv/Scripts/python build_tools/verify_release.py v0.5.1 --from v0.5.0
    ```
 
    That fetches the release through the same code path the application uses:
@@ -81,6 +81,10 @@ resource, the update checker and the built binary all read it from there.
    format, and (with `--from`) that the release really is newer than the version
    it should replace. Exit code 0 means an installed Hushmix will verify the
    download too.
+
+   Run it with the build environment (or any interpreter with
+   `pip install -r requirements.txt`): it imports the application, so it needs the
+   same dependencies.
 
 Uploading the checksum matters: without it the updater can only confirm that a
 downloaded file looks like a Windows executable, so a truncated or substituted
@@ -205,6 +209,9 @@ python tests/test_core.py
 # GUI wiring integration test (stubs out customtkinter/audio/serial)
 python tests/test_gui_pipeline.py
 
+# Theme palette: accent legibility, both themes, load-order regression
+python tests/test_themes.py
+
 # Live GUI tests - need an interactive Windows session and the real packages.
 # Run them one at a time: several of them open the audio device and the serial
 # port, and they contend when started together.
@@ -213,6 +220,19 @@ python tests/smoke_fixes.py        # regression checks for reported GUI bugs
 
 # Cross-module consistency checks (renames that miss a call site)
 python tests/check_consistency.py
+```
+
+### Interface
+
+Every colour comes from one palette derived from the Windows accent and the
+dark/light setting - see [UI_DESIGN.md](UI_DESIGN.md) for the tokens and why the
+reported accent is adjusted. To review the windows visually:
+
+```bash
+# Captures the real windows to PNG against a throwaway %APPDATA%,
+# so it can never touch your own settings.
+python build/shot.py build/ui.png --theme dark --dialogs settings,help
+python build/shot.py build/ui-light.png --theme light
 ```
 
 ### Versioning
@@ -226,7 +246,11 @@ resource so the update checker compares like with like.
 Settings and logs live in `%APPDATA%\Hushmix\`:
 
 - `settings.json` - all profiles and global settings
-- `hushmix.log` - rotating log (512 KB × 3) with warnings and errors
+- `hushmix.log` - rotating log (512 KB × 3) written at DEBUG
+
+The log file is the diagnostic record, so it keeps debug detail even though the
+console only shows INFO. Set `HUSH_DEBUG=1` to raise the console to DEBUG when
+running from a terminal.
 
 ### Regenerating the icon
 

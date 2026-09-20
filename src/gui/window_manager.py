@@ -211,8 +211,8 @@ class WindowManager:
             frame = getattr(getattr(self.app, "gui_components", None), "main_frame", None)
             if frame is not None:
                 return float(frame._get_widget_scaling())
-        except Exception:
-            pass
+        except Exception as error:
+            logger.debug("Could not read the widget scaling: %s", error)
         try:
             import customtkinter as ctk
 
@@ -323,8 +323,8 @@ class WindowManager:
             import customtkinter as ctk
 
             window_scale = float(ctk.ScalingTracker.get_window_scaling(self.root))
-        except Exception:
-            pass
+        except Exception as error:
+            logger.debug("Could not read the window scaling: %s", error)
 
         return {
             "monitor_scale": self.current_monitor_scale(),
@@ -371,7 +371,7 @@ class WindowManager:
         """Apply the main window properties and icon."""
         self.root.title("Hushmix")
         self.root.resizable(False, False)
-        self.root.configure(bg=self.get_theme_bg_color())
+        self.apply_palette()
 
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
@@ -382,14 +382,30 @@ class WindowManager:
 
         IconManager.apply_to_window(self.root)
 
+    def apply_palette(self):
+        """Paint the root window with the current palette's background.
+
+        CustomTkinter only paints what its widgets cover; the bare Tk root shows
+        through anywhere they do not, and it keeps whatever colour it was given
+        when the window was created - so switching to the light theme used to
+        leave dark grey bands behind the rounded corners.
+        """
+        try:
+            self.root.configure(bg=self.get_theme_bg_color())
+        except Exception as error:
+            logger.debug("Could not repaint the root window: %s", error)
+
     def get_theme_bg_color(self):
         """Background colour matching the active theme."""
+        palette = getattr(self.app, "palette", None)
+        if palette is not None:
+            return palette.background
         try:
             if self.app.settings_manager.get_setting("dark_mode", True):
-                return "#2b2b2b"
-            return "#f0f0f0"
+                return "#1b1b1f"
+            return "#f4f4f7"
         except Exception:
-            return "#2b2b2b"
+            return "#1b1b1f"
 
     # -------------------------------------------------------------------- tray
 
@@ -485,8 +501,8 @@ class WindowManager:
         if self._position_save_job is not None:
             try:
                 self.root.after_cancel(self._position_save_job)
-            except Exception:
-                pass
+            except Exception as error:
+                logger.debug("Could not cancel the pending save: %s", error)
 
         self._position_save_job = self.root.after(
             POSITION_SAVE_DELAY_MS, self.save_window_position
@@ -518,8 +534,8 @@ class WindowManager:
             if job is not None:
                 try:
                     self.root.after_cancel(job)
-                except Exception:
-                    pass
+                except Exception as error:
+                    logger.debug("Could not cancel %s: %s", attribute, error)
                 setattr(self, attribute, None)
 
         icon = self.icon
