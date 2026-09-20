@@ -15,7 +15,6 @@ Two long-standing problems are fixed here:
 
 import json
 import os
-import re
 import winreg
 
 from utils.atomic_io import atomic_write_json, read_json
@@ -260,32 +259,6 @@ class ConfigManager:
 
         except Exception as error:
             logger.exception("Error loading settings: %s", error)
-            return ConfigManager.get_default_settings()
-
-    @staticmethod
-    def _attempt_settings_recovery(content):
-        """Recover what we can from a corrupted settings file."""
-        logger.info("Attempting to recover settings from a corrupted file")
-        try:
-            recovered = {}
-            for match in re.findall(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", content):
-                try:
-                    partial = json.loads(match)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(partial, dict):
-                    recovered.update(partial)
-
-            defaults = ConfigManager.get_default_settings()
-            if recovered:
-                logger.info("Recovered %d settings keys", len(recovered))
-                defaults.update(recovered)
-            else:
-                logger.warning("Could not recover any settings - using defaults")
-            return ConfigManager._validate_and_fix_settings(defaults)
-
-        except Exception as error:
-            logger.warning("Settings recovery failed: %s", error)
             return ConfigManager.get_default_settings()
 
     @staticmethod
@@ -638,7 +611,3 @@ class ConfigManager:
             return False
         return True
 
-    @staticmethod
-    def cleanup_corrupted_files():
-        """Backwards compatible alias; stale lock files are no longer used."""
-        return ConfigManager.check_corrupted_files()

@@ -393,10 +393,6 @@ def install_stubs():
 
         def SetMute(self, flag, ctx):
             pass
-
-        def GetMute(self):
-            return False
-
     class _AudioUtilities:
         @staticmethod
         def GetSpeakers():

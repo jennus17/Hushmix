@@ -149,6 +149,23 @@ class EnhancedVersionManager:
         except (TypeError, ValueError):
             return 1800
 
+    @property
+    def current_source(self):
+        """The update source actually in use.
+
+        Read from the settings rather than cached, so changing it (in the config
+        file, or via :meth:`set_update_source`) takes effect immediately.  The
+        help window's diagnostics reported this before it existed, which silently
+        dropped the line.
+        """
+        source = None
+        try:
+            source = self.settings_manager.get_setting("update_source")
+        except Exception as error:
+            logger.debug("Could not read the update source: %s", error)
+
+        return source if source in self.update_sources else "github"
+
     def _check_loop(self):
         current_version = self.read_installed_version()
         if not current_version:
@@ -214,10 +231,6 @@ class EnhancedVersionManager:
 
         threading.Thread(target=worker, name="update-check-now", daemon=True).start()
         return True
-
-    def _wake_and_check(self):
-        """Wake the loop, and check now if it is idle waiting."""
-        self._wake()
 
     def _wait_for_next_cycle(self):
         """Sleep until the interval elapses, a setting changes, or we stop."""

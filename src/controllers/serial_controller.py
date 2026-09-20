@@ -158,12 +158,6 @@ class SerialController:
                 self._set_connected(False)
                 return None
 
-    def initialize_serial(self, device_name=None, baud_rate=None):
-        """Public entry point kept for backwards compatibility."""
-        if baud_rate:
-            self.baud_rate = baud_rate
-        return self._connect()
-
     def reconnect_serial(self, max_attempts=None, device_name=None, baud_rate=None):
         """Iteratively reconnect with exponential backoff.
 
@@ -225,12 +219,6 @@ class SerialController:
             target=self._connection_watchdog, name="serial-watchdog", daemon=True
         )
         self._watchdog_thread.start()
-
-    def start_serial_thread(self):
-        """Backwards compatible alias."""
-        if self._reader_thread and self._reader_thread.is_alive():
-            return
-        self._start_threads()
 
     def _connection_watchdog(self):
         """Reconnect in the background so a missing device is not fatal."""

@@ -80,12 +80,6 @@ def metrics(app):
     }
 
 
-def force_scale(app, scale):
-    """Apply a monitor scale through the application's own DPI path."""
-    app.window_manager.apply_monitor_scale_for_test(scale)
-    pump(1.2)
-
-
 def settled(app):
     """Window and content size, after any pending correction has run."""
     pump(1.2)

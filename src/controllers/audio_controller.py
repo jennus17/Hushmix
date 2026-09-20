@@ -71,11 +71,6 @@ class AudioController:
     def _state(self):
         return self._ensure_thread_state()
 
-    def _invalidate_sessions(self):
-        state = self._state
-        state.sessions = None
-        state.sessions_at = 0.0
-
     def _get_sessions(self, max_age=SESSION_CACHE_SECONDS):
         """Cached ``AudioUtilities.GetAllSessions()``."""
         state = self._state
@@ -248,25 +243,6 @@ class AudioController:
 
         return resolved, claimed
 
-    def set_application_lanes(self, app_names, levels):
-        """Apply one volume per lane, honouring the ``current`` ownership rule.
-
-        *levels* is a sequence with the same length as *app_names*.
-        """
-        self._ensure_thread_state()
-
-        focused = self.get_current_process_name()
-        resolved, claimed = self.resolve_lanes(app_names, focused)
-
-        for target, level in zip(resolved, levels):
-            if not target:
-                continue
-            try:
-                self._apply_target(target, level, claimed)
-            except Exception as error:
-                logger.warning("Could not set volume for %r: %s", target, error)
-                self._reset_endpoint()
-
     def set_application_volume(self, app_names, level):
         """Set the volume (0-100) for one or more comma-separated targets.
 
@@ -371,14 +347,6 @@ class AudioController:
             logger.warning("Could not read microphone volume: %s", error)
             return default
 
-    def get_microphone_mute_state(self, default=False):
-        """Whether the default microphone is muted."""
-        try:
-            return bool(self._get_microphone_volume_interface().GetMute())
-        except Exception as error:
-            logger.warning("Could not read microphone mute state: %s", error)
-            return default
-
     def get_master_volume(self, default=None):
         """Current master volume as an int percentage."""
         try:
@@ -391,7 +359,7 @@ class AudioController:
     def get_application_volume(self, app_name, default=None):
         """Current volume of the first session matching *app_name*.
 
-        Useful when un-muting, so the previous level can be restored instead of
+        Used when un-muting, so the previous level can be restored instead of
         guessing 50%.
         """
         try:
@@ -403,17 +371,6 @@ class AudioController:
         except Exception as error:
             logger.warning("Could not read volume for %r: %s", app_name, error)
         return default
-
-    def is_application_muted(self, app_name, default=False):
-        """Whether the first matching session is muted."""
-        try:
-            for _kind, session in self._iter_targets(app_name):
-                volume = self._get_session_volume(session)
-                return bool(volume.GetMute())
-        except Exception as error:
-            logger.warning("Could not read mute state for %r: %s", app_name, error)
-        return default
-
     def list_audio_applications(self):
         """Process names that currently have an audio session.
 

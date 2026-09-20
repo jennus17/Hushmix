@@ -10,6 +10,7 @@ import customtkinter as ctk
 from gui.base_window import BaseWindow
 from utils.app_paths import log_file
 from utils.color_utils import get_windows_accent_color, darken_color
+from utils.config_manager import ConfigManager
 
 RELEASES_URL = "https://github.com/jennus17/Hushmix/releases/latest"
 ISSUES_URL = "https://github.com/jennus17/Hushmix/issues"
@@ -235,27 +236,84 @@ class HelpWindow(BaseWindow):
         ).pack(side="left")
 
     def _diagnostics_text(self):
-        lines = [f"• Python: {platform.python_version()}", f"• Executable: {sys.executable}"]
+        """Everything needed to report a problem, gathered defensively.
 
-        try:
-            from utils.enhanced_version_manager import EnhancedVersionManager
+        Each probe is independent: one failing must not remove the others from
+        the report, which is exactly what a single surrounding ``try`` did - a
+        failure in the display probe silently dropped the auto-startup line too.
+        """
+        lines = []
 
-            version = EnhancedVersionManager.read_installed_version()
-            lines.append(f"• Hushmix: {version or 'unknown (development build)'}")
-        except Exception:
-            pass
-
-        if self.app is not None:
+        for probe in (
+            self._runtime_lines,
+            self._mixer_lines,
+            self._display_lines,
+            self._startup_lines,
+        ):
             try:
-                status = "connected" if self.app.serial_controller.get_connection_status() else "disconnected"
-                lines.append(f"• Mixer: {status}")
-                profile = self.app.settings_manager.get_setting("current_profile")
-                lines.append(f"• Profile: {profile}")
-            except Exception:
-                pass
+                lines.extend(probe())
+            except Exception as error:
+                lines.append(f"• {probe.__name__.strip('_').replace('_', ' ')}: "
+                             f"unavailable ({type(error).__name__}: {error})")
 
         lines.append(f"• Log file: {log_file()}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _runtime_lines():
+        from utils.app_paths import executable_path, is_frozen
+        from utils.enhanced_version_manager import EnhancedVersionManager
+
+        version = EnhancedVersionManager.read_installed_version()
+        suffix = "" if is_frozen() else " (from source)"
+        lines = [
+            f"• Hushmix: {version or 'unknown'}{suffix}",
+            f"• Python: {platform.python_version()}",
+            f"• Executable: {sys.executable}",
+        ]
+        if not is_frozen() and not os.path.exists(executable_path()):
+            lines.append("• Build: Hushmix.exe not present (development checkout)")
+        return lines
+
+    def _mixer_lines(self):
+        if self.app is None:
+            return []
+
+        connected = bool(self.app.serial_controller.get_connection_status())
+        return [
+            f"• Mixer: {'connected' if connected else 'disconnected'}",
+            f"• Profile: {self.app.settings_manager.get_setting('current_profile')}",
+            f"• Update source: {self.app.version_manager.current_source}",
+        ]
+
+    def _display_lines(self):
+        """Screen layout - a "the window looks wrong" report needs this."""
+        if self.app is None:
+            return []
+
+        report = self.app.window_manager.scaling_report()
+        lines = [
+            "• Display: monitor scale {:.2f}, widget scale {:.2f}, "
+            "window scale {:.2f}".format(
+                report["monitor_scale"], report["widget_scale"], report["window_scale"]
+            ),
+            f"• Window: {report['window']}",
+        ]
+        if report["content"]:
+            lines.append(f"• Content wants: {report['content']}")
+        return lines
+
+    @staticmethod
+    def _startup_lines():
+        """Whether the Run-key entry matches the stored setting."""
+        wants = bool(ConfigManager.load_settings().get("auto_startup"))
+        registered = ConfigManager.is_auto_startup_enabled()
+        if wants == registered:
+            return [f"• Auto-startup: {'enabled' if registered else 'disabled'}"]
+        return [
+            f"• Auto-startup: setting says {wants}, Windows registration says "
+            f"{registered} (they disagree)"
+        ]
 
     def _open_log(self):
         try:

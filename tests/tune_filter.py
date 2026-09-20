@@ -27,10 +27,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from collections import deque
-
 from controllers.serial_controller import (
-    AdaptiveEMA,
     FastCascadedFilter,
     MedianFilter,
 )
@@ -121,23 +118,6 @@ class CurrentFilter:
         return self.inner.filter(value)
 
 
-class MedianThenEMA:
-    """Median (spike rejection) then a mild EMA (smooth transitions)."""
-
-    def __init__(self, median_window=7, alpha=0.25):
-        self.median = MedianFilter(window_size=median_window)
-        self.alpha = alpha
-        self.value = None
-
-    def filter(self, new_value):
-        med = self.median.filter(new_value)
-        if self.value is None:
-            self.value = med
-        else:
-            self.value = self.alpha * med + (1 - self.alpha) * self.value
-        return self.value
-
-
 class AdaptiveSlew:
     """Median, then a drift-aware deadband stage.
 
@@ -205,10 +185,6 @@ class AdaptiveSlew:
             self.latched = self.smoothed
 
         return self.latched
-
-
-def median_then_ema(median_window=7, alpha=0.25):
-    return lambda: MedianThenEMA(median_window, alpha)
 
 
 def adaptive_slew(median_window=7, deadband=1.6, big_jump=8.0, **kwargs):

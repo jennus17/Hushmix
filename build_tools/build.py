@@ -80,7 +80,6 @@ def build(python, console=False):
 
 
 def describe():
-    from make_version_info import __name__ as _  # noqa: F401  (path setup)
     from make_checksum import write_checksum
 
     import version
@@ -93,7 +92,7 @@ def describe():
     print()
     print("=" * 60)
     print(f"Built  : {os.path.relpath(EXE_PATH, ROOT)}")
-    print(f"Version: {version.__version__}")
+    print(f"Version: {version.__version__}  (release tag {version.version_tag()})")
     print(f"Size   : {size_mb:.1f} MB")
 
     # Publish-ready checksum: without one the updater can only confirm that a
@@ -103,7 +102,8 @@ def describe():
         print(f"SHA256 : {digest}")
         print(f"         written to {os.path.relpath(path, ROOT)}")
         print()
-        print("Upload both files to the release, or paste this into the notes:")
+        print(f"Next: create the release tagged {version.version_tag()} and upload both files.")
+        print("Or paste this into the release notes:")
         print(f"  SHA256: {digest}")
     except Exception as error:
         print(f"SHA256 : could not be generated ({error})")

@@ -122,9 +122,6 @@ class ShortcutRecorder(ctk.CTkFrame):
         """Display a shortcut without starting a recording session."""
         self._write(shortcut or "")
 
-    def get_value(self):
-        return self.entry.get()
-
     def clear(self):
         """Erase the recorded shortcut."""
         self._stop()

@@ -9,19 +9,23 @@ which previously disabled update checking entirely in development).
 and never suppresses a real update prompt.
 """
 
-__version__ = "0.4.7"
+__version__ = "0.5.0"
 
 #: Owner/repository used by the built-in GitHub update source.
 GITHUB_REPOSITORY = "jennus17/Hushmix"
 
 
 def version_tag():
-    """Version formatted the way release tags are (``v0.4.7``)."""
+    """Version formatted the way release tags are (``v0.5.0``)."""
     return f"v{__version__}"
 
 
 def version_info_tuple():
-    """Version as the four integers Windows version resources expect."""
+    """Version as the four integers Windows version resources expect.
+
+    Returns ``(parts, padded)`` where *parts* is a 4-tuple such as
+    ``(0, 5, 0, 0)`` and *padded* is the single integer some tools want.
+    """
     parts = []
     for chunk in __version__.split("."):
         digits = "".join(character for character in chunk if character.isdigit())

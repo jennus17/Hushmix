@@ -189,15 +189,6 @@ class WindowManager:
         on every poll would resize the window continuously.
         """
         return self._apply_scale(self.current_monitor_scale(), force_fit=False)
-
-    def apply_monitor_scale_for_test(self, scale):
-        """Apply *scale* as if the window had moved to that monitor.
-
-        Used by ``tests/test_dpi_scaling.py`` so the scaling path can be
-        exercised without physically moving the window between monitors.
-        """
-        return self._apply_scale(scale, force_fit=True)
-
     def _apply_scale(self, scale, force_fit=False):
         try:
             if not force_fit and self._last_dpi is not None and abs(scale - self._last_dpi) < 0.01:
@@ -319,14 +310,31 @@ class WindowManager:
                 attempt + 1, wanted[0], wanted[1], current[0], current[1],
             )
 
-    def _window_scaling(self):
-        """Current window scaling factor (1.0 when it cannot be read)."""
+    def scaling_report(self):
+        """Current scaling factors, for the help window's diagnostics.
+
+        A "the window looks wrong" report is otherwise impossible to reason about
+        without this: it shows what the monitor reports, what CustomTkinter is
+        scaling the widgets by, and what the window ended up as.
+        """
+        frame = getattr(getattr(self.app, "gui_components", None), "main_frame", None)
+        window_scale = 1.0
         try:
             import customtkinter as ctk
 
-            return float(ctk.ScalingTracker.get_window_scaling(self.root))
+            window_scale = float(ctk.ScalingTracker.get_window_scaling(self.root))
         except Exception:
-            return 1.0
+            pass
+
+        return {
+            "monitor_scale": self.current_monitor_scale(),
+            "widget_scale": self._widget_scaling(),
+            "window_scale": window_scale,
+            "window": (self.root.winfo_width(), self.root.winfo_height()),
+            "content": (
+                (frame.winfo_reqwidth(), frame.winfo_reqheight()) if frame else None
+            ),
+        }
 
     @staticmethod
     def _within_tolerance(current, expected):
@@ -500,12 +508,6 @@ class WindowManager:
             self.app.settings_manager.save_to_config()
         except Exception as error:
             logger.warning("Error saving window position: %s", error)
-
-    def clamp_position(self, x, y, width, height):
-        """Deprecated: use :func:`utils.win_utils.clamp_to_monitor`."""
-        from utils.win_utils import clamp_to_monitor
-
-        return clamp_to_monitor(x, y, width, height, enum_monitors())
 
     # ----------------------------------------------------------------- cleanup
 

@@ -18,6 +18,8 @@ STEP = 2
 class VolumeManager:
     def __init__(self, app_instance):
         self.app = app_instance
+        #: Last logged lane resolution, so only changes are written to the log.
+        self._last_resolution = None
 
     def _run_on_gui_thread(self, function, *args):
         """Schedule GUI work from the serial thread.
@@ -76,20 +78,28 @@ class VolumeManager:
         app.save_settings()
 
     def _restore_level(self, index):
-        """Level to apply when un-muting."""
+        """Level to apply when un-muting.
+
+        Read back from the device rather than assuming a value, so un-muting
+        never jumps to an arbitrary level: the master device and the microphone
+        have their own readers, applications go through their audio session.
+        """
         app = self.app
         target = self._target_name(index)
+        lowered = target.lower()
 
-        if target.lower() == "mic":
+        if lowered == "mic":
             mic_volume = app.audio_controller.get_microphone_volume()
             return mic_volume if mic_volume and mic_volume > 0 else DEFAULT_UNMUTE_LEVEL
+
+        if lowered == "master":
+            master_volume = app.audio_controller.get_master_volume()
+            return master_volume if master_volume else DEFAULT_UNMUTE_LEVEL
 
         previous = app.previous_volumes[index] if index < len(app.previous_volumes) else None
         if previous:
             return previous
 
-        # Fall back to what the application is actually playing at, so
-        # un-muting does not jump to an arbitrary level.
         if target:
             current = app.audio_controller.get_application_volume(target)
             if current:
@@ -114,9 +124,22 @@ class VolumeManager:
         # Resolve every lane against the same focused application, once per
         # packet.  This is what keeps a lane that names an application explicitly
         # in charge of it, so the ``current`` lane does not also write to it.
-        resolved, _claimed = app.audio_controller.resolve_lanes(
-            app.current_apps, app.audio_controller.get_current_process_name()
+        focused = app.audio_controller.get_current_process_name()
+        resolved, claimed = app.audio_controller.resolve_lanes(
+            app.current_apps, focused
         )
+
+        # Log only when the resolution *changes*: on every packet would flood the
+        # file, but a change is exactly what explains "why did that lane stop
+        # responding?", for instance when another lane claims the focused
+        # application and this one is left with nothing to do.
+        signature = (focused, tuple(resolved))
+        if signature != self._last_resolution:
+            self._last_resolution = signature
+            logger.debug(
+                "Lane resolution changed: focused=%r resolved=%s owned=%s",
+                focused, resolved, claimed,
+            )
 
         for index, volume in enumerate(volumes):
             self.update_volume(index, int(volume), resolved)

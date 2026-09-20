@@ -51,8 +51,21 @@ class Results:
 results = Results()
 
 
+class _Settings:
+    """Minimal settings store for the update-preference checks."""
+
+    def __init__(self):
+        self.values = {}
+
+    def get_setting(self, key, default=None):
+        return self.values.get(key, default)
+
+    def set_setting(self, key, value):
+        self.values[key] = value
+
+
 def main():
-    from utils.version_utils import compare_versions, is_newer, normalize
+    from utils.version_utils import is_newer, normalize
     from version import GITHUB_REPOSITORY, __version__
 
     # ------------------------------------------------------------ version source
@@ -223,6 +236,52 @@ def main():
         EVM._normalise_checksum(None) is None,
         "a missing custom checksum stays None",
     )
+
+    # ------------------------------------------------------------ preferences
+    results.section("update preferences")
+    manager.settings_manager = _Settings()
+    # ``manager`` was built with __new__ to avoid starting threads, so give it the
+    # event objects that __init__ would have created.
+    import threading as _threading
+
+    manager._stop_event = _threading.Event()
+    manager._wake_event = _threading.Event()
+
+    manager.set_update_source("custom_server")
+    results.check(
+        manager.current_source == "custom_server",
+        f"the update source can be switched: {manager.current_source}",
+    )
+    try:
+        manager.set_update_source("nowhere")
+        results.check(False, "an unknown update source should be rejected")
+    except ValueError:
+        results.check(True, "an unknown update source is rejected")
+
+    manager.set_auto_check(False)
+    results.check(
+        manager.auto_check_enabled is False,
+        "automatic checking can be turned off",
+    )
+    results.check(
+        manager.settings_manager.get_setting("auto_check_updates") is False,
+        "turning it off is persisted",
+    )
+    manager.set_auto_check(True)
+    results.check(manager.auto_check_enabled is True, "and back on again")
+
+    manager.set_check_interval(120)
+    results.check(
+        manager.check_interval == 120,
+        f"the interval is clamped and stored: {manager.check_interval}",
+    )
+    manager.set_check_interval(1)
+    results.check(
+        manager.check_interval == 60,
+        f"an interval below a minute is raised to 60: {manager.check_interval}",
+    )
+    manager.set_check_interval("nonsense")
+    results.check(manager.check_interval == 60, "a non-numeric interval is ignored")
 
     # --------------------------------------------------------- verification rules
     results.section("download verification")

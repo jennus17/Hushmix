@@ -577,6 +577,9 @@ def test_volume_manager():
         def get_application_volume(self, name):
             return 42
 
+        def get_master_volume(self, default=None):
+            return 33
+
         def get_current_process_name(self):
             return None
 
@@ -588,11 +591,6 @@ def test_volume_manager():
         def after(self, delay, callback):
             callback()
             return 1
-
-    class FakeLabels:
-        def __init__(self):
-            self.labels = [FakeVar("") for _ in range(7)]
-            self.volume_labels = [FakeLabel() for _ in range(7)]
 
     class FakeLabel:
         default_text_color = "#ffffff"

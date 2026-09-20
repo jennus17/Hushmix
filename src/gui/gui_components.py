@@ -12,6 +12,7 @@ Layout notes (all of these were real defects):
 * The footer was laid out with spans that overlapped the channel grid.
 """
 
+import threading
 import tkinter as tk
 
 import customtkinter as ctk
@@ -325,52 +326,96 @@ class GUIComponents:
 
     # ----------------------------------------------------- right-click helpers
 
-    def _show_app_suggestions(self, event, index):
-        """Offer the processes that are currently playing audio."""
-        try:
-            names = self.app.audio_controller.list_audio_applications()
-        except Exception as error:
-            logger.warning("Could not list audio applications: %s", error)
-            names = []
+    #: The list currently being browsed, so a later refresh cannot point an open
+    #: popup at the wrong channel.
+    _SUGGESTION_POPUP_ATTRIBUTE = "_app_suggestion_popup"
 
-        if not names:
-            return
+    def _show_app_suggestions(self, event, index):
+        """Offer the processes that are currently playing audio.
+
+        The session enumeration is Core Audio work that can take a while on a
+        busy machine, so it runs on a worker thread: the popup opens immediately
+        with a "loading" row and is filled in when the list arrives.  Doing it
+        inline froze the main window for the duration of the enumeration.
+        """
+        self._close_app_suggestions()
 
         popup = tk.Toplevel(self.root)
         popup.title("Audio applications")
         popup.resizable(False, False)
         popup.transient(self.root)
         popup.geometry(f"+{event.x_root + 5}+{event.y_root + 5}")
+        setattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, popup)
 
-        ctk.CTkLabel(
-            popup, text="Double-click to use this name", font=("Segoe UI", 11)
-        ).pack(padx=8, pady=(8, 2), anchor="w")
+        header = ctk.CTkLabel(
+            popup, text="Looking for applications...", font=("Segoe UI", 11)
+        )
+        header.pack(padx=8, pady=(8, 2), anchor="w")
 
-        listbox = tk.Listbox(popup, height=min(12, len(names)), activestyle="none")
-        for name in names:
-            listbox.insert("end", name)
+        listbox = tk.Listbox(popup, height=1, activestyle="none")
         listbox.pack(fill="both", expand=True, padx=8, pady=4)
+
+        def dismiss(_event=None):
+            if getattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None) is popup:
+                setattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None)
+            try:
+                popup.destroy()
+            except Exception:
+                pass
 
         def choose(_event=None):
             selection = listbox.curselection()
-            if selection:
+            # The channel may have been rebuilt while the list was loading.
+            if selection and index < len(self.entries):
                 entry = self.entries[index]
                 entry.delete(0, "end")
                 entry.insert(0, listbox.get(selection[0]))
                 self.app.save_applications()
             dismiss()
 
-        def dismiss(_event=None):
-            try:
-                popup.destroy()
-            except Exception:
-                pass
+        def populate(names):
+            if not popup.winfo_exists():
+                return
+            listbox.delete(0, "end")
+            for name in names:
+                listbox.insert("end", name)
+            listbox.configure(height=min(12, max(1, len(names))))
+            header.configure(text="Double-click to use this name")
+            listbox.focus_set()
 
         listbox.bind("<Double-Button-1>", choose)
         listbox.bind("<Return>", choose)
         listbox.bind("<Escape>", dismiss)
         popup.bind("<Escape>", dismiss)
-        listbox.focus_set()
+        popup.protocol("WM_DELETE_WINDOW", dismiss)
+
+        self._load_app_suggestions(populate)
+
+    def _load_app_suggestions(self, populate):
+        """Fetch the audio-application list off the UI thread."""
+
+        def worker():
+            try:
+                names = self.app.audio_controller.list_audio_applications()
+            except Exception as error:
+                logger.warning("Could not list audio applications: %s", error)
+                names = []
+
+            self.app.deferred_actions.submit(populate, names)
+
+        threading.Thread(
+            target=worker, name="app-suggestions", daemon=True
+        ).start()
+
+    def _close_app_suggestions(self):
+        popup = getattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None)
+        if popup is None:
+            return
+        setattr(self, self._SUGGESTION_POPUP_ATTRIBUTE, None)
+        try:
+            popup.destroy()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------- theme
 

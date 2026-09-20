@@ -68,11 +68,6 @@ def _make_var(kind, value):
     return ctk.StringVar(value="" if value is None else str(value))
 
 
-def _make_default_var(field):
-    kind, default = VAR_FIELDS[field]
-    return _make_var(kind, default)
-
-
 class HushmixApp:
     def __init__(self, root):
         self.root = root

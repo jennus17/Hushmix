@@ -19,6 +19,7 @@ Needs an interactive Windows session and the real packages; run with::
 import os
 import sys
 import tempfile
+import threading
 import time
 import traceback
 
@@ -188,7 +189,81 @@ def main():
         for name, function in originals.items():
             setattr(messagebox, name, function)
 
-    # ------------------------------------------------- 4: volume path safety
+    # ------------------------------------------------- 4: app suggestions popup
+    print("\n== help diagnostics ==")
+    try:
+        from version import __version__
+
+        app.show_help()
+        pump(1.2)
+        helper = app.help_window
+        check(helper is not None, "the help window opened")
+        if helper is not None:
+            text = helper._diagnostics_text()
+            check(
+                f"v{__version__}" in text,
+                f"the diagnostics report the version (v{__version__})",
+            )
+            check(
+                "Display:" in text,
+                "the diagnostics report the display scaling",
+            )
+            check(
+                "Auto-startup:" in text,
+                "the diagnostics report the auto-startup state",
+            )
+        app.on_help_close()
+        pump(0.3)
+    except Exception as error:
+        check(False, f"help diagnostics failed: {type(error).__name__}: {error}")
+
+    # ------------------------------------------------- 5: app suggestions popup    print("\n== right-click suggestion popup ==")
+    app.gui_components.refresh_gui()
+    pump(0.3)
+    if app.gui_components.entries:
+        # The enumeration runs on a worker thread, so the popup must open
+        # immediately and fill in later - the UI thread must not block on it.
+        slow = threading.Event()
+
+        def slow_listing():
+            slow.wait(3.0)
+            return ["alpha.exe", "beta.exe"]
+
+        app.audio_controller.list_audio_applications = slow_listing
+
+        class FakeEvent:
+            x_root = 100
+            y_root = 100
+
+        import time as _time
+
+        started = _time.monotonic()
+        app.gui_components._show_app_suggestions(FakeEvent(), 0)
+        elapsed = _time.monotonic() - started
+        check(
+            elapsed < 0.5,
+            f"the popup opened without waiting for the enumeration ({elapsed:.2f}s)",
+        )
+        popup = getattr(app.gui_components, "_app_suggestion_popup", None)
+        check(popup is not None, "the suggestion popup was created")
+        if popup is not None:
+            pump(0.4)
+            check(
+                bool(popup.winfo_exists()),
+                "the popup is still open while the list loads",
+            )
+            # Release the worker and let the deferred action fill it in.
+            slow.set()
+            pump(1.2)
+            check(
+                bool(popup.winfo_exists()),
+                "the popup is still open after the list arrived",
+            )
+        app.gui_components._close_app_suggestions()
+        pump(0.2)
+        check(True, "the popup closes cleanly")
+
+    # ------------------------------------------------- 6: volume path safety
     print("\n== volume updates from a worker thread ==")
     errors = []
 
@@ -199,8 +274,6 @@ def main():
         except Exception as error:
             errors.append(f"{type(error).__name__}: {error}")
             traceback.print_exc()
-
-    import threading
 
     thread = threading.Thread(target=worker, name="volume-test", daemon=True)
     thread.start()

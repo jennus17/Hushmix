@@ -171,9 +171,6 @@ class ProfileManager:
             return False
 
     # Backwards compatible alias.
-    def save_current_profile_data(self, profile_name=None):
-        return self.save_profile(profile_name or self.current_profile())
-
     def save_applications(self, event=None):
         """Persist application names when the user edits a field."""
         if self._switching:

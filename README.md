@@ -110,7 +110,8 @@ running from source (`python src/main.py`) is unaffected.
 ### Finding application names
 
 Right-click an application field to pick from the processes that are **currently
-playing audio**, or use the process name from Task Manager (without `.exe`).
+playing audio**, or use the process name from Task Manager (without `.exe`). The
+list is gathered in the background, so the menu opens immediately.
 
 ### Profiles
 
@@ -172,8 +173,9 @@ src/
     ├── atomic_io.py              # Crash-safe JSON writes
     ├── app_paths.py              # Absolute paths (works when frozen)
     ├── logging_setup.py          # Rotating log file
+    ├── log_path.py               # Where the log goes, and fallbacks
     ├── deferred_actions.py       # Thread-safe hand-off to the Tk thread
-    ├── dpi_manager.py            # Tk scaling per monitor
+    ├── signal_filter.py          # Mixer reading -> stable slider value
     ├── icon_manager.py           # Icon lookup and generation
     ├── png2ico.py                # Dependency-free PNG -> ICO converter
     ├── version_utils.py          # Version parsing and comparison

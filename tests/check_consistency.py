@@ -35,7 +35,6 @@ APP_EXTRA_ATTRIBUTES = {
     "gui_components",
     "window_manager",
     "version_manager",
-    "dpi_manager",
     "deferred_actions",
     "settings_window",
     "buttonSettings_window",
@@ -174,11 +173,6 @@ def app_attribute_uses(path):
     return uses
 
 
-def classes_in(path):
-    tree = parse(path)
-    return [node for node in tree.body if isinstance(node, ast.ClassDef)]
-
-
 def python_files(*relative):
     paths = []
     for entry in relative:
@@ -281,6 +275,12 @@ def main():
         ),
         "IconManager": os.path.join(SRC, "utils", "icon_manager.py"),
         "GUIComponents": os.path.join(SRC, "gui", "gui_components.py"),
+    }
+
+    # Drop entries whose module no longer exists, so a deletion does not leave the
+    # check referring to a file that is gone.
+    manager_files = {
+        name: path for name, path in manager_files.items() if os.path.exists(path)
     }
 
     manager_members = {}
