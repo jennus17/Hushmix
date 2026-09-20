@@ -1,403 +1,267 @@
+"""Help window: feature documentation plus a diagnostics panel."""
+
+import os
+import platform
+import sys
+import webbrowser
+
 import customtkinter as ctk
-from utils.icon_manager import IconManager
-import gui.app as app
-from utils.dpi_manager import DPIManager
+
+from gui.base_window import BaseWindow
+from utils.app_paths import log_file
+from utils.color_utils import get_windows_accent_color, darken_color
+
+RELEASES_URL = "https://github.com/jennus17/Hushmix/releases/latest"
+ISSUES_URL = "https://github.com/jennus17/Hushmix/issues"
+
+SPECIAL_COMMANDS = [
+    ("master", "Controls the main speaker/headphone volume"),
+    ("system", "Controls Windows system sounds volume"),
+    ("current", "Controls the currently focused application"),
+    ("mic", "Controls the default microphone volume"),
+]
+
+OVERVIEW_TEXT = (
+    "Hushmix is a volume control application that allows you to:\n"
+    "• Control individual application volumes\n"
+    "• Control system audio (master, system sounds, microphone)\n"
+    "• Use hardware buttons for quick volume adjustments\n"
+    "• Create multiple profiles for different scenarios\n"
+    "• Launch applications and send keyboard shortcuts via buttons\n"
+    "• Mute/unmute applications with customizable button actions"
+)
+
+APP_NAMES_TEXT = (
+    "For specific applications, use the process name found in Task Manager:\n"
+    "• Open Task Manager (Ctrl+Shift+Esc)\n"
+    "• Go to the 'Details' tab\n"
+    "• Use the process name without '.exe' extension\n"
+    "• Examples: chrome, discord, spotify, steam\n\n"
+    "Tip: right-click any application field in the main window to pick from the\n"
+    "processes that are currently playing audio.\n\n"
+    "You can group multiple applications by separating them with commas:\n"
+    "• Example: chrome, firefox, msedge\n"
+    "• This will control all browsers simultaneously"
+)
+
+BUTTON_SETTINGS_TEXT = (
+    "Click the ⋮ button next to an application field to configure that button:\n\n"
+    "Mute Function:\n"
+    "• Enable to mute/unmute the corresponding application\n"
+    "• Choose trigger mode: Click, Double Click, or Hold\n\n"
+    "Launch Application:\n"
+    "• Enable to launch a specific application\n"
+    "• Browse and select the executable file (.exe)\n"
+    "• Choose trigger mode: Click, Double Click, or Hold\n\n"
+    "Keyboard Shortcut:\n"
+    "• Enable to send keyboard shortcuts\n"
+    "• Click the field and press your desired keys\n"
+    "• Choose trigger mode: Click, Double Click, or Hold\n\n"
+    "Media Control:\n"
+    "• Play/Pause, Next Track, Previous Track\n\n"
+    "Note: Multiple functions can be enabled simultaneously for the same button."
+)
+
+PROFILES_TEXT = (
+    "Each profile saves:\n"
+    "• Application names and per-channel mute state\n"
+    "• Button settings (mute, app launch, shortcuts, media control)\n"
+    "• Button trigger modes\n\n"
+    "• Switch between profiles using the dropdown menu\n"
+    "• Add a profile with ＋ (it starts as a copy of the current one)\n"
+    "• Remove the selected profile with －\n"
+    "• Changes are saved to the current profile automatically"
+)
+
+SETTINGS_TEXT = (
+    "Access settings via the ⚙️ button:\n\n"
+    "Invert Volume Range (100-0):\n"
+    "• Reverses the volume control direction\n"
+    "• Useful for certain hardware configurations\n\n"
+    "Enable Auto Startup:\n"
+    "• Starts Hushmix with Windows (per-user, no admin rights needed)\n\n"
+    "Launch in Tray:\n"
+    "• Starts Hushmix minimised to the system tray\n"
+    "• Access it from the tray icon\n\n"
+    "Dark Mode:\n"
+    "• Toggles between light and dark themes\n"
+    "• Accent colours follow your Windows accent colour"
+)
+
+TIPS_TEXT = (
+    "• Use 'master' for overall volume control\n"
+    "• Use 'system' to control Windows notification sounds\n"
+    "• Use 'current' to control the application you're currently using\n"
+    "• Use 'mic' to control your microphone volume\n"
+    "• Group similar applications with commas for batch control\n"
+    "• Create different profiles for work, gaming and entertainment\n"
+    "• Muted applications show a red volume percentage\n"
+    "• Volume changes are applied in real time\n"
+    "• If the mixer is unplugged, Hushmix keeps retrying automatically"
+)
 
 
-class HelpWindow:
-    def __init__(self, parent):
-        self.parent = parent
-        self.window = ctk.CTkToplevel(parent)
-        self.window.tk.call("tk", "scaling", 1.0)
-        
-        self.setup_window()
-        self.window.transient(parent)
+class HelpWindow(BaseWindow):
+    window_name = "help window"
+    default_size = (620, 700)
 
-        self.accent_color = app.get_windows_accent_color()
-        self.dpi_manager = DPIManager()
+    def __init__(self, parent, app=None):
+        super().__init__(parent, on_close=None)
+        self.app = app
+
+        self.accent_color = get_windows_accent_color()
+        self.accent_hover = darken_color(self.accent_color, 0.2)
         self.normal_font_size = 14
 
-        self.setup_gui()
-        self.center_window(parent)
-        self.window.lift()
-        self.window.focus_force()
+        self.build("Hushmix Help", geometry="620x700")
+        self.build_gui()
+        self.show(delay=10)
+        self.apply_dpi_scaling()
 
-    def setup_window(self):
-        self.window.title("Hushmix Help")
-        self.window.resizable(False, False)
-        self.window.geometry("600x400")
-        self.window.transient(self.parent)
-        self.window.grab_release()
+    # ------------------------------------------------------------------ layout
 
-        ico_path = IconManager.get_ico_file()
-        if ico_path:
-            try:
-                self.window.after(200, lambda: self.window.iconbitmap(ico_path))
-            except Exception as e:
-                print(f"Error setting icon: {e}")
-
-    def setup_gui(self):
+    def build_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
-        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "help window")
-
         self.scrollable_frame = ctk.CTkScrollableFrame(
-            self.frame,
-            corner_radius=0,
-            border_width=0,
-            fg_color=self.frame.cget("fg_color")
+            self.frame, corner_radius=0, border_width=0, fg_color="transparent"
         )
         self.scrollable_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-        self.create_sections()
+        self._title("Hushmix Overview", padding=(5, 10))
+        self._body(OVERVIEW_TEXT)
 
-    def create_sections(self):
-        """Create all help sections."""
-        self.create_overview_section()
-        self.create_special_commands_section()
-        self.create_application_names_section()
-        self.create_button_settings_section()
-        self.create_profiles_section()
-        self.create_settings_section()
-        self.create_tips_section()
+        self._title("Special Commands")
+        for command, description in SPECIAL_COMMANDS:
+            self._command_row(command, description)
+        self._divider()
 
-    def create_overview_section(self):
-        """Create the overview section."""
-        self.overview_label = ctk.CTkLabel(
+        self._title("Application Names")
+        self._body(APP_NAMES_TEXT)
+        self._divider()
+
+        self._title("Button Settings")
+        self._body(BUTTON_SETTINGS_TEXT)
+        self._divider()
+
+        self._title("Profiles")
+        self._body(PROFILES_TEXT)
+        self._divider()
+
+        self._title("Settings")
+        self._body(SETTINGS_TEXT)
+        self._divider()
+
+        self._title("Tips & Tricks")
+        self._body(TIPS_TEXT)
+        self._divider()
+
+        self._build_diagnostics()
+
+    # ---------------------------------------------------------------- sections
+
+    def _title(self, text, padding=(15, 10)):
+        label = ctk.CTkLabel(
             self.scrollable_frame,
-            text="Hushmix Overview",
-            font=("Segoe UI", self.normal_font_size + 8, "bold"),
-            text_color=self.accent_color,
-        )
-        self.overview_label.pack(anchor="w", padx=10, pady=(5, 10))
-
-        overview_text = (
-            "Hushmix is a volume control application that allows you to:\n"
-            "• Control individual application volumes\n"
-            "• Control system audio (master, system sounds, microphone)\n"
-            "• Use hardware buttons for quick volume adjustments\n"
-            "• Create multiple profiles for different scenarios\n"
-            "• Launch applications and send keyboard shortcuts via buttons\n"
-            "• Mute/unmute applications with customizable button actions"
-        )
-
-        self.overview_text_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text=overview_text,
-            font=("Segoe UI", self.normal_font_size),
-            justify="left",
-        )
-        self.overview_text_label.pack(anchor="w", padx=10, pady=(0, 15))
-
-    def create_special_commands_section(self):
-        """Create the special commands section."""
-        self.special_commands_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="Special Commands",
+            text=text,
             font=("Segoe UI", self.normal_font_size + 6, "bold"),
             text_color=self.accent_color,
         )
-        self.special_commands_label.pack(anchor="w", padx=10, pady=(5, 10))
+        label.pack(anchor="w", padx=10, pady=padding)
 
-        self.commands = [
-            ("master", "Controls the main speaker/headphone volume"),
-            ("system", "Controls Windows system sounds volume"),
-            ("current", "Controls the currently focused application"),
-            ("mic", "Controls the default microphone volume"),
-        ]
-
-        for command, description in self.commands:
-            command_frame = ctk.CTkFrame(
-                self.scrollable_frame,
-                corner_radius=0,
-                border_width=0,
-                fg_color=self.scrollable_frame.cget("fg_color"),
-            )
-            command_frame.pack(anchor="w", padx=10, pady=2)
-
-            command_label = ctk.CTkLabel(
-                command_frame,
-                text=f"• {command}:",
-                text_color=self.accent_color,
-                font=("Segoe UI", self.normal_font_size, "bold"),
-            )
-            command_label.pack(side="left")
-
-            description_label = ctk.CTkLabel(
-                command_frame,
-                text=description,
-                font=("Segoe UI", self.normal_font_size),
-            )
-            description_label.pack(side="left", padx=(10, 0))
-
-        self.add_divider()
-
-    def create_application_names_section(self):
-        """Create the application names section."""
-        self.app_names_label = ctk.CTkLabel(
+    def _body(self, text):
+        label = ctk.CTkLabel(
             self.scrollable_frame,
-            text="Application Names",
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
-            text_color=self.accent_color,
-        )
-        self.app_names_label.pack(anchor="w", padx=10, pady=(5, 10))
-
-        app_names_text = (
-            "For specific applications, use the process name found in Task Manager:\n"
-            "• Open Task Manager (Ctrl+Shift+Esc)\n"
-            "• Go to the 'Details' tab\n"
-            "• Use the process name without '.exe' extension\n"
-            "• Examples: chrome, discord, spotify, steam\n\n"
-            "You can group multiple applications by separating them with commas:\n"
-            "• Example: chrome, firefox, msedge\n"
-            "• This will control all browsers simultaneously"
-        )
-
-        self.app_names_text_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text=app_names_text,
+            text=text,
             font=("Segoe UI", self.normal_font_size),
             justify="left",
         )
-        self.app_names_text_label.pack(anchor="w", padx=10, pady=(0, 15))
+        label.pack(anchor="w", padx=10, pady=(0, 15))
 
-        self.add_divider()
+    def _command_row(self, command, description):
+        frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=0, border_width=0)
+        frame.pack(anchor="w", padx=10, pady=2)
 
-    def create_button_settings_section(self):
-        """Create the button settings section."""
-        self.button_settings_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="Button Settings",
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
+        ctk.CTkLabel(
+            frame,
+            text=f"• {command}:",
             text_color=self.accent_color,
-        )
-        self.button_settings_label.pack(anchor="w", padx=10, pady=(5, 10))
+            font=("Segoe UI", self.normal_font_size, "bold"),
+        ).pack(side="left")
 
-        button_settings_text = (
-            "Click the ⋮ button next to any volume slider to configure button actions:\n\n"
-            "Mute Function:\n"
-            "• Enable to mute/unmute the corresponding application\n"
-            "• Choose trigger mode: Click, Double Click, or Hold\n\n"
-            "Launch Application:\n"
-            "• Enable to launch a specific application\n"
-            "• Browse and select the executable file (.exe)\n"
-            "• Choose trigger mode: Click, Double Click, or Hold\n\n"
-            "Keyboard Shortcut:\n"
-            "• Enable to send keyboard shortcuts\n"
-            "• Click 'Record Shortcut' and press your desired keys\n"
-            "• Choose trigger mode: Click, Double Click, or Hold\n\n"
-            "Note: Multiple functions can be enabled simultaneously for the same button."
-        )
+        ctk.CTkLabel(
+            frame, text=description, font=("Segoe UI", self.normal_font_size)
+        ).pack(side="left", padx=(10, 0))
 
-        self.button_settings_text_label = ctk.CTkLabel(
+    def _divider(self):
+        ctk.CTkLabel(
             self.scrollable_frame,
-            text=button_settings_text,
-            font=("Segoe UI", self.normal_font_size),
-            justify="left",
-        )
-        self.button_settings_text_label.pack(anchor="w", padx=10, pady=(0, 15))
-
-        self.add_divider()
-
-    def create_profiles_section(self):
-        """Create the profiles section."""
-        self.profiles_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="Profiles",
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
-            text_color=self.accent_color,
-        )
-        self.profiles_label.pack(anchor="w", padx=10, pady=(5, 10))
-
-        profiles_text = (
-            "Hushmix supports up to 5 profiles for different scenarios:\n\n"
-            "• Each profile saves:\n"
-            "  - Application names and volumes\n"
-            "  - Button settings (mute, app launch, shortcuts)\n"
-            "  - Button trigger modes\n\n"
-            "• Switch between profiles using the dropdown menu\n"
-            "• Changes are automatically saved to the current profile\n"
-            "• Perfect for different work scenarios, gaming, or entertainment setups"
-        )
-
-        self.profiles_text_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text=profiles_text,
-            font=("Segoe UI", self.normal_font_size),
-            justify="left",
-        )
-        self.profiles_text_label.pack(anchor="w", padx=10, pady=(0, 15))
-
-        self.add_divider()
-
-    def create_settings_section(self):
-        """Create the settings section."""
-        self.settings_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="Settings",
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
-            text_color=self.accent_color,
-        )
-        self.settings_label.pack(anchor="w", padx=10, pady=(5, 10))
-
-        settings_text = (
-            "Access settings via the ⚙️ button:\n\n"
-            "Invert Volume Range (100-0):\n"
-            "• Reverses the volume control direction\n"
-            "• Useful for certain hardware configurations\n\n"
-            "Enable Auto Startup:\n"
-            "• Automatically starts Hushmix with Windows\n"
-            "• Requires administrator privileges\n\n"
-            "Launch in Tray:\n"
-            "• Starts Hushmix minimized to system tray\n"
-            "• Access via tray icon\n\n"
-            "Dark Mode:\n"
-            "• Toggles between light and dark themes\n"
-            "• Automatically matches Windows accent color"
-        )
-
-        self.settings_text_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text=settings_text,
-            font=("Segoe UI", self.normal_font_size),
-            justify="left",
-        )
-        self.settings_text_label.pack(anchor="w", padx=10, pady=(0, 15))
-
-        self.add_divider()
-
-    def create_tips_section(self):
-        """Create the tips section."""
-        self.tips_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="Tips & Tricks",
-            font=("Segoe UI", self.normal_font_size + 6, "bold"),
-            text_color=self.accent_color,
-        )
-        self.tips_label.pack(anchor="w", padx=10, pady=(5, 10))
-
-        tips_text = (
-            "• Use 'master' for overall volume control\n"
-            "• Use 'system' to control Windows notification sounds\n"
-            "• Use 'current' to control the application you're currently using\n"
-            "• Use 'mic' to control your microphone volume\n"
-            "• Group similar applications with commas for batch control\n"
-            "• Create different profiles for work, gaming, and entertainment\n"
-            "• Use button settings to create custom shortcuts and actions\n"
-            "• The app runs in the system tray - left-click to restore\n"
-            "• Volume changes are applied in real-time\n"
-            "• Muted applications show red volume percentage"
-        )
-
-        self.tips_text_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text=tips_text,
-            font=("Segoe UI", self.normal_font_size),
-            justify="left",
-        )
-        self.tips_text_label.pack(anchor="w", padx=10, pady=(0, 15))
-
-    def add_divider(self):
-        """Add a visual divider between sections."""
-        divider_label = ctk.CTkLabel(
-            self.scrollable_frame,
-            text="─" * 50,
+            text="─" * 60,
             font=("Segoe UI", self.normal_font_size),
             text_color=self.accent_color,
-        )
-        divider_label.pack(anchor="center", padx=5, pady=10)
+        ).pack(anchor="center", padx=5, pady=10)
 
-    def center_window(self, parent):
-        self.window.update_idletasks()
-        parent.update_idletasks()
+    # ------------------------------------------------------------- diagnostics
 
-        parent_x = parent.winfo_rootx()
-        parent_y = parent.winfo_rooty()
-        parent_width = parent.winfo_width()
-        parent_height = parent.winfo_height()
+    def _build_diagnostics(self):
+        """Surface the information needed to report a problem."""
+        self._title("Diagnostics")
+        self._body(self._diagnostics_text())
 
-        center_x = parent_x + parent_width // 2
-        center_y = parent_y + parent_height // 2
+        button_row = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+        button_row.pack(anchor="w", padx=10, pady=(0, 15))
 
-        window_width = 600
-        window_height = 700
+        ctk.CTkButton(
+            button_row,
+            text="Open log file",
+            command=self._open_log,
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            font=("Segoe UI", 12),
+            corner_radius=10,
+            width=120,
+        ).pack(side="left", padx=(0, 8))
 
-        x = center_x - window_width // 2
-        y = center_y - window_height // 2
+        ctk.CTkButton(
+            button_row,
+            text="Report an issue",
+            command=lambda: webbrowser.open(ISSUES_URL),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            font=("Segoe UI", 12),
+            corner_radius=10,
+            width=130,
+        ).pack(side="left")
 
-        import ctypes
-        from ctypes.wintypes import RECT, POINT
-        
-        def get_monitor_info():
-            monitors = []
-            
-            def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
-                rect = lprcMonitor.contents
-                monitors.append({
-                    'left': rect.left,
-                    'top': rect.top,
-                    'right': rect.right,
-                    'bottom': rect.bottom,
-                    'width': rect.right - rect.left,
-                    'height': rect.bottom - rect.top
-                })
-                return True
-            
-            enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
-            enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
-            
+    def _diagnostics_text(self):
+        lines = [f"• Python: {platform.python_version()}", f"• Executable: {sys.executable}"]
+
+        try:
+            from utils.enhanced_version_manager import EnhancedVersionManager
+
+            version = EnhancedVersionManager.read_installed_version()
+            lines.append(f"• Hushmix: {version or 'unknown (development build)'}")
+        except Exception:
+            pass
+
+        if self.app is not None:
             try:
-                ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
-            except Exception as e:
-                print(f"Error enumerating monitors: {e}")
-                monitors = [{
-                    'left': 0,
-                    'top': 0,
-                    'right': ctypes.windll.user32.GetSystemMetrics(0),
-                    'bottom': ctypes.windll.user32.GetSystemMetrics(1),
-                    'width': ctypes.windll.user32.GetSystemMetrics(0),
-                    'height': ctypes.windll.user32.GetSystemMetrics(1)
-                }]
-            
-            return monitors
+                status = "connected" if self.app.serial_controller.get_connection_status() else "disconnected"
+                lines.append(f"• Mixer: {status}")
+                profile = self.app.settings_manager.get_setting("current_profile")
+                lines.append(f"• Profile: {profile}")
+            except Exception:
+                pass
 
-        def is_position_on_monitor(x, y, monitor):
-            return (monitor['left'] <= x <= monitor['right'] and 
-                    monitor['top'] <= y <= monitor['bottom'])
+        lines.append(f"• Log file: {log_file()}")
+        return "\n".join(lines)
 
-        def find_monitor_for_position(x, y, monitors):
-            for monitor in monitors:
-                if is_position_on_monitor(x, y, monitor):
-                    return monitor
-            return None
-
-        monitors = get_monitor_info()
-        
-        target_monitor = find_monitor_for_position(center_x, center_y, monitors)
-        
-        if target_monitor is not None:
-            if x < target_monitor['left']:
-                x = target_monitor['left']
-            if y < target_monitor['top']:
-                y = target_monitor['top']
-            if x + window_width > target_monitor['right']:
-                x = target_monitor['right'] - window_width
-            if y + window_height > target_monitor['bottom']:
-                y = target_monitor['bottom'] - window_height
-        else:
-            screen_width = self.window.winfo_screenwidth()
-            screen_height = self.window.winfo_screenheight()
-
-            if x < 0:
-                x = 0
-            if y < 0:
-                y = 0
-            if x + window_width > screen_width:
-                x = screen_width - window_width
-            if y + window_height > screen_height:
-                y = screen_height - window_height
-
-        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-
+    def _open_log(self):
+        try:
+            if os.path.exists(log_file()):
+                os.startfile(log_file())
+            else:
+                os.startfile(os.path.dirname(log_file()))
+        except Exception:
+            pass

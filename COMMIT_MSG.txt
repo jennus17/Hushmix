@@ -1,0 +1,119 @@
+fix: repair icon, settings, audio, serial and update pipelines; add build tooling
+
+The application was running without an icon, silently discarding settings,
+dropping the serial reader thread and mis-detecting updates. This reworks the
+infrastructure around those paths, removes the dead code that hid the causes,
+and finally makes Hushmix.exe reproducible.
+
+BREAKING CHANGES / BEHAVIOUR
+- Profiles: a fresh install seeds a single "Profile 1" instead of five. Empty
+  Profile 2-5 slots are pruned from existing config files; profiles that hold
+  user data are always kept.
+- Deleting the selected profile now switches to another profile first instead
+  of refusing.
+- Versioning: src/version.py is the single source of truth (0.4.7).
+
+ICON (the app had none)
+- get_ico_file() built its path from the current working directory and pointed
+  at volume_icon32.ico, which was never shipped - .gitignore even excluded
+  *.ico. Every iconbitmap call raised, Image.open failed and the tray thread
+  then died on self.icon.run_detached().
+- Resolve icons by absolute path, generate the .ico on demand, and never return
+  a value callers cannot use. Ship a multi-size volume_icon.ico (16-256 px).
+
+SETTINGS (data was silently lost)
+- save_settings only copied three keys into the current profile, so
+  app_launch_paths, keyboard_shortcuts, media_control_* and the button modes
+  could be wiped by an unrelated save. ConfigManager.PROFILE_SETTINGS is now the
+  single schema and unknown keys are preserved rather than dropped.
+- PROFILE_SETTINGS.copy() shared its mutable lists between every profile.
+- Writes are atomic (temp file + os.replace) and identical writes are skipped,
+  so the time.sleep(0.1) in load_settings is gone and a crash cannot truncate
+  the file.
+- get_setting() unwraps Tk variables, so the Settings window was passing a bool
+  to CTkCheckBox(variable=...) and crashed on open; ensure_setting() now returns
+  the variable object and promotes plain values.
+
+AUDIO
+- COM interfaces and the session cache lived on the shared singleton while
+  being used from two threads; the serial thread could overwrite the interface
+  the GUI thread was using. All COM state is now thread-local.
+- GetSpeakers() was called on every volume change (a full Core Audio round
+  trip); the endpoint is cached and invalidated on failure.
+- Modern pycaw returns an AudioDevice wrapper instead of IMMDevice, so
+  .Activate() failed with "'AudioDevice' object has no attribute 'Activate'" -
+  endpoint activation now supports both APIs.
+- Session lookup prefers an exact process-name match over a substring match.
+
+SERIAL
+- The reader busy-polled in_waiting 100x/second; it now blocks in readline()
+  with a timeout.
+- data_split[1] raised IndexError on any packet without a "-" separator; both
+  halves are parsed defensively.
+- reconnect_serial recursed into itself, so an unplugged mixer produced
+  unbounded recursion; it is now an iterative retry with backoff plus a
+  watchdog thread.
+
+THREADING
+- Buttons, mute and volume-label updates ran on the serial thread. Volume
+  updates called root.after() directly, which raises "main thread is not in main
+  loop" whenever Tk is busy - that exception killed the reader thread and
+  silently stopped all further volume updates.
+- Added utils/deferred_actions.py: a bounded FIFO drained on the Tk thread.
+
+UPDATES
+- Versions were compared with !=, so a newer local build (or 1.2.0 vs v1.2.0)
+  prompted a bogus "update"; comparisons are now semantic.
+- The loop captured auto_check/interval at startup, so the settings had no
+  effect; both are re-read every cycle and a settings change wakes it.
+- It touched Tk from a background thread and stopped checking after the first
+  dialog. UI work is marshalled, and "Skip this version" - which existed but was
+  never called - is now wired to a button.
+
+GUI
+- The window was twice as tall as its content: refresh_gui created a new footer
+  CTkFrame each call and never destroyed the old one, and a CTkFrame requests
+  200x200, so each orphan added 220 px.
+- The help window opened and vanished ~8 ms later: customtkinter's titlebar
+  colour pass withdraws the window when it first becomes visible and its restore
+  raced ours. BaseWindow.show() re-asserts visibility after that pass.
+- The per-slider button passed a volume index where a 0-based button index was
+  expected, so the wrong channel's settings opened.
+- app.mute was never populated (declared in a variable map but omitted from it);
+  CTkFrame.grid_columnconfigure does not exist; a stale profile dropdown could
+  redirect a save to the wrong profile.
+- Window position was written to disk once per frame while dragging; it is now
+  debounced. Popups shared one implementation (BaseWindow) and one shortcut
+  recorder widget instead of five copies.
+- New: right-click an application field to pick from processes playing audio,
+  and + / - to add or remove profiles.
+
+STARTUP
+- Replaced ~400 lines of PID-file heuristics with a named-mutex guard.
+- No log file was ever written on a clean install: the handler was created
+  before %APPDATA%\Hushmix existed and the failure was swallowed.
+- A second instance blocked forever on a message box that opened behind other
+  windows; it now exits with code 1.
+
+BUILD
+- Add Hushmix.spec, build_tools/build.py and build_tools/make_version_info.py:
+  one command produces dist/Hushmix.exe with the icon and a version resource
+  generated from src/version.py, so the updater and the binary cannot drift.
+- Un-pin pycaw (20181226 is not installable on current Python) and drop the
+  numpy/matplotlib requirements, which were never imported.
+
+TESTS
+- tests/test_core.py: 104 checks over persistence, version comparison, parsing
+  and the volume path (stdlib only).
+- tests/test_gui_pipeline.py: 32 checks that wire the real modules together
+  using stub widgets.
+- tests/smoke_live_gui.py / tests/smoke_fixes.py: 30 + 21 checks against the
+  real toolkit; smoke_fixes covers each bug above so they cannot regress.
+- tests/check_consistency.py: AST checks for renames that miss a call site and
+  for profile fields missing from the schema.
+
+NOT VERIFIED / CAVEATS
+- Not exercised against a real mixer: no hardware was available, so the serial
+  protocol is covered by unit tests on recorded packets only.
+- Windows Application Control (Smart App Control) blocks the unsigned build on
+  this machine - see the Code Integrity log. Signing is required to distribute.

@@ -46,8 +46,12 @@ Hushmix.exe
 Release Notes.md
 Thing to add.txt
 *.ico
+# ...except the artwork the app needs at runtime (see src/utils/icon_manager.py)
+!src/utils/assets/*.ico
 *.log
 *.spec
+# ...except the build definition, which is source (see build_tools/build.py)
+!Hushmix.spec
 
 # Windows
 Thumbs.db

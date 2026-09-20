@@ -1,440 +1,163 @@
-import customtkinter as ctk
-from gui.app import HushmixApp
-from utils.config_manager import ConfigManager
-import ctypes
-from ctypes.wintypes import RECT, POINT
-import win32event
-import win32api
+"""Hushmix entry point.
+
+The 400-line, five-levels-deep single-instance check was replaced by
+:class:`utils.win_utils.SingleInstanceGuard`: a named mutex (plus a simple lock
+file fallback) instead of PID files with stale-entry heuristics.  The window
+geometry is now derived from the real requested size rather than
+``winfo_width()`` on a withdrawn window, which always reported ``1x1`` and made
+the saved-position clamp meaningless.
+"""
+
+import atexit
+import os
 import sys
 import tkinter.messagebox as messagebox
-import time
+
+# Make the application package importable no matter which directory the app was
+# started from (double-clicked shortcut, Explorer, or a terminal elsewhere).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import customtkinter as ctk
+
+from utils.app_paths import settings_file
+from utils.config_manager import ConfigManager
+from utils.logging_setup import get_logger, setup_logging
+from utils.win_utils import SingleInstanceGuard, center_on_monitor, clamp_to_monitor, enum_monitors
+
+logger = get_logger("main")
+
+APP_NAME = "Hushmix"
 
 
-def get_monitor_info():
-    """Get information about all monitors."""
-    monitors = []
-    
-    def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
-        rect = lprcMonitor.contents
-        monitors.append({
-            'left': rect.left,
-            'top': rect.top,
-            'right': rect.right,
-            'bottom': rect.bottom,
-            'width': rect.right - rect.left,
-            'height': rect.bottom - rect.top
-        })
-        return True
-    
-    enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
-    enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
-    
+def _show_error(title, message, parent=None):
+    """Show an error the user can actually see and dismiss.
+
+    A plain ``messagebox.showerror`` during startup can open *behind* other
+    windows (the app has no visible window yet), which looks exactly like the
+    process hanging: the second instance of Hushmix sat waiting on an invisible
+    modal dialog instead of exiting.  The box is now owned by a temporary
+    topmost root window.
+    """
+    owner = parent
+    temporary = None
+
+    if owner is None:
+        try:
+            temporary = ctk.CTk()
+            temporary.withdraw()
+            temporary.attributes("-topmost", True)
+            owner = temporary
+        except Exception:
+            temporary = None
+            owner = None
+
     try:
-        ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
-    except Exception as e:
-        print(f"Error enumerating monitors: {e}")
-        monitors = [{
-            'left': 0,
-            'top': 0,
-            'right': ctypes.windll.user32.GetSystemMetrics(0),
-            'bottom': ctypes.windll.user32.GetSystemMetrics(1),
-            'width': ctypes.windll.user32.GetSystemMetrics(0),
-            'height': ctypes.windll.user32.GetSystemMetrics(1)
-        }]
-    
-    return monitors
-
-
-def is_position_on_monitor(x, y, monitor):
-    """Check if a position is within a specific monitor bounds."""
-    return (monitor['left'] <= x <= monitor['right'] and 
-            monitor['top'] <= y <= monitor['bottom'])
-
-
-def find_monitor_for_position(x, y, monitors):
-    """Find which monitor contains the given position."""
-    for monitor in monitors:
-        if is_position_on_monitor(x, y, monitor):
-            return monitor
-    return None
-
-
-def validate_window_position(x, y, window_width, window_height, monitors):
-    """Validate and adjust window position to ensure it's visible on a monitor."""
-    target_monitor = find_monitor_for_position(x, y, monitors)
-    
-    if target_monitor is None:
-        best_monitor = monitors[0]
-        min_distance = float('inf')
-        
-        for monitor in monitors:
-            monitor_center_x = monitor['left'] + monitor['width'] // 2
-            monitor_center_y = monitor['top'] + monitor['height'] // 2
-            
-            distance = ((x - monitor_center_x) ** 2 + (y - monitor_center_y) ** 2) ** 0.5
-            
-            if distance < min_distance:
-                min_distance = distance
-                best_monitor = monitor
-        
-        x = best_monitor['left'] + (best_monitor['width'] - window_width) // 2
-        y = best_monitor['top'] + (best_monitor['height'] - window_height) // 2
-    else:
-        x = max(target_monitor['left'], min(x, target_monitor['right'] - window_width))
-        y = max(target_monitor['top'], min(y, target_monitor['bottom'] - window_height))
-    
-    return x, y
-
-
-_mutex_handle = None
-
-def check_single_instance():
-    """Check if another instance of the application is already running."""
-    global _mutex_handle
-    mutex_name = "Hushmix_SingleInstance_Mutex"
-    
-    try:
-        print(f"Attempting to create mutex: {mutex_name}")
-        
-        _mutex_handle = win32event.CreateMutex(None, False, mutex_name)
-        
-        last_error = win32api.GetLastError()
-        print(f"Last error after mutex creation: {last_error}")
-        
-        if last_error == 183:
-            print("Another instance of Hushmix is already running!")
-            return False
-        
-        print("Single instance check passed - no other instances found")
-        return True
-        
-    except Exception as e:
-        print(f"Error with mutex approach: {e}")
-    
-    try:
-        import os
-        import tempfile
-        
-        lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
-        print(f"Trying file-based lock: {lock_file}")
-        
-        if os.path.exists(lock_file):
+        messagebox.showerror(title, message, parent=owner)
+    except Exception:
+        logger.error("%s: %s", title, message)
+    finally:
+        if temporary is not None:
             try:
-                with open(lock_file, 'r') as f:
-                    pid = int(f.read().strip())
-                
-                import psutil
-                if psutil.pid_exists(pid):
-                    print(f"Another instance (PID: {pid}) is already running!")
-                    return False
-                else:
-                    os.remove(lock_file)
-                    print("Removed stale lock file")
-            except:
-                os.remove(lock_file)
-                print("Removed corrupted lock file")
-        
-        with open(lock_file, 'w') as f:
-            f.write(str(os.getpid()))
-        
-        print("File-based lock created successfully")
-        return True
-        
-    except Exception as file_error:
-        print(f"Error with file-based approach: {file_error}")
-        return True
-
-def check_single_instance_simple():
-    try:
-        import os
-        import tempfile
-        import time
-        
-        lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
-        
-        # First, try to create the lock file atomically
-        try:
-            fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with os.fdopen(fd, 'w') as f:
-                f.write(str(os.getpid()))
-            print("Created new lock file successfully")
-            return True
-        except OSError as e:
-            if e.errno == 17:  # File exists
-                print("Lock file already exists - checking if another instance is running")
-                
-                # File exists, let's check if it's a valid running process
-                try:
-                    with open(lock_file, 'r') as f:
-                        pid_str = f.read().strip()
-                        
-                    if pid_str.isdigit():
-                        pid = int(pid_str)
-                        
-                        # Check if this is our own process
-                        if pid == os.getpid():
-                            print("Lock file belongs to this process - continuing")
-                            return True
-                        
-                        # Check if the process is still running
-                        try:
-                            import psutil
-                            if psutil.pid_exists(pid):
-                                try:
-                                    process = psutil.Process(pid)
-                                    process_name = process.name().lower()
-                                    
-                                    # Check if it's a Hushmix process
-                                    if process_name in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
-                                        print(f"Another Hushmix instance (PID: {pid}) is running!")
-                                        return False
-                                    else:
-                                        print(f"Lock file belongs to non-Hushmix process {pid} ({process_name}) - will overwrite")
-                                        # Try to remove and recreate
-                                        try:
-                                            os.remove(lock_file)
-                                            fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                                            with os.fdopen(fd, 'w') as f:
-                                                f.write(str(os.getpid()))
-                                            print("Successfully created new lock file")
-                                            return True
-                                        except OSError as remove_error:
-                                            if remove_error.winerror == 32:
-                                                print("Cannot remove lock file - another instance may be running")
-                                                return False
-                                            else:
-                                                print(f"Error removing lock file: {remove_error}")
-                                                return True  # Continue anyway
-                                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                                    print(f"Process {pid} is no longer accessible - will overwrite lock file")
-                                    # Try to remove and recreate
-                                    try:
-                                        os.remove(lock_file)
-                                        fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                                        with os.fdopen(fd, 'w') as f:
-                                            f.write(str(os.getpid()))
-                                        print("Successfully created new lock file")
-                                        return True
-                                    except OSError as remove_error:
-                                        if remove_error.winerror == 32:
-                                            print("Cannot remove lock file - will continue anyway")
-                                            return True
-                                        else:
-                                            print(f"Error removing lock file: {remove_error}")
-                                            return True
-                            else:
-                                print(f"Process {pid} is no longer running - will overwrite lock file")
-                                # Try to remove and recreate
-                                try:
-                                    os.remove(lock_file)
-                                    fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                                    with os.fdopen(fd, 'w') as f:
-                                        f.write(str(os.getpid()))
-                                    print("Successfully created new lock file")
-                                    return True
-                                except OSError as remove_error:
-                                    if remove_error.winerror == 32:
-                                        print("Cannot remove lock file - will continue anyway")
-                                        return True
-                                    else:
-                                        print(f"Error removing lock file: {remove_error}")
-                                        return True
-                        except ImportError:
-                            print("psutil not available - assuming another instance is running")
-                            return False
-                    else:
-                        print("Lock file contains invalid PID - will overwrite")
-                        try:
-                            os.remove(lock_file)
-                            fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                            with os.fdopen(fd, 'w') as f:
-                                f.write(str(os.getpid()))
-                            print("Successfully created new lock file")
-                            return True
-                        except OSError as remove_error:
-                            if remove_error.winerror == 32:
-                                print("Cannot remove invalid lock file - will continue anyway")
-                                return True
-                            else:
-                                print(f"Error removing invalid lock file: {remove_error}")
-                                return True
-                except Exception as e:
-                    print(f"Error reading lock file: {e}")
-                    # If we can't read the lock file, assume another instance is running
-                    return False
-            else:
-                print(f"Unexpected error creating lock file: {e}")
-                # If we can't create the lock file, we'll continue anyway to avoid blocking the user
-                print("Continuing despite lock file creation error")
-                return True
-        
-    except Exception as e:
-        print(f"Error in single instance check: {e}")
-        # If there's any error, we'll continue anyway to avoid blocking the user
-        print("Continuing despite single instance check error")
-        return True
+                temporary.destroy()
+            except Exception:
+                pass
 
 
-def cleanup_mutex():
-    """Clean up the mutex handle and lock file when the application exits."""
-    global _mutex_handle
-    
-    if _mutex_handle:
-        try:
-            win32api.CloseHandle(_mutex_handle)
-            print("Mutex handle cleaned up")
-        except Exception as e:
-            print(f"Error cleaning up mutex: {e}")
-    
-    try:
-        import os
-        import tempfile
-        import time
-        
-        lock_file = os.path.join(tempfile.gettempdir(), "hushmix_single_instance.lock")
-        if os.path.exists(lock_file):
-            try:
-                with open(lock_file, 'r') as f:
-                    pid_str = f.read().strip()
-                    if pid_str.isdigit():
-                        pid = int(pid_str)
-                        if pid == os.getpid():
-                            try:
-                                os.remove(lock_file)
-                                print("Lock file cleaned up")
-                            except OSError as e:
-                                if e.winerror == 32:  # File is being used by another process
-                                    print("Lock file is being used by another process - will be cleaned up automatically")
-                                else:
-                                    print(f"Could not remove lock file during cleanup: {e}")
-                                    # Try again after a short delay
-                                    time.sleep(0.1)
-                                    try:
-                                        os.remove(lock_file)
-                                        print("Successfully removed lock file after retry")
-                                    except:
-                                        print("Failed to remove lock file during cleanup")
-                        else:
-                            try:
-                                import psutil
-                                process = psutil.Process(pid)
-                                if process.name().lower() not in ['hushmix.exe', 'python.exe', 'pythonw.exe']:
-                                    try:
-                                        os.remove(lock_file)
-                                        print(f"Removed stale lock file from non-Hushmix process {pid} ({process.name()})")
-                                    except OSError as e:
-                                        if e.winerror == 32:
-                                            print(f"Lock file from non-Hushmix process {pid} is being used - will be cleaned up automatically")
-                                        else:
-                                            print(f"Could not remove stale lock file: {e}")
-                            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                                try:
-                                    os.remove(lock_file)
-                                    print(f"Removed stale lock file from inaccessible process {pid}")
-                                except OSError as e:
-                                    if e.winerror == 32:
-                                        print(f"Lock file from inaccessible process {pid} is being used - will be cleaned up automatically")
-                                    else:
-                                        print(f"Could not remove stale lock file: {e}")
-                            except Exception:
-                                try:
-                                    os.remove(lock_file)
-                                    print(f"Removed lock file from uncheckable process {pid}")
-                                except OSError as e:
-                                    if e.winerror == 32:
-                                        print(f"Lock file from uncheckable process {pid} is being used - will be cleaned up automatically")
-                                    else:
-                                        print(f"Could not remove lock file: {e}")
-            except Exception as e:
-                print(f"Error reading lock file during cleanup: {e}")
-                try:
-                    os.remove(lock_file)
-                    print("Removed corrupted lock file during cleanup")
-                except OSError as remove_error:
-                    if remove_error.winerror == 32:
-                        print("Corrupted lock file is being used by another process - will be cleaned up automatically")
-                    else:
-                        print(f"Could not remove corrupted lock file during cleanup: {remove_error}")
-    except Exception as e:
-        print(f"Error cleaning up lock file: {e}")
-
-def main():
-    # Check for corrupted files before starting (but don't aggressively clean them)
-    try:
-        from utils.config_manager import ConfigManager
-        # Only clean up if there are obvious issues
-        ConfigManager.check_corrupted_files()
-    except Exception as e:
-        print(f"Error during file check: {e}")
-    
-    if not check_single_instance_simple():
-        try:
-            messagebox.showerror("Hushmix", "Hushmix is already running!\n\nPlease close the existing instance before opening a new one.")
-        except:
-            print("ERROR: Hushmix is already running! Please close the existing instance before opening a new one.")
-        sys.exit(1)
-    
-    time.sleep(0.1)
-    
+def _install_signal_handlers(guard):
+    """Exit cleanly on SIGINT/SIGTERM (Windows only delivers SIGINT)."""
     import signal
-    def signal_handler(signum, frame):
-        print(f"Received signal {signum}, cleaning up...")
-        cleanup_mutex()
-        sys.exit(0)
-    
-    try:
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-    except (AttributeError, OSError):
-        pass
-    
-    settings = ConfigManager.load_settings()
-    dark_mode = settings.get("dark_mode", True)
-    
-    if dark_mode:
-        ctk.set_appearance_mode("dark")
-    else:
-        ctk.set_appearance_mode("light")
-    
-    root = ctk.CTk()
-    
-    root.withdraw()
-    
+
+    def _handler(signum, frame):
+        logger.info("Received signal %s - shutting down", signum)
+        guard.release()
+        raise SystemExit(0)
+
+    for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
+        signal_number = getattr(signal, name, None)
+        if signal_number is None:
+            continue
+        try:
+            signal.signal(signal_number, _handler)
+        except (ValueError, OSError, AttributeError):
+            pass
+
+
+def _initial_window_position(root, settings):
+    """Compute the startup window position, clamped onto a real monitor."""
+    root.update_idletasks()
+
+    width = max(root.winfo_reqwidth(), 1)
+    height = max(root.winfo_reqheight(), 1)
+
+    monitors = enum_monitors()
     saved_x = settings.get("window_x")
     saved_y = settings.get("window_y")
-    
-    root.update_idletasks()
-    window_width = root.winfo_width()
-    window_height = root.winfo_height()
-    
-    monitors = get_monitor_info()
-    
+
     if saved_x is not None and saved_y is not None:
-        position_x, position_y = validate_window_position(saved_x, saved_y, window_width, window_height, monitors)
-    else:
-        primary_monitor = monitors[0]
-        position_x = primary_monitor['left'] + (primary_monitor['width'] - window_width) // 2
-        position_y = primary_monitor['top'] + (primary_monitor['height'] - window_height) // 2
+        return clamp_to_monitor(int(saved_x), int(saved_y), width, height, monitors)
 
-    root.geometry(f"+{position_x}+{position_y}")
+    return center_on_monitor(width, height, monitors)
 
-    app = HushmixApp(root)
-    
-    def show_window():
-        if not app.settings_manager.get_setting("launch_in_tray"):
+
+def main():
+    setup_logging()
+
+    try:
+        ConfigManager.check_corrupted_files()
+    except Exception as error:
+        logger.warning("Settings check failed: %s", error)
+
+    guard = SingleInstanceGuard()
+    if not guard.acquire():
+        logger.info("Another instance is already running - exiting")
+        _show_error(
+            APP_NAME,
+            "Hushmix is already running!\n\n"
+            "Please close the existing instance before opening a new one.",
+        )
+        # The guard was not acquired, so there is nothing to release.
+        return 1
+
+    atexit.register(guard.release)
+    _install_signal_handlers(guard)
+
+    settings = ConfigManager.load_settings()
+    ctk.set_appearance_mode("dark" if settings.get("dark_mode", True) else "light")
+
+    root = ctk.CTk()
+    root.withdraw()
+
+    from gui.app import HushmixApp
+
+    try:
+        position_x, position_y = _initial_window_position(root, settings)
+        root.geometry(f"+{position_x}+{position_y}")
+
+        app = HushmixApp(root)
+
+        def show_window():
+            if app.settings_manager.get_setting("launch_in_tray"):
+                logger.info("Starting minimised to the tray")
+                return
             root.deiconify()
             root.lift()
-            root.attributes('-topmost', True)
-            root.after_idle(lambda: root.attributes('-topmost', False))
+            root.attributes("-topmost", True)
+            root.after_idle(lambda: root.attributes("-topmost", False))
             root.focus_force()
-    
-    root.after_idle(lambda: root.after(10, show_window))
-    
-    import atexit
-    atexit.register(cleanup_mutex)
 
-    root.mainloop()
+        root.after_idle(lambda: root.after(10, show_window))
+
+        logger.info("Settings file: %s", settings_file())
+        root.mainloop()
+    except Exception as error:
+        logger.exception("Fatal error: %s", error)
+        _show_error(APP_NAME, f"Hushmix encountered a fatal error:\n\n{error}")
+        return 1
+    finally:
+        guard.release()
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

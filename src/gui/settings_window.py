@@ -1,103 +1,85 @@
+"""Settings window (theme, startup behaviour, update preferences)."""
+
 import customtkinter as ctk
-import gui.app as app
-from utils.icon_manager import IconManager
-from utils.dpi_manager import DPIManager
+
+from gui.base_window import BaseWindow
+from utils.color_utils import darken_color, get_windows_accent_color
+
+GENERAL_SETTINGS = [
+    ("Invert Volume Range (100 - 0)", "invert_volumes"),
+    ("Enable Auto Startup", "auto_startup"),
+    ("Launch in Tray", "launch_in_tray"),
+    ("Dark Mode", "dark_mode"),
+]
+
+UPDATE_SETTINGS = [
+    ("Automatically check for updates", "auto_check_updates"),
+]
+
+INTERVAL_OPTIONS = ["15 minutes", "30 minutes", "1 hour", "2 hours", "4 hours", "8 hours"]
 
 
-class SettingsWindow:
-    def __init__(
-        self,
-        parent,
-        config_manager,
-        settings_manager,
-        on_close,
-    ):
-        self.parent = parent
-        self.window = ctk.CTkToplevel(parent)
-        self.window.tk.call("tk", "scaling", 1.0)
-        self.window.withdraw()
+def interval_to_label(seconds):
+    """Render a check interval in seconds as one of the dropdown labels."""
+    minutes = max(1, int(seconds) // 60)
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return "1 hour" if hours == 1 else f"{hours} hours"
+    return f"{minutes} minutes"
 
-        self.setup_window()
 
-        self.window.transient(parent)
+def label_to_seconds(label):
+    """Parse a dropdown label back into seconds."""
+    parts = label.split()
+    value = int(parts[0])
+    return value * 3600 if "hour" in label.lower() else value * 60
 
-        self.accent_color = app.get_windows_accent_color()
-        self.accent_hover = app.darken_color(self.accent_color, 0.2)
 
+class SettingsWindow(BaseWindow):
+    window_name = "settings window"
+    default_size = (380, 430)
+
+    def __init__(self, parent, config_manager, settings_manager, on_close):
+        super().__init__(parent, on_close=on_close)
         self.config_manager = config_manager
         self.settings_manager = settings_manager
-        self.on_close = on_close
-        self.dpi_manager = DPIManager()
 
+        self.accent_color = get_windows_accent_color()
+        self.accent_hover = darken_color(self.accent_color, 0.2)
         self.normal_font_size = 14
 
-        self.setup_gui()
-        self.window.after(
-            50, lambda: (self.window.deiconify(), self.center_window(parent))
-        )
+        self.build("Settings")
+        self.build_gui()
+        self.apply_dpi_scaling()
+        self.show()
 
-        self.window.protocol("WM_DELETE_WINDOW", self.close)
+    # ------------------------------------------------------------------ layout
 
-    def setup_window(self):
-        """Setup main window properties."""
-        self.window.title("Settings")
-        self.window.resizable(False, False)
-        self.window.transient(self.parent)
-        self.window.grab_release()
-
-        ico_path = IconManager.get_ico_file()
-        if ico_path:
-            try:
-                self.window.after(200, lambda: self.window.iconbitmap(ico_path))
-            except Exception as e:
-                print(f"Error setting icon: {e}")
-
-    def setup_gui(self):
+    def build_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
-        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "settings window")
+        self._add_section_label("General Settings", first=True)
+        for text, key in GENERAL_SETTINGS:
+            self._add_checkbox(text, key)
 
-        general_label = ctk.CTkLabel(
-            self.frame,
-            text="General Settings",
-            font=("Segoe UI", 16, "bold")
-        )
-        general_label.pack(pady=(20, 10), padx=15, anchor="w")
+        self._add_section_label("Update Settings")
+        for text, key in UPDATE_SETTINGS:
+            self._add_checkbox(text, key)
 
-        general_settings = [
-            ("Invert Volume Range (100 - 0)", "invert_volumes"),
-            ("Enable Auto Startup", "auto_startup"),
-            ("Launch in Tray", "launch_in_tray"),
-            ("Dark Mode", "dark_mode"),
-        ]
+        self._add_update_interval()
 
-        for text, setting_key in general_settings:
-            self.create_checkbox(text, setting_key)
+    def _add_section_label(self, text, first=False):
+        label = ctk.CTkLabel(self.frame, text=text, font=("Segoe UI", 16, "bold"))
+        label.pack(pady=(8 if first else 20, 10), padx=15, anchor="w")
 
-        update_label = ctk.CTkLabel(
-            self.frame,
-            text="Update Settings",
-            font=("Segoe UI", 16, "bold")
-        )
-        update_label.pack(pady=(20, 10), padx=15, anchor="w")
+    def _add_checkbox(self, text, setting_key):
+        # ``get_setting`` unwraps Tk variables, so it must not be used here: a
+        # checkbox needs the variable object itself.  ``ensure_setting`` returns
+        # the existing BooleanVar or creates one for keys a config file may
+        # predate.
+        variable = self.settings_manager.ensure_setting(setting_key)
 
-        update_settings = [
-            ("Automatically check for updates", "auto_check_updates"),
-        ]
-
-        for text, setting_key in update_settings:
-            self.create_checkbox(text, setting_key)
-
-        self.create_update_interval_setting()
-
-    def create_checkbox(self, text, setting_key):
-        """Create a checkbox for a setting."""
-        variable = self.settings_manager.settings_vars.get(setting_key)
-        if variable is None:
-            print(f"Warning: Setting '{setting_key}' not found in settings manager")
-            return
-            
         checkbox = ctk.CTkCheckBox(
             self.frame,
             text=text,
@@ -106,39 +88,24 @@ class SettingsWindow:
             fg_color=self.accent_color,
             hover_color=self.accent_hover,
         )
-        checkbox.pack(pady=10, padx=15, anchor="w")
+        checkbox.pack(pady=8, padx=15, anchor="w")
 
-    def create_update_interval_setting(self):
-        """Create the update interval setting."""
-        interval_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
-        interval_frame.pack(pady=(5, 10), padx=15, fill="x")
-        
-        interval_label = ctk.CTkLabel(
-            interval_frame,
-            text="Check for updates every:",
-            font=("Segoe UI", self.normal_font_size)
+    def _add_update_interval(self):
+        frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+        frame.pack(pady=(5, 15), padx=15, fill="x")
+
+        label = ctk.CTkLabel(
+            frame, text="Check for updates every:", font=("Segoe UI", self.normal_font_size)
         )
-        interval_label.pack(side="left", padx=(0, 10))
-        
-        current_interval = self.settings_manager.get_setting('update_check_interval', 1800)
-        interval_minutes = current_interval // 60
-        
-        interval_options = ["15 minutes", "30 minutes", "1 hour", "2 hours", "4 hours", "8 hours"]
-        
-        interval_var = ctk.StringVar()
-        if interval_minutes >= 60:
-            hours = interval_minutes // 60
-            if hours == 1:
-                interval_var.set("1 hour")
-            else:
-                interval_var.set(f"{hours} hours")
-        else:
-            interval_var.set(f"{interval_minutes} minutes")
-        
-        interval_menu = ctk.CTkOptionMenu(
-            interval_frame,
-            values=interval_options,
-            variable=interval_var,
+        label.pack(side="left", padx=(0, 10))
+
+        current = self.settings_manager.get_setting("update_check_interval", 1800)
+        self.interval_var = ctk.StringVar(value=interval_to_label(current))
+
+        menu = ctk.CTkOptionMenu(
+            frame,
+            values=INTERVAL_OPTIONS,
+            variable=self.interval_var,
             command=self.change_update_interval,
             font=("Segoe UI", self.normal_font_size),
             fg_color=self.accent_color,
@@ -146,51 +113,23 @@ class SettingsWindow:
             button_hover_color=self.accent_hover,
             dropdown_hover_color=self.accent_hover,
         )
-        interval_menu.pack(side="left")
-        
-        self.interval_var = interval_var
+        menu.pack(side="left")
+
+    # ---------------------------------------------------------------- behaviour
 
     def change_update_interval(self, value):
-        """Change the update check interval."""
+        """Store the chosen interval and let the running checker pick it up."""
         try:
-            if "hour" in value.lower():
-                if value.startswith("1"):
-                    minutes = 60
-                else:
-                    hours = int(value.split()[0])
-                    minutes = hours * 60
-            else:
-                minutes = int(value.split()[0])
-            
-            seconds = minutes * 60
-            self.settings_manager.set_setting('update_check_interval', seconds)
-        except ValueError:
-            pass
+            seconds = label_to_seconds(value)
+        except (ValueError, IndexError):
+            return
 
+        self.settings_manager.set_setting("update_check_interval", seconds)
+        version_manager = getattr(self.parent, "version_manager", None) or getattr(
+            self.parent, "app", None
+        )
+        if version_manager is not None and hasattr(version_manager, "set_check_interval"):
+            version_manager.set_check_interval(seconds)
 
-
-    def center_window(self, parent):
-        self.window.update_idletasks()
-        parent.update_idletasks()
-
-        parent_x = parent.winfo_rootx()
-        parent_y = parent.winfo_rooty()
-        parent_width = parent.winfo_width()
-        parent_height = parent.winfo_height()
-
-        center_x = parent_x + parent_width // 2
-        center_y = parent_y + parent_height // 2
-
-        window_width = self.window.winfo_width()
-        window_height = self.window.winfo_height()
-
-        x = center_x - window_width // 2
-        y = center_y - window_height // 1.8
-
-        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-    def close(self):
-        self.window.grab_release()
-        self.window.destroy()
-        if self.on_close:
-            self.on_close()
+    def on_shown(self):
+        self.window.focus_force()

@@ -1,181 +1,172 @@
-import gui.app as app
-from utils.icon_manager import IconManager
+"""Update available dialog."""
+
 import webbrowser
+
 import customtkinter as ctk
-from utils.dpi_manager import DPIManager
+
+from gui.base_window import BaseWindow
+from utils.color_utils import darken_color, get_windows_accent_color
+
+RELEASES_PAGE = "https://github.com/jennus17/Hushmix/releases/latest"
 
 
-class VersionWindow:
-    def __init__(self, latest_version, parent, update_info=None, version_manager=None, settings_manager=None):
-        self.window = ctk.CTkToplevel(parent)
-        self.window.tk.call("tk", "scaling", 1.0)
-        self.window.withdraw()
+class VersionWindow(BaseWindow):
+    window_name = "version window"
+    default_size = (420, 300)
 
-        self.parent = parent
+    def __init__(
+        self,
+        latest_version,
+        parent,
+        update_info=None,
+        version_manager=None,
+        settings_manager=None,
+        on_close=None,
+    ):
+        super().__init__(parent, on_close=on_close)
         self.latest_version = latest_version
         self.update_info = update_info or {}
         self.version_manager = version_manager
         self.settings_manager = settings_manager
 
-        self.setup_window()
-
-        self.window.transient(parent)
-
-        self.accent_color = app.get_windows_accent_color()
-        self.accent_hover = app.darken_color(self.accent_color, 0.2)
-        self.dpi_manager = DPIManager()
-
+        self.accent_color = get_windows_accent_color()
+        self.accent_hover = darken_color(self.accent_color, 0.2)
         self.normal_font_size = 14
 
-        self.setup_gui(latest_version)
-        self.window.after(
-            50, lambda: (self.window.deiconify(), self.center_window(parent))
-        )
+        self.build("Update available", topmost=True)
+        self.build_gui()
+        self.show()
+        self.apply_dpi_scaling()
 
-        self.window.protocol("WM_DELETE_WINDOW", self.close)
+    # ------------------------------------------------------------------ layout
 
-    def center_window(self, parent):
-        self.window.update_idletasks()
-        parent.update_idletasks()
-
-        parent_x = parent.winfo_rootx()
-        parent_y = parent.winfo_rooty()
-        parent_width = parent.winfo_width()
-        parent_height = parent.winfo_height()
-
-        center_x = parent_x + parent_width // 2
-        center_y = parent_y + parent_height // 2
-
-        window_width = self.window.winfo_width()
-        window_height = self.window.winfo_height()
-
-        x = center_x - window_width // 2
-        y = center_y - window_height // 1.8
-
-        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-    def setup_window(self):
-        self.window.title("Update")
-        self.window.resizable(False, False)
-        self.window.attributes('-topmost', True)
-        self.window.transient(self.parent)
-        self.window.grab_release()
-
-        ico_path = IconManager.get_ico_file()
-        if ico_path:
-            try:
-                self.window.after(200, lambda: self.window.iconbitmap(ico_path))
-            except Exception as e:
-                print(f"Error setting icon: {e}")
-
-    def get_theme_colors(self):
-        """Get button colors based on current theme."""
-        if self.settings_manager:
-            dark_mode = self.settings_manager.get_setting("dark_mode", True)
-            if dark_mode:
-                return {
-                    "fg_color": "#2b2b2b",
-                    "hover_color": "#404040",
-                    "text_color": "#ffffff"
-                }
-            else:
-                return {
-                    "fg_color": "#dbdbdb",
-                    "hover_color": "#c7c7c7",
-                    "text_color": "#000000"
-                }
-        else:
-            return {
-                "fg_color": "transparent",
-                "hover_color": "transparent"
-            }
-
-    def setup_gui(self, latest_version):
-        self.message = f"A new version ({latest_version}) is available!"
-
+    def build_gui(self):
         self.frame = ctk.CTkFrame(self.window, corner_radius=0, border_width=0)
         self.frame.pack(expand=True, fill="both")
 
-        self.dpi_manager.adjust_dpi_scaling_delayed(self.window, "version window")
+        body = self.update_info.get("release_notes") or ""
+        published = self.update_info.get("published_at") or ""
 
-        self.label = ctk.CTkLabel(
-            self.frame, text=self.message, font=("Segoe UI", self.normal_font_size)
-        )
-        self.label.pack(pady=(20, 10), padx=10)
+        ctk.CTkLabel(
+            self.frame,
+            text=f"A new version ({self.latest_version}) is available!",
+            font=("Segoe UI", self.normal_font_size + 1, "bold"),
+            wraplength=380,
+            justify="left",
+        ).pack(pady=(20, 6), padx=15)
 
-        theme_colors = self.get_theme_colors()
-        
-        self.view_release_button = ctk.CTkButton(
+        if published:
+            ctk.CTkLabel(
+                self.frame,
+                text=f"Published: {published[:10]}",
+                font=("Segoe UI", 11),
+            ).pack(pady=(0, 6), padx=15)
+
+        if body:
+            notes = body.strip()
+            if len(notes) > 600:
+                notes = notes[:600] + "…"
+            box = ctk.CTkTextbox(
+                self.frame, height=110, font=("Segoe UI", 11), wrap="word"
+            )
+            box.pack(pady=(0, 10), padx=15, fill="both", expand=True)
+            box.insert("1.0", notes)
+            box.configure(state="disabled")
+
+        theme = self.get_theme_colors()
+
+        ctk.CTkButton(
             self.frame,
             text="View Release",
             command=self.view_release,
             font=("Segoe UI", 12),
             corner_radius=10,
-            fg_color=theme_colors["fg_color"],
-            hover_color=theme_colors["hover_color"],
-            text_color=theme_colors["text_color"],
-        )
-        self.view_release_button.pack(pady=(0, 10), padx=10)
+            fg_color=theme["fg_color"],
+            hover_color=theme["hover_color"],
+            text_color=theme["text_color"],
+        ).pack(pady=(4, 8), padx=15, fill="x")
 
-        self.button_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
-        self.button_frame.pack(pady=(5, 10))
+        buttons = ctk.CTkFrame(self.frame, fg_color="transparent")
+        buttons.pack(pady=(0, 8))
 
-        if self.version_manager:
-            self.auto_update_button = ctk.CTkButton(
-                self.button_frame,
+        if self.version_manager and getattr(self.version_manager, "can_auto_install", True):
+            ctk.CTkButton(
+                buttons,
                 text="Update Now",
                 command=self.auto_update,
                 fg_color=self.accent_color,
                 hover_color=self.accent_hover,
                 font=("Segoe UI", self.normal_font_size),
                 corner_radius=10,
-            )
-            self.auto_update_button.pack(side="left", padx=5)
+            ).pack(side="left", padx=5)
 
-        self.manual_update_button = ctk.CTkButton(
-            self.button_frame,
+        ctk.CTkButton(
+            buttons,
             text="Manual Download",
             command=self.manual_download,
             fg_color="gray",
             hover_color="#555555",
             font=("Segoe UI", self.normal_font_size),
             corner_radius=10,
-        )
-        self.manual_update_button.pack(side="left", padx=5)
+        ).pack(side="left", padx=5)
 
-        self.remind_button = ctk.CTkButton(
+        ctk.CTkButton(
             self.frame,
-            text="Remind Later",
+            text="Remind Me Later",
             command=self.close,
             font=("Segoe UI", 12),
             corner_radius=10,
-            fg_color=theme_colors["fg_color"],
-            hover_color=theme_colors["hover_color"],
-            text_color=theme_colors["text_color"],
-        )
-        self.remind_button.pack(pady=(10, 5))
+            fg_color=theme["fg_color"],
+            hover_color=theme["hover_color"],
+            text_color=theme["text_color"],
+        ).pack(pady=(4, 4))
+
+        if self.version_manager is not None:
+            ctk.CTkButton(
+                self.frame,
+                text=f"Skip version {self.latest_version}",
+                command=self.skip_this_version,
+                font=("Segoe UI", 11),
+                corner_radius=10,
+                fg_color="transparent",
+                hover_color=theme["hover_color"],
+                text_color=theme["text_color"],
+                height=24,
+            ).pack(pady=(0, 12))
+
+    def get_theme_colors(self):
+        dark_mode = True
+        if self.settings_manager:
+            dark_mode = self.settings_manager.get_setting("dark_mode", True)
+
+        if dark_mode:
+            return {"fg_color": "#2b2b2b", "hover_color": "#404040", "text_color": "#ffffff"}
+        return {"fg_color": "#dbdbdb", "hover_color": "#c7c7c7", "text_color": "#000000"}
+
+    # --------------------------------------------------------------- behaviour
 
     def auto_update(self):
-        """Start automatic update process."""
-        self.close()
+        """Open the download progress window."""
         from gui.update_progress_window import UpdateProgressWindow
+
+        self.close()
         UpdateProgressWindow(self.parent, self.update_info, self.version_manager)
 
     def view_release(self):
-        """Open the GitHub release page."""
-        release_page = self.update_info.get('release_page', "https://github.com/jennus17/Hushmix/releases/latest")
-        webbrowser.open(release_page)
+        webbrowser.open(self.update_info.get("release_page", RELEASES_PAGE))
 
     def manual_download(self):
-        """Open manual download links."""
-        download_url = self.update_info.get('download_url', f"https://github.com/jennus17/Hushmix/releases/download/{self.latest_version}/Hushmix.exe")
-        release_page = self.update_info.get('release_page', "https://github.com/jennus17/Hushmix/releases/latest")
-        
-        webbrowser.open(download_url)
-        webbrowser.open(release_page)
+        download_url = self.update_info.get("download_url")
+        if download_url:
+            webbrowser.open(download_url)
+        webbrowser.open(self.update_info.get("release_page", RELEASES_PAGE))
         self.close()
 
-    def close(self):
-        self.window.destroy()
-
-
+    def skip_this_version(self):
+        """Persistently ignore this release (no further prompts for it)."""
+        if self.version_manager is not None:
+            try:
+                self.version_manager.skip_version(self.latest_version)
+            except Exception:
+                pass
+        self.close()

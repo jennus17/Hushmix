@@ -1,10 +1,27 @@
+"""Main window behaviour: icon, tray integration and position persistence.
+
+The previous version called ``save_to_config()`` - a full settings rewrite -
+from ``<Configure>``, i.e. once per frame while the user dragged the window.
+Position saving is now debounced, and the tray icon is only started when it was
+actually created (``Image.open`` used to fail on the missing icon file and the
+following ``self.icon.run_detached`` then raised inside a daemon thread,
+leaving the app with no tray icon at all).
+"""
+
 import ctypes
 import threading
-from pystray import Icon, MenuItem, Menu
+
 from PIL import Image
-import customtkinter as ctk
+from pystray import Icon, Menu, MenuItem
+
 from utils.icon_manager import IconManager
-from utils.dpi_manager import DPIManager
+from utils.logging_setup import get_logger
+from utils.win_utils import enum_monitors, find_monitor_for_position, get_monitor_dpi
+
+logger = get_logger("window_manager")
+
+POSITION_SAVE_DELAY_MS = 400
+APP_USER_MODEL_ID = "Hushmix"
 
 
 class WindowManager:
@@ -13,168 +30,179 @@ class WindowManager:
         self.app = app_instance
         self.icon = None
         self.last_position = None
-        self.dpi_manager = DPIManager()
-        
+
+        self._position_save_job = None
+        self._last_dpi = None
+
         self.setup_window()
         self.setup_tray_icon()
         self.setup_window_position_tracking()
-    
+
+    # ------------------------------------------------------------------ window
+
     def setup_window(self):
-        """Setup main window properties."""
+        """Apply the main window properties and icon."""
         self.root.title("Hushmix")
         self.root.resizable(False, False)
-        
         self.root.configure(bg=self.get_theme_bg_color())
 
-        ico_path = IconManager.get_ico_file()
-        if ico_path:
-            try:
-                myappid = "Hushmix"
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-                self.root.iconbitmap(default=ico_path)
-                self.root.wm_iconbitmap(ico_path)
-            except Exception as e:
-                print(f"Error setting taskbar icon: {e}")
-    
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                APP_USER_MODEL_ID
+            )
+        except Exception as error:
+            logger.debug("Could not set the AppUserModelID: %s", error)
+
+        IconManager.apply_to_window(self.root)
+
     def get_theme_bg_color(self):
-        """Get the appropriate background color based on theme."""
+        """Background colour matching the active theme."""
         try:
             if self.app.settings_manager.get_setting("dark_mode", True):
-                return "#2b2b2b"  # Dark theme background
-            else:
-                return "#f0f0f0"  # Light theme background
-        except:
-            return "#2b2b2b"  # Default to dark theme
+                return "#2b2b2b"
+            return "#f0f0f0"
+        except Exception:
+            return "#2b2b2b"
+
+    # -------------------------------------------------------------------- tray
 
     def setup_tray_icon(self):
-        """Setup system tray icon."""
+        """Create the system tray icon and run it on its own thread."""
+        self.root.protocol("WM_DELETE_WINDOW", self.app.on_close)
+
+        image = IconManager.get_icon_image(size=64)
+        if image is None:
+            image = Image.new("RGBA", (64, 64), (33, 150, 243, 255))
+            logger.warning("Using a placeholder tray icon")
+
         menu = Menu(
-            MenuItem("Restore", self.restore_window, default=True, visible=False),
+            MenuItem("Restore", self.restore_window, default=True),
+            MenuItem("Settings", self.app.show_settings),
             MenuItem("Exit", self.app.on_exit),
         )
 
-        ico_path = IconManager.get_ico_file()
-
         try:
-            icon_image = Image.open(ico_path)
-            self.icon = Icon("Hushmix", icon=icon_image, menu=menu, title="Hushmix")
-        except Exception as e:
-            print(f"Error setting up tray icon: {e}")
+            self.icon = Icon("Hushmix", icon=image, menu=menu, title="Hushmix")
+        except Exception as error:
+            logger.warning("Could not create the tray icon: %s", error)
+            self.icon = None
+            return
 
-        threading.Thread(target=self.icon.run_detached, daemon=True).start()
-        self.root.protocol("WM_DELETE_WINDOW", self.app.on_close)
+        thread = threading.Thread(
+            target=self._run_tray_icon, name="tray-icon", daemon=True
+        )
+        thread.start()
 
-    def setup_window_position_tracking(self):
-        """Setup window position tracking to save position when moved."""
-        self.last_position = None
-        self.root.bind("<Configure>", self.on_window_configure)
-        
-    def on_window_configure(self, event):
-        """Handle window configuration changes (move, resize)."""
-        if event.widget == self.root:
-            current_position = (self.root.winfo_x(), self.root.winfo_y())
-            
-            if self.last_position != current_position:
-                self.last_position = current_position
-                
-                x, y = current_position
-                self.dpi_manager.adjust_dpi_scaling(
-                    self.root, x, y, "main window",
-                    lambda: self.app.gui_components.refresh_gui() if hasattr(self.app, 'gui_components') else None
-                )
-                
-                self.save_window_position()
-                
-    def save_window_position(self):
-        """Save current window position to settings."""
+    def _run_tray_icon(self):
         try:
-            x = self.root.winfo_x()
-            y = self.root.winfo_y()
-            
-            monitors = self.get_monitor_info()
-            window_width = self.root.winfo_width()
-            window_height = self.root.winfo_height()
-            
-            target_monitor = self.find_monitor_for_position(x, y, monitors)
-            
-            if target_monitor is not None:
-                self.app.settings_manager.set_setting("window_x", x)
-                self.app.settings_manager.set_setting("window_y", y)
-                
-                self.app.settings_manager.save_to_config()
-            else:
-                print("Window position is not on any monitor, not saving position")
-                
-        except Exception as e:
-            print(f"Error saving window position: {e}")
-    
-    def get_monitor_info(self):
-        """Get information about all monitors."""
-        import ctypes
-        from ctypes.wintypes import RECT
-        
-        monitors = []
-        
-        def enum_monitor_proc(hMonitor, hdcMonitor, lprcMonitor, dwData):
-            rect = lprcMonitor.contents
-            monitors.append({
-                'left': rect.left,
-                'top': rect.top,
-                'right': rect.right,
-                'bottom': rect.bottom,
-                'width': rect.right - rect.left,
-                'height': rect.bottom - rect.top
-            })
-            return True
-        
-        enum_monitor_proc_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(RECT), ctypes.c_ulong)
-        enum_monitor_proc_func = enum_monitor_proc_type(enum_monitor_proc)
-        
-        try:
-            ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_monitor_proc_func, 0)
-        except Exception as e:
-            print(f"Error enumerating monitors: {e}")
-            monitors = [{
-                'left': 0,
-                'top': 0,
-                'right': ctypes.windll.user32.GetSystemMetrics(0),
-                'bottom': ctypes.windll.user32.GetSystemMetrics(1),
-                'width': ctypes.windll.user32.GetSystemMetrics(0),
-                'height': ctypes.windll.user32.GetSystemMetrics(1)
-            }]
-        
-        return monitors
-    
-    def is_position_on_monitor(self, x, y, monitor):
-        """Check if a position is within a specific monitor bounds."""
-        return (monitor['left'] <= x <= monitor['right'] and 
-                monitor['top'] <= y <= monitor['bottom'])
-    
-    def find_monitor_for_position(self, x, y, monitors):
-        """Find which monitor contains the given position."""
-        for monitor in monitors:
-            if self.is_position_on_monitor(x, y, monitor):
-                return monitor
-        return None
+            self.icon.run_detached()
+        except Exception as error:
+            logger.warning("Tray icon stopped: %s", error)
+            self.icon = None
 
     def restore_window(self, icon=None, item=None):
-        """Restore window from tray."""
-        if not self.root.winfo_viewable():
+        """Bring the main window back from the tray or the taskbar."""
+        try:
             self.root.deiconify()
             self.root.lift()
-            self.root.attributes('-topmost', True)
-            self.root.after_idle(lambda: self.root.attributes('-topmost', False))
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(lambda: self.root.attributes("-topmost", False))
             self.root.focus_force()
-            
+            self.apply_dpi_scaling()
+        except Exception as error:
+            logger.warning("Could not restore the window: %s", error)
+
+    # ----------------------------------------------------------------- position
+
+    def setup_window_position_tracking(self):
+        """Persist the window position without writing on every frame."""
+        self.last_position = None
+        self.root.bind("<Configure>", self.on_window_configure)
+
+    def on_window_configure(self, event):
+        """Track moves and re-apply DPI scaling when the window changes monitor."""
+        if event.widget is not self.root:
+            return
+
+        position = (event.x, event.y)
+        if position == self.last_position:
+            return
+        self.last_position = position
+
+        self.apply_dpi_scaling(x=event.x, y=event.y)
+        self.schedule_position_save()
+
+    def schedule_position_save(self):
+        """Debounce window-position writes (fires 400 ms after the last move)."""
+        if self._position_save_job is not None:
+            try:
+                self.root.after_cancel(self._position_save_job)
+            except Exception:
+                pass
+
+        self._position_save_job = self.root.after(
+            POSITION_SAVE_DELAY_MS, self.save_window_position
+        )
+
+    def save_window_position(self):
+        """Store the window position when it is visible on a monitor."""
+        self._position_save_job = None
+        try:
             x = self.root.winfo_x()
             y = self.root.winfo_y()
-            self.dpi_manager.adjust_dpi_scaling(
-                self.root, x, y, "main window",
-                lambda: self.app.gui_components.refresh_gui() if hasattr(self.app, 'gui_components') else None
-            )
+
+            if find_monitor_for_position(x, y, enum_monitors()) is None:
+                logger.debug("Window is off-screen (%d, %d) - not saving", x, y)
+                return
+
+            self.app.settings_manager.set_setting("window_x", x)
+            self.app.settings_manager.set_setting("window_y", y)
+            self.app.settings_manager.save_to_config()
+        except Exception as error:
+            logger.warning("Error saving window position: %s", error)
+
+    def apply_dpi_scaling(self, x=None, y=None):
+        """Match Tk scaling to the monitor under the window."""
+        try:
+            if x is None or y is None:
+                x = self.root.winfo_x()
+                y = self.root.winfo_y()
+
+            scaling = get_monitor_dpi(x, y)
+            if self._last_dpi is not None and abs(scaling - self._last_dpi) <= 0.01:
+                return
+            self._last_dpi = scaling
+
+            self.root.tk.call("tk", "scaling", scaling)
+            self.root.update_idletasks()
+
+            gui = getattr(self.app, "gui_components", None)
+            if gui is not None:
+                gui.refresh_gui()
+        except Exception as error:
+            logger.debug("Error adjusting DPI scaling: %s", error)
+
+    def clamp_position(self, x, y, width, height):
+        """Deprecated: use :func:`utils.win_utils.clamp_to_monitor`."""
+        from utils.win_utils import clamp_to_monitor
+
+        return clamp_to_monitor(x, y, width, height, enum_monitors())
+
+    # ----------------------------------------------------------------- cleanup
 
     def cleanup(self):
-        """Cleanup tray icon."""
-        if self.icon:
-            self.icon.visible = False
-            self.icon.stop() 
+        """Stop the tray icon and cancel pending work (idempotent)."""
+        if self._position_save_job is not None:
+            try:
+                self.root.after_cancel(self._position_save_job)
+            except Exception:
+                pass
+            self._position_save_job = None
+
+        icon = self.icon
+        self.icon = None
+        if icon is not None:
+            try:
+                icon.stop()
+            except Exception as error:
+                logger.debug("Error stopping the tray icon: %s", error)

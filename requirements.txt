@@ -1,30 +1,29 @@
-# Required packages for the Hushmix application
+# Hushmix runtime dependencies
+#
+# Targets Python 3.10 - 3.12 (64-bit).  The old pin on pycaw 20181226 is rarely
+# installable on current Python/Windows SDK combinations, so compatible ranges
+# are used.  numpy/matplotlib were listed here but never imported by the
+# application; the signal filtering is implemented in pure Python.
 
-# Audio control and Windows API
-pycaw==20181226  # Python Core Audio Windows Library for controlling audio
-comtypes==1.2.0  # COM support for Python, used for Windows API calls
-pywin32>=305     # Python bindings for Windows APIs
+# --- Audio control (Windows Core Audio) -------------------------------------
+pycaw>=20240210            # Core Audio bindings (AudioUtilities, IAudioEndpointVolume)
+comtypes>=1.4.0            # COM support required by pycaw
+pywin32>=306               # win32api / win32event / win32gui / win32process
 
-# Serial communication
-pyserial==3.5    # Serial communication library for Python
+# --- Hardware mixer ----------------------------------------------------------
+pyserial>=3.5              # Serial communication with the mixer
 
-# System utilities
-psutil==5.9.5    # Cross-platform library for retrieving information on running processes and system utilization
+# --- System utilities --------------------------------------------------------
+psutil>=5.9                # Process lookup for the "current application" target
 
-# GUI and system tray
-customtkinter==5.1.0  # CustomTkinter for enhanced tkinter UI
-pystray==0.19.4  # Library for creating system tray applications
+# --- GUI ---------------------------------------------------------------------
+customtkinter>=5.2.0       # Themed Tk widgets
+pystray>=0.19.4            # System tray icon
+Pillow>=10.0.0             # Image handling for the tray icon
 
-# Image processing
-Pillow==10.0.0   # Python Imaging Library (PIL) fork for image processing
+# --- Updates -----------------------------------------------------------------
+requests>=2.31.0           # GitHub releases API and the update download
+pefile>=2023.2.7           # Reads ProductVersion out of Hushmix.exe
 
-# HTTP requests and file processing
-requests>=2.31.0  # HTTP library for making requests to GitHub API
-pefile>=2023.2.7  # PE file parser for reading executable version information
-
-# Keyboard automation
-pyautogui>=0.9.54  # Cross-platform GUI automation for sending keyboard shortcuts
-
-# Advanced filtering and signal processing
-numpy>=1.24.0    # Numerical computing library for advanced filtering algorithms
-matplotlib>=3.7.0 # Plotting library for filter testing and visualization
+# --- Button actions ----------------------------------------------------------
+pyautogui>=0.9.54          # Keyboard shortcuts and media keys
