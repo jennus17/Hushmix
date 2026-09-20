@@ -69,6 +69,18 @@ resource, the update checker and the built binary all read it from there.
 1. Bump `__version__` in `src/version.py` and run `python build_tools/build.py`.
 2. Create a GitHub release tagged `v<version>` and upload **both**
    `dist/Hushmix.exe` and `dist/Hushmix.exe.sha256`.
+3. Verify what you published:
+
+   ```bash
+   python build_tools/verify_release.py v0.5.0 --from v0.4.6
+   ```
+
+   That fetches the release through the same code path the application uses:
+   it confirms both assets are attached, downloads the published executable and
+   compares its SHA-256 with the published checksum, checks the checksum file's
+   format, and (with `--from`) that the release really is newer than the version
+   it should replace. Exit code 0 means an installed Hushmix will verify the
+   download too.
 
 Uploading the checksum matters: without it the updater can only confirm that a
 downloaded file looks like a Windows executable, so a truncated or substituted
