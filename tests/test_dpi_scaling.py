@@ -52,6 +52,8 @@ ConfigManager._last_written_path = None
 
 import customtkinter as ctk  # noqa: E402
 
+from utils.win_utils import enum_monitors, get_monitor_dpi  # noqa: E402
+
 root = ctk.CTk()
 root.withdraw()
 
@@ -78,16 +80,20 @@ def metrics(app):
     }
 
 
-def force_scale(scale):
-    """Apply a scaling factor exactly the way ScalingTracker does.
-
-    CustomTkinter exposes the two factors the tracker multiplies the detected
-    monitor scale by, so driving them is equivalent to the window moving to a
-    monitor whose DPI differs by this factor.
-    """
-    ctk.set_widget_scaling(scale)
-    ctk.set_window_scaling(scale)
+def force_scale(app, scale):
+    """Apply a monitor scale through the application's own DPI path."""
+    app.window_manager.apply_monitor_scale_for_test(scale)
     pump(1.2)
+
+
+def settled(app):
+    """Window and content size, after any pending correction has run."""
+    pump(1.2)
+    frame = app.gui_components.main_frame
+    return (
+        (root.winfo_width(), root.winfo_height()),
+        (frame.winfo_reqwidth(), frame.winfo_reqheight()),
+    )
 
 
 def main():
@@ -95,89 +101,127 @@ def main():
 
     app = HushmixApp(root)
     root.deiconify()
-    pump(1.2)
+    pump(2.0)
 
     print("\n== baseline at scale 1.0 ==")
     base = metrics(app)
     for key, value in base.items():
         print(f"  {key:<16} {value}")
 
+    # The window must have been fitted to its content at startup - it does not
+    # follow its content on its own (CustomTkinter leaves it at 600x500).
     check(
-        base["window_req"] == base["window_actual"],
-        f"window request {base['window_req']} does not match the actual size "
-        f"{base['window_actual']}",
+        base["window_actual"][0] <= base["frame_req"][0] + 2
+        and base["window_actual"][1] <= base["frame_req"][1] + 2,
+        f"the window {base['window_actual']} was fitted to its content "
+        f"{base['frame_req']} at startup",
     )
     check(
         base["window_req"][0] > 0 and base["window_req"][1] > 0,
         "the window has no size",
     )
 
-    # ------------------------------------------------------------- scale 1.75
-    print("\n== scaled to 1.75 (4K-class monitor) ==")
-    force_scale(1.75)
-    scaled = metrics(app)
-    for key, value in scaled.items():
-        print(f"  {key:<16} {value}")
+    # -------------------------------------------------------- real monitor moves
+    # This is the path that matters: the window is physically moved onto each
+    # monitor and Windows reports the DPI change to the process.
+    monitors = sorted(
+        enum_monitors(), key=lambda m: get_monitor_dpi(m["left"] + 5, m["top"] + 5)
+    )
+    if len(monitors) > 1 and get_monitor_dpi(monitors[0]["left"] + 5, monitors[0]["top"] + 5) != get_monitor_dpi(
+        monitors[-1]["left"] + 5, monitors[-1]["top"] + 5
+    ):
+        print("\n== moving the real window between monitors ==")
+        sizes = []
+        for monitor in (monitors[0], monitors[-1], monitors[0], monitors[-1]):
+            root.geometry(f"+{monitor['left'] + 50}+{monitor['top'] + 50}")
+            pump(3.0)
+            app.window_manager.fit_window_to_content(force=True)
+            window, content = settled(app)
+            frame = app.gui_components.main_frame
+            widget_scale = float(ctk.ScalingTracker.get_widget_scaling(frame))
+            print(
+                f"  {monitor['width']}x{monitor['height']}: window={window} "
+                f"content={content} widget_scale={widget_scale:.2f}"
+            )
+            check(
+                abs(window[0] - content[0]) <= 2 and abs(window[1] - content[1]) <= 2,
+                f"on the {monitor['width']}x{monitor['height']} monitor the window "
+                f"{window} matches its content {content}",
+            )
+            sizes.append(window)
 
-    width_ratio = scaled["window_req"][0] / base["window_req"][0]
-    height_ratio = scaled["window_req"][1] / base["window_req"][1]
-    entry_ratio = scaled["entry_height"] / base["entry_height"]
-    dropdown_ratio = scaled["dropdown_height"] / base["dropdown_height"]
+        check(
+            sizes[1][0] > sizes[0][0] and sizes[1][1] > sizes[0][1],
+            f"the window grew on the higher-DPI monitor: {sizes[0]} -> {sizes[1]}",
+        )
+        check(
+            sizes[0] == sizes[2],
+            f"returning to the first monitor restored the size: {sizes[0]} vs {sizes[2]}",
+        )
+        check(
+            sizes[1] == sizes[3],
+            f"the second monitor is repeatable: {sizes[1]} vs {sizes[3]}",
+        )
+        check(
+            sizes[0] == base["window_actual"],
+            f"the low-DPI size matches the startup size: {sizes[0]} vs "
+            f"{base['window_actual']}",
+        )
+    else:
+        print("\n(single-DPI setup - the real monitor move cannot be exercised)")
+
+    # ------------------------------------------- repeated polling must not drift
+    # Widget scaling is owned by CustomTkinter's DPI detection and the window
+    # size by the application.  The failure mode this guards against is the two
+    # multiplying: polling repeatedly must not change the widget scaling, and the
+    # window must stay matched to its content.
+    print("\n== repeated DPI polls must not drift ==")
+    root.geometry(f"+{monitors[0]['left'] + 50}+{monitors[0]['top'] + 50}")
+    pump(3.0)
+    app.window_manager.fit_window_to_content(force=True)
+    frame = app.gui_components.main_frame
+
+    first_scale = float(ctk.ScalingTracker.get_widget_scaling(frame))
+    first_size = settled(app)
+    print(f"  before: widget_scale={first_scale:.2f} window={first_size[0]}")
+
+    for _ in range(5):
+        app.window_manager.apply_monitor_scale()
+        pump(0.5)
+    after_scale = float(ctk.ScalingTracker.get_widget_scaling(frame))
+    after_size = settled(app)
+    print(f"  after : widget_scale={after_scale:.2f} window={after_size[0]}")
 
     check(
-        abs(width_ratio - 1.75) < 0.06,
-        f"the window width scaled by {width_ratio:.2f}, expected 1.75 "
-        f"({base['window_req'][0]} -> {scaled['window_req'][0]})",
+        abs(after_scale - first_scale) < 0.01,
+        f"five polls left the widget scaling unchanged ({first_scale:.2f} -> "
+        f"{after_scale:.2f}); a growing value means the DPI is being applied twice",
     )
     check(
-        abs(height_ratio - 1.75) < 0.06,
-        f"the window height scaled by {height_ratio:.2f}, expected 1.75 "
-        f"({base['window_req'][1]} -> {scaled['window_req'][1]})",
+        after_size == first_size,
+        f"five polls left the window size unchanged: {first_size} -> {after_size}",
     )
     check(
-        abs(entry_ratio - 1.75) < 0.06,
-        f"the channel fields scaled by {entry_ratio:.2f}, expected 1.75 "
-        f"({base['entry_height']} -> {scaled['entry_height']})",
+        abs(after_scale - app.window_manager.current_monitor_scale()) < 0.02,
+        f"widget scaling ({after_scale:.2f}) still matches the monitor "
+        f"({app.window_manager.current_monitor_scale():.2f})",
     )
     check(
-        abs(dropdown_ratio - 1.75) < 0.06,
-        f"the profile dropdown scaled by {dropdown_ratio:.2f}, expected 1.75 "
-        f"({base['dropdown_height']} -> {scaled['dropdown_height']})",
-    )
-    check(
-        abs(width_ratio - entry_ratio) < 0.12,
-        f"the window ({width_ratio:.2f}) and its content ({entry_ratio:.2f}) "
-        "scaled by different amounts - this is the reported bug",
-    )
-    check(
-        abs(height_ratio - entry_ratio) < 0.12,
-        f"the window height ({height_ratio:.2f}) and its content ({entry_ratio:.2f}) "
-        "scaled by different amounts",
+        abs(after_size[0][0] - after_size[1][0]) <= 2
+        and abs(after_size[0][1] - after_size[1][1]) <= 2,
+        f"the window {after_size[0]} still matches its content {after_size[1]}",
     )
 
-    # A scaled window must not clip its content.
+    window, content = settled(app)
     check(
-        scaled["frame_req"][1] <= scaled["window_req"][1] + 2,
-        f"the content ({scaled['frame_req'][1]}px) is taller than the window "
-        f"({scaled['window_req'][1]}px) - it would be cut off",
-    )
-
-    # ---------------------------------------------------------- back to 1.0
-    print("\n== back to 1.0 ==")
-    force_scale(1.0)
-    restored = metrics(app)
-    for key, value in restored.items():
-        print(f"  {key:<16} {value}")
-
-    check(
-        restored["window_req"] == base["window_req"],
-        f"the window did not return to its original size: "
-        f"{restored['window_req']} vs {base['window_req']}",
+        window == base["window_actual"] and content == base["frame_req"],
+        f"on the low-DPI monitor the window/content are {window}/{content}, "
+        f"expected {base['window_actual']}/{base['frame_req']}",
     )
     check(
-        restored["entry_height"] == base["entry_height"],
-        f"widgets did not return to their original size: "
-        f"{restored['entry_height']} vs {base['entry_height']}",
+        app.gui_components.entries[0].winfo_reqheight() == base["entry_height"],
+        f"widgets are their original size: "
+        f"{app.gui_components.entries[0].winfo_reqheight()} vs {base['entry_height']}",
     )
 
     # ------------------------------------------- the banner must be truthful

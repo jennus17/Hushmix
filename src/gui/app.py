@@ -126,6 +126,9 @@ class HushmixApp:
 
         self.window_manager.setup_window()
         self.gui_components.setup_gui()
+        # The window does not follow its content on its own (CustomTkinter leaves
+        # it at its 600x500 default), so size it once the interface exists.
+        self.window_manager.fit_window_to_content(force=True)
 
         self.version_manager = EnhancedVersionManager(self.root, self.settings_manager)
         # The updater replaces the binary and ends the process, so it must be

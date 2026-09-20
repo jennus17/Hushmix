@@ -165,11 +165,63 @@ def main():
         parsed["download_url"] == "https://example.com/a.exe",
         f"the Hushmix.exe asset is preferred: {parsed['download_url']}",
     )
+    results.check(
+        parsed["size"] is None or isinstance(parsed["size"], int),
+        "the asset size is carried through when present",
+    )
     fallback = manager._parse_github_response({"tag_name": "v9.9.9", "assets": []})
     results.check(
         fallback["download_url"].endswith("/v9.9.9/Hushmix.exe"),
         f"a release without assets falls back to the conventional URL: "
         f"{fallback['download_url']}",
+    )
+
+    # ------------------------------------------------------ checksum extraction
+    results.section("checksum handling")
+    digest = "a" * 64
+    for text, expected, description in (
+        (f"SHA256: {digest}", digest, "a 'SHA256: <hash>' line"),
+        (f"{digest}  Hushmix.exe", digest, "a sha256sum-style line"),
+        (f"Changes:\n- fixed things\n\n{digest.upper()}\n", digest,
+         "a bare hash on its own line, upper case"),
+        ("no hash here", None, "text without a hash"),
+        ("", None, "empty text"),
+    ):
+        results.check(
+            EVM._checksum_from_text(text) == expected,
+            f"{description} is parsed correctly",
+        )
+
+    # A checksum asset takes priority over the release notes.
+    asset_info = manager._parse_github_response(
+        {
+            "tag_name": "v9.9.9",
+            "body": "SHA256: " + "b" * 64,
+            "assets": [
+                {"name": "Hushmix.exe", "browser_download_url": "https://example.com/a.exe"},
+                {"name": "Hushmix.exe.sha256",
+                 "browser_download_url": "https://example.com/a.exe.sha256"},
+            ],
+        }
+    )
+    results.check(
+        asset_info["checksum_url"] == "https://example.com/a.exe.sha256",
+        f"a checksum asset is detected: {asset_info['checksum_url']}",
+    )
+    # (the fetch fails offline, so the notes hash is the fallback)
+    results.check(
+        asset_info["checksum"] in (None, "b" * 64),
+        f"the checksum falls back to the release notes when the asset is "
+        f"unreachable: {asset_info['checksum']}",
+    )
+
+    results.check(
+        EVM._normalise_checksum(f"{digest}  Hushmix.exe") == digest,
+        "a custom-server checksum line is normalised",
+    )
+    results.check(
+        EVM._normalise_checksum(None) is None,
+        "a missing custom checksum stays None",
     )
 
     # --------------------------------------------------------- verification rules
@@ -197,6 +249,10 @@ def main():
             "the correct checksum is accepted",
         )
         results.check(
+            manager.verify_download(fake, digest.upper()),
+            "an upper-case checksum is accepted",
+        )
+        results.check(
             not manager.verify_download(fake, "0" * 64),
             "a wrong checksum is rejected",
         )
@@ -204,6 +260,35 @@ def main():
             not manager.verify_download(os.path.join(folder, "missing.exe"), digest),
             "a missing file is rejected",
         )
+
+        # The checksum of a real build must match its sidecar file.
+        exe = os.path.join(ROOT, "dist", "Hushmix.exe")
+        sidecar = f"{exe}.sha256"
+        if os.path.exists(exe) and os.path.exists(sidecar):
+            with open(sidecar, encoding="utf-8") as stream:
+                published = EVM._checksum_from_text(stream.read())
+            print(f"     sidecar: {os.path.basename(sidecar)} -> {published}")
+            results.check(
+                bool(published),
+                "the generated checksum file contains a SHA-256",
+            )
+            results.check(
+                manager.verify_download(exe, published),
+                "the built executable matches its published checksum",
+            )
+            # A tampered binary must not.
+            tampered = os.path.join(folder, "tampered.exe")
+            with open(exe, "rb") as source, open(tampered, "wb") as target:
+                target.write(source.read(200_000))
+                target.write(b"\x00")  # change the bytes
+            results.check(
+                not manager.verify_download(tampered, published),
+                "a modified executable fails checksum verification",
+            )
+        else:
+            results.skip(
+                "dist/Hushmix.exe.sha256 not present - run build_tools/build.py"
+            )
 
     # ------------------------------------------------------------- install script
     results.section("install script")

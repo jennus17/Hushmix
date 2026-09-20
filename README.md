@@ -58,10 +58,38 @@ python build_tools/build.py --clean
 ```
 
 The result is `dist/Hushmix.exe` (single file, no console window, with the
-application icon and a version resource generated from `src/version.py`).
+application icon and a version resource generated from `src/version.py`), plus
+`dist/Hushmix.exe.sha256`.
 
 Fix a release version by editing `__version__` in `src/version.py`; the version
 resource, the update checker and the built binary all read it from there.
+
+### Publishing a release
+
+1. Bump `__version__` in `src/version.py` and run `python build_tools/build.py`.
+2. Create a GitHub release tagged `v<version>` and upload **both**
+   `dist/Hushmix.exe` and `dist/Hushmix.exe.sha256`.
+
+Uploading the checksum matters: without it the updater can only confirm that a
+downloaded file looks like a Windows executable, so a truncated or substituted
+download would pass. With it, the download is verified byte for byte.
+
+If you prefer not to upload the file, paste the hash into the release notes
+instead - the updater reads a `SHA256: <hash>` line from there:
+
+```bash
+python build_tools/make_checksum.py    # prints both the file and that line
+```
+
+### Smart App Control
+
+Windows Smart App Control blocks unsigned executables. On a machine where it is
+enabled you may see "This command cannot be run due to the error: an Application
+Control policy blocked this file", and Code Integrity logs *"did not meet the
+Enterprise signing level requirements"* for `dist\Hushmix.exe`. That is a machine
+policy, not a fault in the build: `Hushmix.exe` is unsigned. Distributing the
+application therefore requires signing it with a code-signing certificate;
+running from source (`python src/main.py`) is unaffected.
 
 ## 📖 Usage
 
@@ -151,7 +179,6 @@ src/
     ├── version_utils.py          # Version parsing and comparison
     └── win_utils.py              # Monitors, DPI, single-instance guard
 ```
-
 ## 🧪 Development
 
 ```bash

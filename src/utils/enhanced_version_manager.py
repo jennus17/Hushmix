@@ -17,6 +17,7 @@ Rewritten around four defects in the previous implementation:
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,12 @@ from utils.version_utils import compare_versions, normalize
 from version import GITHUB_REPOSITORY, __version__
 
 logger = get_logger("version_manager")
+
+CHECKSUM_SUFFIXES = (".sha256", ".sha256sum", ".sha256.txt", ".checksum")
+#: A SHA-256 as it appears in a release note or checksum file.
+_SHA256_PATTERN = re.compile(r"\b([0-9a-fA-F]{64})\b")
+#: "SHA256: <hex>" or "<hex>  Hushmix.exe" - both seen in the wild.
+_SHA_COMMANDS = ("sha256:", "sha256 ", "sha-256:", "checksum:", "sha256sum:")
 
 DOWNLOAD_CHUNK = 65536
 REQUEST_TIMEOUT = 15
@@ -290,13 +297,30 @@ class EnhancedVersionManager:
         if not tag:
             return None
 
-        asset_url = None
-        for asset in data.get("assets", []) or []:
-            if str(asset.get("name", "")).lower() == "hushmix.exe":
-                asset_url = asset.get("browser_download_url")
-                break
-
         base = self.update_sources["github"]["download_base"]
+        asset_url = None
+        asset_size = None
+        checksum = None
+        checksum_url = None
+
+        assets = data.get("assets", []) or []
+        for asset in assets:
+            name = str(asset.get("name", ""))
+            lowered = name.lower()
+            if lowered == "hushmix.exe":
+                asset_url = asset.get("browser_download_url")
+                asset_size = asset.get("size")
+            elif lowered.endswith(CHECKSUM_SUFFIXES) or lowered.endswith(".sha256"):
+                # A published checksum file is the authoritative source.
+                checksum_url = asset.get("browser_download_url")
+
+        if checksum_url:
+            checksum = self._fetch_checksum(checksum_url)
+
+        if not checksum:
+            # Fall back to a hash written into the release notes.
+            checksum = self._checksum_from_text(data.get("body", ""))
+
         return {
             "version": tag,
             "download_url": asset_url or f"{base}/{tag}/Hushmix.exe",
@@ -304,9 +328,40 @@ class EnhancedVersionManager:
             "published_at": data.get("published_at", "") or "",
             "release_page": data.get("html_url")
             or self.update_sources["github"]["release_page"],
-            "size": None,
-            "checksum": None,
+            "size": asset_size,
+            "checksum": checksum,
+            "checksum_url": checksum_url,
         }
+
+    @staticmethod
+    def _checksum_from_text(text):
+        """Extract a SHA-256 from release notes, or ``None``.
+
+        Accepts a bare hash, ``SHA256: <hash>`` and ``<hash>  Hushmix.exe``.
+        """
+        if not text:
+            return None
+        match = _SHA256_PATTERN.search(str(text))
+        return match.group(1).lower() if match else None
+
+    def _fetch_checksum(self, url, timeout=REQUEST_TIMEOUT):
+        """Download a checksum file and extract the SHA-256 from it."""
+        try:
+            response = requests.get(
+                url,
+                timeout=timeout,
+                headers={"User-Agent": f"Hushmix/{__version__}"},
+            )
+            response.raise_for_status()
+            checksum = self._checksum_from_text(response.text)
+            if checksum:
+                logger.debug("Using the published checksum from %s", url)
+            else:
+                logger.warning("No SHA-256 found in the checksum file %s", url)
+            return checksum
+        except requests.RequestException as error:
+            logger.warning("Could not download the checksum file: %s", error)
+            return None
 
     def _parse_custom_response(self, data):
         return {
@@ -316,8 +371,16 @@ class EnhancedVersionManager:
             "published_at": data.get("published_at", ""),
             "release_page": data.get("release_page", self.update_sources["custom_server"]["release_page"]),
             "size": data.get("size"),
-            "checksum": data.get("checksum"),
+            "checksum": self._normalise_checksum(data.get("checksum")),
+            "checksum_url": data.get("checksum_url"),
         }
+
+    @classmethod
+    def _normalise_checksum(cls, value):
+        """Accept a bare hash or ``<hash>  filename`` from a custom server."""
+        if not value:
+            return None
+        return cls._checksum_from_text(value) or str(value).strip().lower()
 
     # ------------------------------------------------------------- UI hand-off
 
@@ -408,17 +471,37 @@ class EnhancedVersionManager:
                 logger.debug("Could not remove %s: %s", path, error)
 
     def verify_download(self, file_path, expected_checksum=None):
-        """Verify the SHA-256 of a download when a checksum is published."""
+        """Verify the SHA-256 of a download when a checksum is available.
+
+        Releases that publish a ``Hushmix.exe.sha256`` asset (or the hash in the
+        release notes) are verified exactly.  Without one, only a plausible
+        Windows executable can be confirmed, so the limitation is logged rather
+        than hidden.
+        """
         if not expected_checksum:
-            # No checksum available: at least require a plausible executable.
-            return self._looks_like_executable(file_path)
+            looks_valid = self._looks_like_executable(file_path)
+            logger.warning(
+                "This release publishes no SHA-256, so %s could only be checked "
+                "for an executable header - a substituted download would pass",
+                os.path.basename(file_path),
+            )
+            return looks_valid
 
         try:
             digest = hashlib.sha256()
             with open(file_path, "rb") as stream:
                 for block in iter(lambda: stream.read(DOWNLOAD_CHUNK), b""):
                     digest.update(block)
-            return digest.hexdigest().lower() == str(expected_checksum).lower()
+            actual = digest.hexdigest()
+            expected = str(expected_checksum).strip().lower()
+            if actual == expected:
+                logger.info("Update checksum verified (%s)", actual[:16])
+                return True
+
+            logger.error(
+                "Update checksum mismatch: expected %s, got %s", expected[:16], actual[:16]
+            )
+            return False
         except Exception as error:
             logger.warning("Error verifying download: %s", error)
             return False

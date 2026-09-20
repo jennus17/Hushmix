@@ -81,6 +81,7 @@ def build(python, console=False):
 
 def describe():
     from make_version_info import __name__ as _  # noqa: F401  (path setup)
+    from make_checksum import write_checksum
 
     import version
 
@@ -94,6 +95,19 @@ def describe():
     print(f"Built  : {os.path.relpath(EXE_PATH, ROOT)}")
     print(f"Version: {version.__version__}")
     print(f"Size   : {size_mb:.1f} MB")
+
+    # Publish-ready checksum: without one the updater can only confirm that a
+    # download looks like an executable.
+    try:
+        path, digest, _size = write_checksum(EXE_PATH)
+        print(f"SHA256 : {digest}")
+        print(f"         written to {os.path.relpath(path, ROOT)}")
+        print()
+        print("Upload both files to the release, or paste this into the notes:")
+        print(f"  SHA256: {digest}")
+    except Exception as error:
+        print(f"SHA256 : could not be generated ({error})")
+
     print("=" * 60)
     return 0
 
