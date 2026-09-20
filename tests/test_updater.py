@@ -398,6 +398,50 @@ def main():
         "the script waits, backs up, swaps, then starts the new build",
     )
 
+    # ------------------------------------------------- PyInstaller environment
+    results.section("replacement gets a clean PyInstaller environment")
+
+    # Updating 0.4.6 -> 0.5.0 succeeded, and the replacement then failed to start
+    # with "Security validation failure: unexpected name of application's home
+    # directory!" because it inherited the _PYI_* variables of the build being
+    # replaced.  Both halves of the fix are pinned here.
+    for variable in (
+        "_PYI_APPLICATION_HOME_DIR",
+        "_PYI_ARCHIVE_FILE",
+        "_PYI_PARENT_PROCESS_LEVEL",
+    ):
+        results.check(
+            f'set "{variable}="' in script,
+            f"the script clears {variable} before starting the new build",
+        )
+
+    results.check(
+        "PYINSTALLER_RESET_ENVIRONMENT=1" in script,
+        "the script asks the bootloader to reset its environment",
+    )
+
+    # The clear must happen before the replacement is started.
+    clear_at = script.index('set "_PYI_APPLICATION_HOME_DIR="')
+    results.check(
+        clear_at < start_at,
+        "the variables are cleared before the new build is started",
+    )
+
+    clean_environment = manager._clean_environment()
+    results.check(
+        not any(key.startswith("_PYI") for key in clean_environment),
+        "the update script itself is launched without _PYI_* variables",
+    )
+    results.check(
+        clean_environment.get("PYINSTALLER_RESET_ENVIRONMENT") == "1",
+        "the script launch requests an environment reset",
+    )
+    results.check(
+        len(clean_environment) >= 1
+        and all(isinstance(value, str) for value in clean_environment.values()),
+        "the cleaned environment is still a usable mapping",
+    )
+
     # ---------------------------------------------------------------- real download
     results.section("real download")
     if not DOWNLOAD:

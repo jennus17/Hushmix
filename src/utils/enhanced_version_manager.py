@@ -567,6 +567,7 @@ class EnhancedVersionManager:
                 ["cmd", "/c", batch_path],
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 close_fds=True,
+                env=_clean_environment(),
             )
             logger.info(
                 "Update script launched for pid %s; exiting to let it replace the binary",
@@ -590,6 +591,37 @@ class EnhancedVersionManager:
                 logger.debug("Saved the active profile before updating")
         except Exception as error:
             logger.warning("Could not save settings before updating: %s", error)
+
+    #: Prefixes of the variables PyInstaller's bootloader passes down to its
+    #: child processes.  None of them may reach the replacement build.
+    PYINSTALLER_ENVIRONMENT_PREFIX = "_PYI"
+
+    def _clean_environment(self):
+        """The current environment without PyInstaller's own variables.
+
+        A onefile PyInstaller application runs as a parent process that unpacks
+        to a temporary directory and then starts a child process, passing that
+        directory down in ``_PYI_APPLICATION_HOME_DIR``.  Any process started
+        from it inherits those variables, and the *next* Hushmix build treats
+        them as its own - it tries to reuse a directory that belongs to the
+        build being replaced, and PyInstaller's security validation rejects the
+        result with "Security validation failure: unexpected name of
+        application's home directory!".
+
+        That is exactly what happened when updating 0.4.6 to 0.5.0: the update
+        succeeded, and the replacement showed that error instead of starting.
+        Launching it again worked, because by then the environment was clean.
+
+        ``PYINSTALLER_RESET_ENVIRONMENT`` tells the bootloader to ignore any
+        inherited environment; the variables are also removed outright.
+        """
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(self.PYINSTALLER_ENVIRONMENT_PREFIX)
+        }
+        environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        return environment
 
     @staticmethod
     def _build_update_script(target, backup, source, pid=None):
@@ -616,6 +648,19 @@ class EnhancedVersionManager:
         return f"""@echo off
 setlocal
 echo Updating Hushmix...
+
+REM The replaced build is a PyInstaller onefile application, so its environment
+REM carries _PYI_* variables describing the temporary directory it unpacked to.
+REM This script inherited them, and without clearing them the replacement build
+REM tries to reuse that directory and PyInstaller's security validation refuses
+REM to start it ("unexpected name of application's home directory").  Clearing
+REM them, and asking the bootloader to reset its environment, lets the new build
+REM set up its own.
+set "_PYI_APPLICATION_HOME_DIR="
+set "_PYI_ARCHIVE_FILE="
+set "_PYI_PARENT_PROCESS_LEVEL="
+set "_PYI_SPLASH_IPC="
+set "PYINSTALLER_RESET_ENVIRONMENT=1"
 
 REM Wait for the old instance to exit (up to ~20 seconds).  Waiting on the pid
 REM avoids matching the replacement process we start below.

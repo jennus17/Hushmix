@@ -1,11 +1,20 @@
 # Hushmix v0.5.1
 
-An interface release. Hushmix now paints itself from a single design system built
-on your Windows accent colour, and the light theme works for the first time.
+An interface release with one significant hardware fix. Hushmix now paints
+itself from a single design system built on your Windows accent colour, the
+light theme works for the first time, and a mixer that has been unplugged for a
+while reconnects by itself instead of needing a restart.
 
-If you use the light theme, this release is a real fix rather than a
-cosmetic one: the setting had no effect at all before, and the window stayed dark
+If you use the light theme, this release is a real fix rather than a cosmetic
+one: the setting had no effect at all before, and the window stayed dark
 whatever you chose.
+
+If you have ever had to restart Hushmix to get the mixer back after unplugging
+it, that was a bug, and this release fixes it.
+
+If you updated to 0.5.0 and saw a "Security validation failure" error while it
+relaunched, that was a bug in the updater; it is fixed here, so updating to this
+version will relaunch cleanly.
 
 ## Download
 
@@ -68,6 +77,52 @@ own shades.
   `--- Logging error ---`.
 - **Modifier keys could stay stuck.** If releasing one of Ctrl/Shift/Alt/Win
   failed, the others were never released either.
+- **Updating from 0.4.6 to 0.5.0 finished, then showed
+  "Security validation failure: unexpected name of application's home
+  directory!" instead of starting.** The update itself worked - opening Hushmix
+  again ran the new version - but the automatic relaunch failed. Hushmix is a
+  single-file executable, so when it runs it unpacks itself into a temporary
+  folder and passes that folder to its own child process through an environment
+  variable. The replaced build left those variables behind, the new build
+  inherited them, tried to reuse a folder that belonged to the version being
+  replaced, and its bootloader's security check rejected that. The relaunch now
+  starts the new build with those variables cleared, so this cannot happen on
+  any future update.
+
+**The mixer no longer needs a restart after being unplugged**
+
+Unplugging the mixer for a while and plugging it back in could leave Hushmix
+waiting forever, with only a restart bringing it back. There were three separate
+reasons, and all three are fixed:
+
+- **A quiet port looked exactly like a working one.** Unplugging a CH340 does not
+  reliably make a read fail. Windows leaves the handle open and every read simply
+  times out, so Hushmix kept believing it was connected and the reconnect logic
+  never ran. The link is now judged by traffic: the mixer sends about 25 packets
+  a second, so ten seconds of silence closes the port and reopens it. Measured on
+  the real hardware, the worst gap between packets is 66 ms, so the margin is
+  large enough that a busy machine cannot trip it.
+- **The mixer could not be recognised after re-enumerating.** The port was found
+  by matching the adapter's USB *description*. When Windows gives the device a
+  different COM number, an empty description, or a generic one, nothing matched
+  and the mixer was invisible however many times Hushmix looked. Hushmix now
+  remembers the port that last worked, and the adapter's USB identity
+  (`VID_1A86&PID_7523` for the CH340), and as a last resort asks each port
+  directly - the mixer streams continuously, so the port that answers with valid
+  packets is the mixer.
+- **The reader could stop reading and never come back.** Closing the port from
+  the reconnect logic while a read was in progress, which is exactly what happens
+  when the cable is pulled, failed with an internal error that was not handled.
+  That ended the reading thread silently and permanently: Hushmix stayed
+  connected on screen and received nothing. The read path now survives it.
+
+A mixer that is unplugged now reconnects within a second or two of being plugged
+back in. The "Mixer Disconnected" banner also appears when it should, since a
+silent link is no longer mistaken for a healthy one.
+
+- **"Mixer not found" now says what it actually saw** - every serial port and its
+  description - so a missing device can be told apart from one that simply did
+  not match.
 
 ## Improvements
 
