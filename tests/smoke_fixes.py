@@ -113,6 +113,12 @@ def main():
         opener()
         pump(1.2)
         window_holder = getattr(app, holder)
+        if name == "settings" and window_holder is not None:
+            check(
+                window_holder.version_manager is app.version_manager,
+                "the settings window can reach the update manager",
+            )
+        window_holder = getattr(app, holder)
         if window_holder is None:
             check(False, f"{name} window was not created")
             continue

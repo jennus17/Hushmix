@@ -111,11 +111,23 @@ class VolumeManager:
 
         self._sync_mute_lists(len(volumes))
 
-        for index, volume in enumerate(volumes):
-            self.update_volume(index, int(volume))
+        # Resolve every lane against the same focused application, once per
+        # packet.  This is what keeps a lane that names an application explicitly
+        # in charge of it, so the ``current`` lane does not also write to it.
+        resolved, _claimed = app.audio_controller.resolve_lanes(
+            app.current_apps, app.audio_controller.get_current_process_name()
+        )
 
-    def update_volume(self, index, volume_level):
-        """Apply and display a volume for one channel."""
+        for index, volume in enumerate(volumes):
+            self.update_volume(index, int(volume), resolved)
+
+    def update_volume(self, index, volume_level, resolved=None):
+        """Apply and display a volume for one channel.
+
+        *resolved* is the per-lane resolution from
+        :meth:`AudioController.resolve_lanes`; when omitted it is computed here,
+        which is what the mute/un-mute path does.
+        """
         app = self.app
 
         volume_level = max(0, min(100, int(round(volume_level))))
@@ -131,6 +143,17 @@ class VolumeManager:
         self._update_label(index, volume_level, is_muted)
 
         if index >= len(app.current_apps) or not app.current_apps[index]:
+            return
+
+        if resolved is None:
+            resolved, _claimed = app.audio_controller.resolve_lanes(
+                app.current_apps, app.audio_controller.get_current_process_name()
+            )
+
+        # An empty resolution means this lane controls nothing: either it is
+        # blank, or it is the ``current`` lane and another lane owns the focused
+        # application.
+        if index < len(resolved) and not resolved[index]:
             return
 
         if index < len(app.previous_volumes) and volume_level == app.previous_volumes[index]:

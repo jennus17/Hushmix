@@ -17,7 +17,7 @@ import customtkinter as ctk
 
 from utils.icon_manager import IconManager
 from utils.logging_setup import get_logger
-from utils.win_utils import center_on_monitor, clamp_to_monitor, enum_monitors, get_monitor_dpi
+from utils.win_utils import center_on_monitor, clamp_to_monitor, enum_monitors
 
 logger = get_logger("base_window")
 
@@ -139,21 +139,13 @@ class BaseWindow:
     # ---------------------------------------------------------------------- DPI
 
     def apply_dpi_scaling(self, delay=50):
-        """Match Tk's scaling factor to the monitor the window is on."""
-        self.window.after(delay, self._apply_dpi_scaling)
+        """Deprecated no-op.
 
-    def _apply_dpi_scaling(self):
-        try:
-            if not self.window.winfo_exists():
-                return
-            x = self.window.winfo_x()
-            y = self.window.winfo_y()
-            scaling = get_monitor_dpi(x, y)
-            if abs(scaling - 1.0) > 0.01:
-                self.window.tk.call("tk", "scaling", scaling)
-                self.window.update_idletasks()
-        except Exception as error:
-            logger.debug("DPI scaling for %s failed: %s", self.window_name, error)
+        CustomTkinter's ``ScalingTracker`` rescales popups automatically when the
+        monitor DPI changes, so setting ``tk scaling`` here only conflicted with
+        it.  Kept so existing call sites keep working.
+        """
+        return None
 
     # ------------------------------------------------------------------- teardown
 

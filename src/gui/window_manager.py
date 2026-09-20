@@ -1,11 +1,16 @@
 """Main window behaviour: icon, tray integration and position persistence.
 
-The previous version called ``save_to_config()`` - a full settings rewrite -
-from ``<Configure>``, i.e. once per frame while the user dragged the window.
-Position saving is now debounced, and the tray icon is only started when it was
-actually created (``Image.open`` used to fail on the missing icon file and the
-following ``self.icon.run_detached`` then raised inside a daemon thread,
-leaving the app with no tray icon at all).
+**Scaling is left to CustomTkinter.**  It detects the DPI of the monitor a
+window is on (``ScalingTracker``, polled every 100 ms) and rescales every widget
+plus the window itself.  An earlier attempt to drive this manually - setting
+``tk scaling`` on a ``<Configure>`` event and rebuilding the GUI - fought that
+machinery: the window was resized from the scaled dimensions while the widgets
+were rebuilt at the previous scale, so dragging the window to a 4K monitor made
+it grow without its content keeping up.
+
+The first ``<Configure>`` for a window is also reported for child widgets during
+startup, so the manual path could fire a full GUI rebuild before the window had
+a real size.
 """
 
 import ctypes
@@ -16,7 +21,7 @@ from pystray import Icon, Menu, MenuItem
 
 from utils.icon_manager import IconManager
 from utils.logging_setup import get_logger
-from utils.win_utils import enum_monitors, find_monitor_for_position, get_monitor_dpi
+from utils.win_utils import enum_monitors, find_monitor_for_position
 
 logger = get_logger("window_manager")
 
@@ -32,7 +37,6 @@ class WindowManager:
         self.last_position = None
 
         self._position_save_job = None
-        self._last_dpi = None
 
         self.setup_window()
         self.setup_tray_icon()
@@ -108,7 +112,6 @@ class WindowManager:
             self.root.attributes("-topmost", True)
             self.root.after_idle(lambda: self.root.attributes("-topmost", False))
             self.root.focus_force()
-            self.apply_dpi_scaling()
         except Exception as error:
             logger.warning("Could not restore the window: %s", error)
 
@@ -120,16 +123,25 @@ class WindowManager:
         self.root.bind("<Configure>", self.on_window_configure)
 
     def on_window_configure(self, event):
-        """Track moves and re-apply DPI scaling when the window changes monitor."""
+        """Track moves, persist later, and re-assert widget state.
+
+        ``<Configure>`` also fires when CustomTkinter rescales the window for a
+        new monitor DPI.  That rescale re-runs ``_set_dimensions`` on every
+        widget, and a widget can re-grid itself in the process - which is how the
+        "Mixer Disconnected" banner used to reappear on a connected mixer after
+        the window moved between monitors.  Re-applying the banner state here
+        keeps it truthful no matter what rebuilt the layout.
+        """
         if event.widget is not self.root:
             return
+
+        self.app.update_connection_status()
 
         position = (event.x, event.y)
         if position == self.last_position:
             return
         self.last_position = position
 
-        self.apply_dpi_scaling(x=event.x, y=event.y)
         self.schedule_position_save()
 
     def schedule_position_save(self):
@@ -160,27 +172,6 @@ class WindowManager:
             self.app.settings_manager.save_to_config()
         except Exception as error:
             logger.warning("Error saving window position: %s", error)
-
-    def apply_dpi_scaling(self, x=None, y=None):
-        """Match Tk scaling to the monitor under the window."""
-        try:
-            if x is None or y is None:
-                x = self.root.winfo_x()
-                y = self.root.winfo_y()
-
-            scaling = get_monitor_dpi(x, y)
-            if self._last_dpi is not None and abs(scaling - self._last_dpi) <= 0.01:
-                return
-            self._last_dpi = scaling
-
-            self.root.tk.call("tk", "scaling", scaling)
-            self.root.update_idletasks()
-
-            gui = getattr(self.app, "gui_components", None)
-            if gui is not None:
-                gui.refresh_gui()
-        except Exception as error:
-            logger.debug("Error adjusting DPI scaling: %s", error)
 
     def clamp_position(self, x, y, width, height):
         """Deprecated: use :func:`utils.win_utils.clamp_to_monitor`."""

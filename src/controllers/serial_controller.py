@@ -21,13 +21,16 @@ Changes made here:
 
 import threading
 import time
-from collections import deque
 
 import pythoncom
 import serial
 import serial.tools.list_ports
 
 from utils.logging_setup import get_logger
+
+#: Re-exported for backwards compatibility; the implementations now live in
+#: :mod:`utils.signal_filter` so they can be exercised without pyserial.
+from utils.signal_filter import AdaptiveEMA, MedianFilter  # noqa: F401
 
 logger = get_logger("serial_controller")
 
@@ -38,63 +41,8 @@ WATCHDOG_INTERVAL = 2.0
 RECONNECT_MAX_DELAY = 30.0
 
 
-class AdaptiveEMA:
-    """Exponential moving average whose smoothing follows the delta size."""
-
-    def __init__(self, min_alpha=0.05, max_alpha=0.3, threshold=2.0):
-        self.min_alpha = min_alpha
-        self.max_alpha = max_alpha
-        self.threshold = max(threshold, 1e-6)
-        self.value = None
-        self.last_change = 0.0
-
-    def filter(self, new_value):
-        if self.value is None:
-            self.value = new_value
-            return self.value
-
-        change = abs(new_value - self.value)
-        self.last_change = change
-
-        if change > self.threshold:
-            alpha = self.max_alpha
-        else:
-            alpha = self.min_alpha + (self.max_alpha - self.min_alpha) * (
-                change / self.threshold
-            )
-
-        self.value = alpha * new_value + (1 - alpha) * self.value
-        return self.value
-
-    def reset(self):
-        self.value = None
-        self.last_change = 0.0
-
-
-class MedianFilter:
-    """Median-of-window filter that works for any window size."""
-
-    def __init__(self, window_size=5):
-        self.window_size = max(1, window_size)
-        self.buffer = deque(maxlen=self.window_size)
-
-    def filter(self, new_value):
-        self.buffer.append(new_value)
-        if len(self.buffer) < self.window_size:
-            return new_value
-
-        values = sorted(self.buffer)
-        middle = len(values) // 2
-        if len(values) % 2:
-            return values[middle]
-        return (values[middle - 1] + values[middle]) / 2.0
-
-    def reset(self):
-        self.buffer.clear()
-
-
 class FastCascadedFilter:
-    """EMA followed by a median stage - cheap and good at removing jitter."""
+    """Deprecated: the previous EMA + median chain (kept for callers/tests)."""
 
     def __init__(self):
         self.filter1 = AdaptiveEMA()
@@ -118,6 +66,7 @@ class SerialController:
         connection_status_callback=None,
         device_names=None,
         baud_rate=DEFAULT_BAUD_RATE,
+        settings_manager=None,
     ):
         self.volume_callback = volume_callback
         self.button_callback = button_callback
@@ -133,6 +82,7 @@ class SerialController:
 
         self.running = True
         self.volume_filters = []
+        self._filter_settings = settings_manager
 
         self._reader_thread = None
         self._watchdog_thread = None
@@ -198,6 +148,8 @@ class SerialController:
             try:
                 self.arduino = self._open_port(port)
                 logger.info("Connected to mixer on %s", port)
+                # Start from a clean signal history after a reconnect.
+                self.reset_filters()
                 self._set_connected(True)
                 return self.arduino
             except Exception as error:
@@ -341,8 +293,21 @@ class SerialController:
 
     def _filter_for(self, index):
         while len(self.volume_filters) <= index:
-            self.volume_filters.append(FastCascadedFilter())
+            from utils.signal_filter import MixerSignalFilter
+
+            self.volume_filters.append(
+                MixerSignalFilter.from_settings(self._filter_settings)
+            )
         return self.volume_filters[index]
+
+    def reset_filters(self):
+        """Drop the filter state (called when the mixer reconnects).
+
+        Without this a reconnect would keep the previous latched values and the
+        first packet after reconnecting could be ignored as "parked".
+        """
+        for volume_filter in self.volume_filters:
+            volume_filter.reset()
 
     def process_volume_data(self, data):
         """Convert and smooth the volume half of a packet."""

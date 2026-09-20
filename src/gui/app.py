@@ -14,7 +14,6 @@ Changes worth noting:
   called ``os._exit(0)`` while the tray thread was still running.
 """
 
-import ctypes
 import os
 import tkinter.messagebox as messagebox
 
@@ -35,7 +34,6 @@ from gui.window_manager import WindowManager
 from utils.color_utils import darken_color, get_windows_accent_color
 from utils.config_manager import ConfigManager
 from utils.deferred_actions import DeferredActions
-from utils.dpi_manager import DPIManager
 from utils.enhanced_version_manager import EnhancedVersionManager
 from utils.logging_setup import get_logger
 from utils.settings_manager import SettingsManager
@@ -79,15 +77,11 @@ class HushmixApp:
     def __init__(self, root):
         self.root = root
 
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(1)
-        except Exception as error:
-            logger.debug("Could not set DPI awareness: %s", error)
-
-        try:
-            self.root.tk.call("tk", "scaling", 1.0)
-        except Exception:
-            pass
+        # DPI handling is deliberately left to CustomTkinter: creating the CTk
+        # root already sets per-monitor DPI awareness and starts its scaling
+        # tracker, which rescales widgets and the window when it moves between
+        # monitors.  Setting the awareness or `tk scaling` here would override
+        # that and leave the window scaled but its content stale.
 
         self.setup_variables()
 
@@ -125,20 +119,18 @@ class HushmixApp:
             self.volume_manager.handle_volume_update,
             self.button_actions.handle_button_update,
             self.handle_connection_status,
+            settings_manager=self.settings_manager,
         )
 
         self.profile_manager = ProfileManager(self)
-        self.dpi_manager = DPIManager()
 
         self.window_manager.setup_window()
         self.gui_components.setup_gui()
-        self.gui_components.refresh_gui()
-
-        self.dpi_manager.initialize_dpi_scaling(
-            self.root, "main window", self._on_dpi_changed
-        )
 
         self.version_manager = EnhancedVersionManager(self.root, self.settings_manager)
+        # The updater replaces the binary and ends the process, so it must be
+        # able to flush the active profile first.
+        self.version_manager.save_pending_state = self.save_settings
         self._shutting_down = False
         self.settings_manager.settings_vars["profiles"] = ConfigManager.get_profile_names()
 
@@ -210,23 +202,18 @@ class HushmixApp:
         return state
 
     def _collect_profile_state(self):
-        """Read the current GUI state into ``settings_manager``."""
+        """Read the current GUI state into ``settings_manager``.
+
+        The current profile name is deliberately *not* taken from the dropdown:
+        during a switch the dropdown can already show the incoming profile while
+        the channel data still belongs to the outgoing one, and using the widget
+        as the source of truth wrote profiles into each other's slots.
+        """
         variables = self.settings_manager.settings_vars
 
-        if getattr(self, "gui_components", None) is not None:
-            entries = getattr(self.gui_components, "entries", None)
-            if entries:
-                variables["applications"] = [entry.get() for entry in entries]
-            listbox = getattr(self.gui_components, "profile_listbox", None)
-            if listbox is not None:
-                try:
-                    selected = listbox.get()
-                except Exception:
-                    selected = None
-                # Only trust a real selection - an empty or missing value must
-                # not silently redirect the save to a different profile.
-                if selected:
-                    variables["current_profile"] = selected
+        entries = getattr(getattr(self, "gui_components", None), "entries", None)
+        if entries:
+            self.current_apps = [entry.get() for entry in entries]
 
         variables["applications"] = list(self.current_apps)
         variables["mute_state"] = list(self.current_mute_state)
@@ -249,16 +236,17 @@ class HushmixApp:
         if self._shutting_down:
             return True
 
+        # Never save while the profile state is half-swapped.
+        if self.profile_manager.is_switching:
+            return False
+
         self._collect_profile_state()
-        current_profile = self.settings_manager.settings_vars.get(
-            "current_profile", ConfigManager.DEFAULT_PROFILE_NAMES[0]
-        )
-        self.profile_manager.save_current_profile_data(current_profile)
+        self.profile_manager.save_profile(self.profile_manager.current_profile())
         return self.settings_manager.save_to_config()
 
     def save_applications(self, event=None):
         """Save applications while the user types in a channel field."""
-        if self._shutting_down:
+        if self._shutting_down or self.profile_manager.is_switching:
             return
         self.profile_manager.save_applications(event)
 
@@ -269,7 +257,18 @@ class HushmixApp:
         self.deferred_actions.submit(self.update_connection_status)
 
     def update_connection_status(self):
-        """Show or hide the "Mixer Disconnected" banner."""
+        """Show or hide the "Mixer Disconnected" banner.
+
+        This must be re-applied after anything re-runs a widget's layout: when
+        CustomTkinter rescales for a new monitor DPI it calls ``_set_dimensions``
+        on every widget, and ``CTkLabel`` re-grids itself as part of that.  A
+        hidden banner therefore reappeared over a perfectly connected mixer
+        every time the window moved between monitors.  ``WindowManager``
+        re-applies this on every ``<Configure>`` so the banner always matches the
+        live serial state.
+
+        Idempotent and cheap: only the state that actually changed is touched.
+        """
         label = getattr(self.gui_components, "connection_status_label", None)
         if not label:
             return
@@ -281,9 +280,18 @@ class HushmixApp:
 
         try:
             if is_connected:
-                label.grid_remove()
+                if label.winfo_ismapped():
+                    label.grid_remove()
             else:
-                label.grid()
+                if not label.winfo_ismapped():
+                    # ``grid`` restores the previous cell; fall back to placing
+                    # it explicitly the first time.
+                    if label.winfo_manager() != "grid":
+                        label.grid(
+                            row=0, column=0, columnspan=4, pady=(8, 0), padx=10, sticky="ew"
+                        )
+                    else:
+                        label.grid()
                 label.configure(text="Mixer Disconnected", text_color="red3")
         except Exception as error:
             logger.debug("Could not update the connection banner: %s", error)
@@ -295,7 +303,7 @@ class HushmixApp:
     # ---------------------------------------------------------------- profiles
 
     def on_profile_change(self, profile):
-        """Switch to another profile."""
+        """Switch to another profile (dropdown command handler)."""
         self.profile_manager.on_profile_change(profile)
 
     def add_profile(self, name, copy_current=True):
@@ -356,15 +364,16 @@ class HushmixApp:
         ):
             return False, "cancelled"
 
-        current = self.settings_manager.settings_vars.get("current_profile")
+        current = self.profile_manager.current_profile()
         if name == current:
             # Move to the next profile before removing the active one, so the
-            # application is never left without a profile to display.
+            # application is never left without a profile to display.  The
+            # switch is atomic, so no save can land in a half-swapped state.
             replacement = next(
                 (candidate for candidate in names if candidate != name), None
             )
             if replacement:
-                self.on_profile_change(replacement)
+                self.profile_manager.switch_to(replacement)
 
         success, result = ConfigManager.delete_profile(name)
         if not success:
@@ -398,7 +407,11 @@ class HushmixApp:
 
     def _open_settings(self):
         self.settings_window = SettingsWindow(
-            self.root, ConfigManager, self.settings_manager, self.on_settings_close
+            self.root,
+            ConfigManager,
+            self.settings_manager,
+            self.on_settings_close,
+            version_manager=self.version_manager,
         )
 
     def show_buttonSettings(self, index):
@@ -533,7 +546,3 @@ class HushmixApp:
         # All resources are released; skip atexit handlers that would only
         # re-run cleanup on a half-torn-down interpreter.
         os._exit(0)
-
-    def _on_dpi_changed(self):
-        if getattr(self, "gui_components", None) is not None:
-            self.gui_components.refresh_gui()

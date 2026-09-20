@@ -95,9 +95,14 @@ class GUIComponents:
             self._configure_grid()
 
             self.app.previous_volumes = [None] * len(self.app.current_apps)
-            self.app.update_connection_status()
         finally:
             self._refreshing = False
+
+        # Applied last, and outside the refresh guard, so the banner always
+        # reflects the live serial state.  Gridding it unconditionally first
+        # used to flash "Mixer Disconnected" over a connected mixer until this
+        # corrected it.
+        self.app.update_connection_status()
 
     def _destroy_channel_widgets(self):
         """Destroy every widget this class creates, so nothing is orphaned.
@@ -283,9 +288,13 @@ class GUIComponents:
         self.settings_button.grid(row=0, column=4, sticky="e")
 
         if self.connection_status_label:
+            # Grid it here so it has a position, but hide it straight away when
+            # the mixer is connected - leaving that to update_connection_status()
+            # left the banner on screen for a moment after every refresh.
             self.connection_status_label.grid(
                 row=0, column=0, columnspan=4, pady=(8, 0), padx=10, sticky="ew"
             )
+            self.connection_status_label.grid_remove()
 
     def _configure_grid(self):
         self.main_frame.columnconfigure(0, weight=1)

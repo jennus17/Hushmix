@@ -124,6 +124,9 @@ def main():
     settings = ConfigManager.load_settings()
     ctk.set_appearance_mode("dark" if settings.get("dark_mode", True) else "light")
 
+    # Creating the CTk root also enables per-monitor DPI awareness; CustomTkinter
+    # scales the widgets and the window as it moves between monitors, so nothing
+    # here (and nothing in HushmixApp) sets `tk scaling` by hand.
     root = ctk.CTk()
     root.withdraw()
 

@@ -86,6 +86,9 @@ class FakeWidget:
         self._text = kwargs.get("text", "")
         self._grid_visible = True
         self._bindings = {}
+        # Entry-like text storage.  Initialised here so get() always returns a
+        # string, even for widgets the app never writes text into.
+        self._text_value = ""
         if isinstance(master, FakeWidget):
             master.children.append(self)
 
@@ -246,17 +249,29 @@ class FakeWidget:
     def after_cancel(self, job):
         pass
 
-    def insert(self, *args):
-        pass
+    # --- entry-like text storage -------------------------------------------
+    # The application reads channel names back out of these widgets, so the
+    # stub behaves like a real entry instead of discarding everything.
+    def _entry_text(self):
+        return self._text_value
 
-    def delete(self, *args):
-        pass
+    def insert(self, index, text, *args):
+        if index == "end":
+            self._text_value = self._entry_text() + str(text)
+        else:
+            # ``insert(0, text)`` on an empty entry.
+            self._text_value = str(text)
+        return self._text_value
 
-    def set(self, *args):
-        pass
+    def delete(self, first, last=None):
+        self._text_value = ""
+        return ""
+
+    def set(self, value):
+        self._text_value = str(value)
 
     def get(self, *args):
-        return ""
+        return self._entry_text()
 
     def mainloop(self, *args):
         pass
@@ -553,9 +568,28 @@ def main():
     app.app_launch_enabled[3].set(True)
     app.media_control_enabled[1].set(True)
     app.mute_button_modes[1].set("Hold")
-    app.current_apps = ["master", "chrome", "mic", "firefox", "spotify", "discord", "steam"]
+
+    # Edit the channel fields the way a user does.  The application reads the
+    # channel names back out of these widgets when it saves, so driving the
+    # model directly would not exercise the real path.
+    def set_channels(names):
+        app.gui_components.refresh_gui()
+        for index, name in enumerate(names):
+            if index >= len(app.gui_components.entries):
+                break
+            entry = app.gui_components.entries[index]
+            entry.delete(0, "end")
+            entry.insert(0, name)
+        app.save_applications()
+
+    channels = ["master", "chrome", "mic", "firefox", "spotify", "discord", "steam"]
+    set_channels(channels)
 
     results.check(app.save_settings() is not False, "save_settings failed")
+    results.check(
+        list(app.current_apps[: len(channels)]) == channels,
+        f"editing the fields did not update the model: {app.current_apps}",
+    )
 
     reloaded = ConfigManager.load_settings()
     results.check(reloaded["keyboard_shortcuts"][2] == "Ctrl+Shift+S",
@@ -574,7 +608,7 @@ def main():
     success, message = app._add_profile("Gaming")
     results.check(success, f"could not add a profile: {message}")
 
-    app.current_apps = ["master", "spotify", "", "", "", "", ""]
+    set_channels(["master", "spotify", "", "", "", "", ""])
     app.mute_button_modes[1].set("Double Click")
     app.save_settings()
 
@@ -590,17 +624,24 @@ def main():
 
     # ------------------------------------------------------------- restart
     results.section("restart persistence")
-    # The "Gaming" profile is the active one at this point (it was copied from
-    # Profile 1 before Profile 1 was edited), so a restart must come back to it.
+    # The last switch above selected Profile 1, so that is the profile a restart
+    # must come back to - with its own data, not the copy made earlier.
     app2 = HushmixApp(FakeRoot())
-    results.check(app2.settings_manager.settings_vars.get("current_profile") == "Gaming",
+    results.check(app2.settings_manager.settings_vars.get("current_profile") == "Profile 1",
                   f"active profile lost: {app2.settings_manager.settings_vars.get('current_profile')}")
-    results.check(app2.current_apps[1] == "chrome",
+    results.check(app2.current_apps[1] == "spotify",
                   f"applications lost across restart: {app2.current_apps}")
-    results.check(app2.mute_button_modes[1].get() == "Hold",
+    results.check(app2.mute_button_modes[1].get() == "Double Click",
                   f"button mode lost across restart: {app2.mute_button_modes[1].get()}")
 
-    # And the other profile still holds its own, different values.
+    # The copied profile still holds the values it was created with, and they
+    # are independent of Profile 1's current ones.
+    app2.on_profile_change("Gaming")
+    results.check(app2.current_apps[1] == "chrome",
+                  f"Gaming lost its applications: {app2.current_apps}")
+    results.check(app2.mute_button_modes[1].get() == "Hold",
+                  f"Gaming lost its button mode: {app2.mute_button_modes[1].get()}")
+
     app2.on_profile_change("Profile 1")
     results.check(app2.current_apps[1] == "spotify",
                   f"profile 1 lost its applications: {app2.current_apps}")

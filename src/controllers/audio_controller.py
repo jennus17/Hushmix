@@ -193,6 +193,80 @@ class AudioController:
 
     # ------------------------------------------------------------------- public
 
+    @staticmethod
+    def resolve_lanes(app_names, focused_process=None):
+        """Decide which lane controls what.
+
+        Returns ``(resolved, claimed)`` where *resolved* maps a lane index to the
+        target that lane should apply (``None`` when nothing matched) and
+        *claimed* maps a lowercased process name to the lane index that controls
+        it explicitly.
+
+        This exists so the ``current`` lane cannot hijack an application that a
+        named lane already owns: with ``App 1 = firefox`` and
+        ``App 2 = current``, focusing Firefox must leave it under App 1 and do
+        nothing for App 2.  Previously every packet wrote the focused
+        application through *both* lanes, so the two sliders fought over it.
+        """
+        names = [str(name).strip() for name in (app_names or [])]
+        special = {"", "master", "mic", "system", "current"}
+
+        resolved = [""] * len(names)
+        claimed = {}
+
+        # Pass 1: special targets, and record which processes named lanes own.
+        for index, name in enumerate(names):
+            lowered = name.lower()
+            if not name or lowered == "current":
+                continue
+
+            resolved[index] = name
+            if lowered in special:  # master / mic / system
+                continue
+
+            # A lane naming several applications owns all of them.
+            for token in (part.strip().lower() for part in name.split(",")):
+                if token and token not in special:
+                    claimed.setdefault(token, index)
+
+        # Pass 2: the ``current`` lane, unless a named lane already owns the
+        # focused application.
+        focused = (focused_process or "").lower()
+        for index, name in enumerate(names):
+            if name.lower() != "current":
+                continue
+
+            if not focused or focused in claimed:
+                continue
+
+            # An application can also be owned by a lane that names it as part
+            # of a group (``chrome, firefox``); treat those as owned too.
+            if AudioController._claims_process(claimed, focused):
+                continue
+
+            resolved[index] = "current"
+
+        return resolved, claimed
+
+    def set_application_lanes(self, app_names, levels):
+        """Apply one volume per lane, honouring the ``current`` ownership rule.
+
+        *levels* is a sequence with the same length as *app_names*.
+        """
+        self._ensure_thread_state()
+
+        focused = self.get_current_process_name()
+        resolved, claimed = self.resolve_lanes(app_names, focused)
+
+        for target, level in zip(resolved, levels):
+            if not target:
+                continue
+            try:
+                self._apply_target(target, level, claimed)
+            except Exception as error:
+                logger.warning("Could not set volume for %r: %s", target, error)
+                self._reset_endpoint()
+
     def set_application_volume(self, app_names, level):
         """Set the volume (0-100) for one or more comma-separated targets.
 
@@ -214,7 +288,22 @@ class AudioController:
                 logger.warning("Could not set volume for %r: %s", target, error)
                 self._reset_endpoint()
 
-    def _apply_target(self, target, level):
+    @staticmethod
+    def _claims_process(claimed, process_name):
+        """True when a named lane already controls *process_name*."""
+        if not process_name:
+            return False
+
+        lowered = process_name.lower()
+        for token in claimed:
+            if not token:
+                continue
+            # Compare without the .exe suffix so ``firefox`` owns firefox.exe.
+            if token == lowered or token in lowered or lowered in token:
+                return True
+        return False
+
+    def _apply_target(self, target, level, claimed=None):
         lowered = target.lower()
 
         if lowered == "master":
@@ -230,6 +319,16 @@ class AudioController:
             if not process_name:
                 logger.debug("No foreground process to control")
                 return
+
+            # Do not let the ``current`` lane take over an application that a
+            # named lane already controls.
+            if claimed and self._claims_process(claimed, process_name):
+                logger.debug(
+                    "Skipping 'current': %s is controlled by a named lane",
+                    process_name,
+                )
+                return
+
             target = process_name
             lowered = process_name.lower()
 

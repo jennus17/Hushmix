@@ -1,11 +1,21 @@
 """Profile switching and persistence.
 
-All per-profile fields are handled from the canonical list in
-:data:`utils.config_manager.ConfigManager.PROFILE_SETTINGS`.  The previous
-version hard-coded thirteen near-identical blocks (and three different guesses
-at the channel/button count: 5, 7, or the length of the stored list) and only
-persisted a subset of the fields, so switching profiles could silently drop
-application launchers and shortcuts.
+The previous implementation lost data when a save landed during a profile
+switch.  Traced cause:
+
+* ``on_profile_change`` did not switch anything itself - it *scheduled*
+  ``_load_profile`` (previously via ``ProfileManager.on_profile_change``) while
+  the dropdown and ``settings_vars["current_profile"]`` were updated
+  immediately.  For one event-loop turn the active name said "new profile"
+  while ``app.current_apps`` still held the old profile's data.
+* ``_collect_profile_state`` (called by every save) re-read the current profile
+  **from the dropdown widget**, so a save in that window wrote the old
+  profile's entries into the new profile's slot - and the reverse on the way
+  back.  Profiles bled into each other and edits disappeared.
+
+Now a switch is atomic: the outgoing profile is saved under its own name, the
+new name is published, the incoming data is loaded, and saves are suppressed
+for the duration.  The dropdown is an output only, never a source of truth.
 """
 
 from utils.config_manager import ConfigManager
@@ -18,147 +28,164 @@ class ProfileManager:
     def __init__(self, app_instance):
         self.app = app_instance
 
-    # ---------------------------------------------------------------- profiles
+        #: Re-entrancy guard: a save must never run while the profile state is
+        #: half-swapped.
+        self._switching = False
+
+    # ------------------------------------------------------------------ helpers
+
+    @property
+    def is_switching(self):
+        return self._switching
+
+    def current_profile(self):
+        """Name of the active profile (never empty)."""
+        name = self.app.settings_manager.settings_vars.get("current_profile")
+        if isinstance(name, str) and name.strip():
+            return name
+        return ConfigManager.DEFAULT_PROFILE_NAMES[0]
+
+    def _load_profile(self, name):
+        """Replace the in-memory state with the stored profile *name*."""
+        # Imported lazily: gui.app imports this module, so a top-level import
+        # here would be circular.
+        from gui.app import VAR_FIELDS
+
+        app = self.app
+        stored = (ConfigManager.load_all().get("profiles") or {}).get(name) or {}
+
+        applications = list(stored.get("applications") or [])
+        if not applications:
+            applications = [""] * ConfigManager.CHANNEL_COUNT
+        app.current_apps = applications
+
+        for field in VAR_FIELDS:
+            setattr(
+                app,
+                field,
+                app._build_var_list(field, stored.get(field), ConfigManager.BUTTON_COUNT),
+            )
+
+        mute_state = stored.get("mute_state") or []
+        app.current_mute_state = app._fit_mute_state(mute_state)
+        app.muted_state = list(app.current_mute_state)
+        app.previous_volumes = [None] * len(app.current_apps)
+
+    def _publish(self, name):
+        """Point the settings and the dropdown at *name* (output only)."""
+        self.app.settings_manager.settings_vars["current_profile"] = name
+        self.app.gui_components.set_profile_names(
+            ConfigManager.get_profile_names(), name
+        )
+
+    # ---------------------------------------------------------------- switching
+
+    def on_profile_change(self, profile):
+        """Switch to *profile* atomically (dropdown command handler)."""
+        if not profile or self._switching:
+            return
+
+        if profile == self.current_profile():
+            # Tk can echo the selection back; nothing to do.
+            return
+
+        if profile not in ConfigManager.get_profile_names():
+            logger.warning("Ignoring a switch to the unknown profile %r", profile)
+            self._publish(self.current_profile())
+            return
+
+        self.switch_to(profile)
+
+    def switch_to(self, profile):
+        """Save the outgoing profile, then load *profile*."""
+        app = self.app
+        outgoing = self.current_profile()
+
+        self._switching = True
+        try:
+            # 1. Persist the outgoing profile under its own name, while the
+            #    in-memory state still belongs to it.
+            self.save_profile(outgoing)
+
+            # 2. Load the incoming profile and publish the new name together,
+            #    so a save can never observe a half-swapped pair.
+            self._load_profile(profile)
+            self._publish(profile)
+
+            # 3. Rebuild the channel rows for the new data.
+            app.gui_components.refresh_gui()
+        finally:
+            self._switching = False
+
+        logger.info("Switched to profile %s", profile)
+
+    # -------------------------------------------------------------- refreshing
 
     def refresh_profile_list(self, current=None):
         """Reload the dropdown after profiles are added, renamed or removed."""
         names = ConfigManager.get_profile_names()
-        current = current or self.app.settings_manager.settings_vars.get("current_profile")
+        current = current or self.current_profile()
+        if current not in names and names:
+            current = names[0]
+            self.app.settings_manager.settings_vars["current_profile"] = current
         self.app.gui_components.set_profile_names(names, current)
         return names
 
-    # ---------------------------------------------------------------- helpers
-
-    @staticmethod
-    def _list(values, length, default):
-        """Pad/truncate *values* to *length*, filling gaps with *default*."""
-        if not isinstance(values, (list, tuple)):
-            values = []
-        result = list(values[:length])
-        while len(result) < length:
-            result.append(default)
-        return result
-
-    # ----------------------------------------------------------- profile switch
-
-    def on_profile_change(self, profile):
-        """Save the current profile and load *profile*."""
-        if not profile:
-            return
-
-        app = self.app
-        current_profile = app.settings_manager.settings_vars.get(
-            "current_profile", ConfigManager.DEFAULT_PROFILE_NAMES[0]
-        )
-
-        if profile == current_profile:
-            return
-
-        # Persist what is on screen before switching away from it.
-        self.save_current_profile_data(current_profile)
-
-        full = ConfigManager.load_all()
-        stored = (full.get("profiles") or {}).get(profile) or {}
-
-        app.current_apps = list(stored.get("applications") or [])
-        if not app.current_apps:
-            app.current_apps = [""] * ConfigManager.CHANNEL_COUNT
-
-        app.mute = app._build_var_list(
-            "mute_settings", stored.get("mute_settings"), ConfigManager.BUTTON_COUNT
-        )
-        app.app_launch_enabled = app._build_var_list(
-            "app_launch_enabled", stored.get("app_launch_enabled"), ConfigManager.BUTTON_COUNT
-        )
-        app.app_launch_paths = app._build_var_list(
-            "app_launch_paths", stored.get("app_launch_paths"), ConfigManager.BUTTON_COUNT
-        )
-        app.keyboard_shortcut_enabled = app._build_var_list(
-            "keyboard_shortcut_enabled",
-            stored.get("keyboard_shortcut_enabled"),
-            ConfigManager.BUTTON_COUNT,
-        )
-        app.keyboard_shortcuts = app._build_var_list(
-            "keyboard_shortcuts", stored.get("keyboard_shortcuts"), ConfigManager.BUTTON_COUNT
-        )
-        app.mute_button_modes = app._build_var_list(
-            "mute_button_modes", stored.get("mute_button_modes"), ConfigManager.BUTTON_COUNT
-        )
-        app.app_button_modes = app._build_var_list(
-            "app_button_modes", stored.get("app_button_modes"), ConfigManager.BUTTON_COUNT
-        )
-        app.shortcut_button_modes = app._build_var_list(
-            "shortcut_button_modes", stored.get("shortcut_button_modes"), ConfigManager.BUTTON_COUNT
-        )
-        app.media_control_enabled = app._build_var_list(
-            "media_control_enabled",
-            stored.get("media_control_enabled"),
-            ConfigManager.BUTTON_COUNT,
-        )
-        app.media_control_actions = app._build_var_list(
-            "media_control_actions",
-            stored.get("media_control_actions"),
-            ConfigManager.BUTTON_COUNT,
-        )
-        app.media_control_button_modes = app._build_var_list(
-            "media_control_button_modes",
-            stored.get("media_control_button_modes"),
-            ConfigManager.BUTTON_COUNT,
-        )
-
-        mute_state = self._list(
-            stored.get("mute_state"), len(app.current_apps), False
-        )
-        app.current_mute_state = [bool(value) for value in mute_state]
-        app.muted_state = list(app.current_mute_state)
-        app.previous_volumes = [None] * len(app.current_apps)
-
-        app.settings_manager.settings_vars["current_profile"] = profile
-        app._publish_profile_state()
-
-        app.gui_components.refresh_gui()
-        logger.info("Switched to profile %s", profile)
-
     # --------------------------------------------------------------- persisting
 
-    def save_current_profile_data(self, profile_name):
-        """Write the current GUI state into *profile_name*."""
+    def save_profile(self, profile_name):
+        """Write the current GUI state into *profile_name*.
+
+        *profile_name* is explicit: the previous version asked the dropdown
+        which profile was active, which is exactly how data ended up in the
+        wrong slot.
+        """
+        if self._switching:
+            # A save triggered from within a switch would write a profile we are
+            # in the middle of replacing.
+            return False
+
+        if not profile_name:
+            logger.warning("Refusing to save a profile with no name")
+            return False
+
         try:
             app = self.app
-            app._collect_profile_state()
+            snapshot = app._collect_profile_state()
 
             full = ConfigManager.load_all()
             profiles = full.setdefault("profiles", {})
             profile = profiles.setdefault(profile_name, {})
 
             for field in ConfigManager.PROFILE_SETTINGS:
-                profile[field] = list(app.settings_manager.settings_vars.get(field, []))
-
+                profile[field] = list(snapshot.get(field, []))
             profile["applications"] = list(app.current_apps)
             profile["mute_state"] = list(app.current_mute_state)
-            full["current_profile"] = app.settings_manager.settings_vars.get(
-                "current_profile", profile_name
-            )
 
+            full["current_profile"] = self.current_profile()
             ConfigManager.save_all_settings(full)
             return True
 
         except Exception as error:
-            logger.exception("Error saving profile data: %s", error)
+            logger.exception("Error saving profile %r: %s", profile_name, error)
             return False
+
+    # Backwards compatible alias.
+    def save_current_profile_data(self, profile_name=None):
+        return self.save_profile(profile_name or self.current_profile())
 
     def save_applications(self, event=None):
         """Persist application names when the user edits a field."""
+        if self._switching:
+            return
+
         try:
             app = self.app
             entries = getattr(getattr(app, "gui_components", None), "entries", None)
             if entries:
                 app.current_apps = [entry.get() for entry in entries]
 
-            current_profile = app.settings_manager.settings_vars.get(
-                "current_profile", ConfigManager.DEFAULT_PROFILE_NAMES[0]
-            )
-            self.save_current_profile_data(current_profile)
+            self.save_profile(self.current_profile())
 
         except Exception as error:
             logger.exception("Error saving applications: %s", error)

@@ -57,6 +57,12 @@ class ConfigManager:
         "update_check_interval": 1800,
         "skip_version": None,
         "last_update_check": None,
+        # Mixer signal filter tuning (see utils/signal_filter.py).  Stored so the
+        # noise handling can be adjusted for a particular mixer without a code
+        # change; they are not exposed in the settings window.
+        "median_window": 5,
+        "drift_threshold": 1.0,
+        "deadband": 1.6,
     }
 
     # Every per-profile field, with the value used when it is missing.

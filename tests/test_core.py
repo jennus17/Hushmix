@@ -479,6 +479,7 @@ def test_serial_parsing():
         controller.volume_filters = []
         controller.volume_callback = None
         controller.button_callback = None
+        controller._filter_settings = None
         return controller
 
     controller = build_controller()
@@ -545,6 +546,7 @@ def test_button_modes():
 def test_volume_manager():
     results.section("volume_manager")
     stub_heavy_imports()
+    from controllers.audio_controller import AudioController
     from controllers.volume_manager import VolumeManager
 
     class FakeVar:
@@ -558,6 +560,11 @@ def test_volume_manager():
             self._value = value
 
     class FakeAudio:
+        #: Use the real lane resolution so the ownership rule is exercised here
+        #: as well, not just in the dedicated lane tests.  Wrapped in
+        #: staticmethod so it is not treated as a bound instance method.
+        resolve_lanes = staticmethod(AudioController.resolve_lanes)
+
         def __init__(self):
             self.calls = []
 
@@ -569,6 +576,9 @@ def test_volume_manager():
 
         def get_application_volume(self, name):
             return 42
+
+        def get_current_process_name(self):
+            return None
 
     class FakeSettings:
         def get_setting(self, key, default=None):

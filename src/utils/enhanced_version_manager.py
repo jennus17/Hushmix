@@ -150,6 +150,16 @@ class EnhancedVersionManager:
 
         logger.info("Running version %s", current_version)
 
+        # Respect a check that already happened recently in a previous session,
+        # so restarting the app in a loop does not hammer the API.
+        wait_first = self._seconds_since_last_check()
+        if wait_first is not None and wait_first < self.check_interval:
+            logger.debug(
+                "Last update check was %.0fs ago - waiting before checking again",
+                wait_first,
+            )
+            self._wait_for_next_cycle()
+
         while not self._stop_event.is_set():
             try:
                 if not self.auto_check_enabled:
@@ -161,6 +171,46 @@ class EnhancedVersionManager:
 
             self.settings_manager.set_setting("last_update_check", time.time())
             self._wait_for_next_cycle()
+
+    def _seconds_since_last_check(self):
+        """Seconds since the stored last check, or ``None`` if unknown."""
+        try:
+            last = self.settings_manager.get_setting("last_update_check")
+            if last is None:
+                return None
+            return max(0.0, time.time() - float(last))
+        except (TypeError, ValueError):
+            return None
+
+    def check_now(self):
+        """Run a check immediately on a worker thread.
+
+        Backs the "Check now" button, so the feature stays reachable when
+        automatic checks are switched off.
+        """
+        if getattr(self, "_dialog_open", False):
+            logger.debug("An update dialog is already open")
+            return False
+
+        current_version = self.read_installed_version()
+        if not current_version:
+            logger.warning("Cannot check for updates: the installed version is unknown")
+            return False
+
+        def worker():
+            try:
+                self._check_once(current_version)
+            except Exception as error:
+                logger.warning("Manual update check failed: %s", error)
+            finally:
+                self.settings_manager.set_setting("last_update_check", time.time())
+
+        threading.Thread(target=worker, name="update-check-now", daemon=True).start()
+        return True
+
+    def _wake_and_check(self):
+        """Wake the loop, and check now if it is idle waiting."""
+        self._wake()
 
     def _wait_for_next_cycle(self):
         """Sleep until the interval elapses, a setting changes, or we stop."""
@@ -405,35 +455,76 @@ class EnhancedVersionManager:
             batch_path = os.path.join(tempfile.gettempdir(), "hushmix_update.bat")
             batch_source = os.path.join(tempfile.gettempdir(), "hushmix_update_src.exe")
 
-            # The temp file must live next to the target for the copy to be a
-            # cheap, same-volume operation.
+            # Staged next to the target so the swap is a same-volume copy.
             shutil.copy2(installer_path, batch_source)
 
+            # Anything unsaved (channel names, button modes) must reach disk
+            # before the process is replaced.
+            self._save_settings_before_exit()
+
             with open(batch_path, "w", encoding="utf-8") as stream:
-                stream.write(self._build_update_script(target, backup, batch_source))
+                stream.write(
+                    self._build_update_script(target, backup, batch_source, os.getpid())
+                )
 
             subprocess.Popen(
                 ["cmd", "/c", batch_path],
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 close_fds=True,
             )
-            logger.info("Update script launched; exiting to let it replace the binary")
+            logger.info(
+                "Update script launched for pid %s; exiting to let it replace the binary",
+                os.getpid(),
+            )
             os._exit(0)
 
         except Exception as error:
             logger.exception("Error installing update: %s", error)
             return False
 
+    def _save_settings_before_exit(self):
+        """Flush pending settings so an update cannot lose the user's edits."""
+        try:
+            settings_manager = self.settings_manager
+            if settings_manager is None:
+                return
+            save_all = getattr(self, "save_pending_state", None)
+            if callable(save_all):
+                save_all()
+                logger.debug("Saved the active profile before updating")
+        except Exception as error:
+            logger.warning("Could not save settings before updating: %s", error)
+
     @staticmethod
-    def _build_update_script(target, backup, source):
-        """Windows batch script that swaps the binary once we exit."""
+    def _build_update_script(target, backup, source, pid=None):
+        """Windows batch script that swaps the binary once we exit.
+
+        The wait is by *process id*, not by image name.  The previous version ran
+        ``taskkill /f /im Hushmix.exe`` while waiting - and since the script had
+        already started the freshly copied build by then on the success path (and
+        on the failure path), that kill matched the new process too, so a
+        successful update could terminate the application it had just launched.
+        """
+        wait_lines = []
+        if pid:
+            wait_lines.append(
+                f'    tasklist /fi "pid eq {pid}" 2>nul | find "{pid}" >nul'
+            )
+        else:
+            wait_lines.append(
+                f'    tasklist /fi "imagename eq {os.path.basename(target)}" 2>nul '
+                f'| find /i "{os.path.basename(target)}" >nul'
+            )
+        wait_check = "\n".join(wait_lines)
+
         return f"""@echo off
 setlocal
 echo Updating Hushmix...
 
-REM Wait for the running instance to exit (up to ~15 seconds)
-for /L %%i in (1,1,30) do (
-    tasklist /fi "imagename eq {os.path.basename(target)}" 2>nul | find /i "{os.path.basename(target)}" >nul
+REM Wait for the old instance to exit (up to ~20 seconds).  Waiting on the pid
+REM avoids matching the replacement process we start below.
+for /L %%i in (1,1,40) do (
+{wait_check}
     if errorlevel 1 goto :gone
     timeout /t 1 /nobreak > nul
 )
@@ -450,7 +541,8 @@ copy /Y "{source}" "{target}" >nul
 if errorlevel 1 goto :failed
 
 start "" "{target}"
-timeout /t 2 /nobreak > nul
+REM Give the new build a moment to open its files before tidying up.
+timeout /t 3 /nobreak > nul
 del "{source}" 2>nul
 if exist "{backup}" del "{backup}" 2>nul
 del "%~f0" 2>nul

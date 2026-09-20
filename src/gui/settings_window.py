@@ -39,10 +39,14 @@ class SettingsWindow(BaseWindow):
     window_name = "settings window"
     default_size = (380, 430)
 
-    def __init__(self, parent, config_manager, settings_manager, on_close):
+    def __init__(self, parent, config_manager, settings_manager, on_close, version_manager=None):
         super().__init__(parent, on_close=on_close)
         self.config_manager = config_manager
         self.settings_manager = settings_manager
+        # Passed in explicitly: ``parent`` is the Tk root, which does not carry
+        # the application object, so looking it up through the window would not
+        # find the update manager.
+        self.version_manager = version_manager
 
         self.accent_color = get_windows_accent_color()
         self.accent_hover = darken_color(self.accent_color, 0.2)
@@ -115,7 +119,54 @@ class SettingsWindow(BaseWindow):
         )
         menu.pack(side="left")
 
+        self.check_now_button = ctk.CTkButton(
+            self.frame,
+            text="Check now",
+            command=self.check_for_updates_now,
+            font=("Segoe UI", self.normal_font_size),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            cursor="hand2",
+            height=30,
+        )
+        self.check_now_button.pack(pady=(0, 10), padx=15, anchor="w")
+
+        self.update_status_label = ctk.CTkLabel(
+            self.frame,
+            text="",
+            font=("Segoe UI", 11),
+            justify="left",
+            wraplength=330,
+        )
+        self.update_status_label.pack(pady=(0, 10), padx=15, anchor="w")
+
     # ---------------------------------------------------------------- behaviour
+
+    def check_for_updates_now(self):
+        """Ask the update manager to check immediately."""
+        version_manager = self.version_manager
+        if version_manager is None or not hasattr(version_manager, "check_now"):
+            self._set_update_status("Update checking is unavailable.")
+            return
+
+        try:
+            started = version_manager.check_now()
+        except Exception as error:
+            self._set_update_status(f"Could not check for updates: {error}")
+            return
+
+        if started:
+            self._set_update_status(
+                "Checking for updates... You will be told if a new version is found."
+            )
+        else:
+            self._set_update_status("An update window is already open.")
+
+    def _set_update_status(self, text):
+        try:
+            self.update_status_label.configure(text=text)
+        except Exception:
+            pass
 
     def change_update_interval(self, value):
         """Store the chosen interval and let the running checker pick it up."""
@@ -125,9 +176,7 @@ class SettingsWindow(BaseWindow):
             return
 
         self.settings_manager.set_setting("update_check_interval", seconds)
-        version_manager = getattr(self.parent, "version_manager", None) or getattr(
-            self.parent, "app", None
-        )
+        version_manager = self.version_manager
         if version_manager is not None and hasattr(version_manager, "set_check_interval"):
             version_manager.set_check_interval(seconds)
 
