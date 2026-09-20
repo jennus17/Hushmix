@@ -4,6 +4,11 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 build/
 develop-eggs/
 dist/
@@ -53,11 +58,19 @@ Thing to add.txt
 # ...except the build definition, which is source (see build_tools/build.py)
 !Hushmix.spec
 
+# Local scratch: one-off commit messages, and the release checksum generated
+# next to a local build (published checksums live on the release, not in git).
+COMMIT_MSG.txt
+COMMIT_MSG_*.txt
+*.sha256
+*.sha256sum
+
 # Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+*.lnk
 
 # macOS
 .DS_Store
@@ -69,4 +82,7 @@ Icon
 # Temporary files
 *.bak
 *.tmp
-*~ 
+*.temp
+*.orig
+*.rej
+*~
